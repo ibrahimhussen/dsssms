@@ -9,5 +9,366 @@ generator client {
 }
 
 datasource db {
-  provider = "postgresql"
+  provider = "mysql"
+}
+
+// -----------------------------------------------------------------------------
+// A. System Users and Roles
+// -----------------------------------------------------------------------------
+
+enum RoleName {
+  ADMIN
+  DIRECTOR
+  VICE_DIRECTOR
+  TEACHER
+  STUDENT
+  PARENT
+}
+
+enum UserStatus {
+  ACTIVE
+  INACTIVE
+  LOCKED
+}
+
+/// Core authentication table shared by every actor in the system (proposal 5.3.3 - Table: Users).
+model User {
+  userId       Int        @id @default(autoincrement())
+  username     String     @unique @db.VarChar(50)
+  email        String?    @unique @db.VarChar(150)
+  passwordHash String     @map("password") @db.VarChar(255)
+  roleId       Int
+  status       UserStatus @default(ACTIVE)
+
+  failedLoginAttempts Int       @default(0)
+  lockedUntil         DateTime?
+  lastLoginAt         DateTime?
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  role Role @relation(fields: [roleId], references: [roleId])
+
+  administrator Administrator?
+  director      Director?
+  viceDirector  ViceDirector?
+  teacher       Teacher?
+  student       Student?
+  parent        Parent?
+
+  refreshTokens RefreshToken[]
+  auditLogs     AuditLog[]
+  notifications Notification[]
+
+  @@index([roleId])
+  @@map("users")
+}
+
+/// Defines the various user roles within the system (proposal - Table: Roles).
+model Role {
+  roleId   Int      @id @default(autoincrement())
+  roleName RoleName @unique
+
+  users User[]
+
+  @@map("roles")
+}
+
+/// Opaque, rotated refresh tokens for session renewal (hashed at rest).
+model RefreshToken {
+  id         String    @id @default(uuid())
+  userId     Int
+  tokenHash  String    @db.VarChar(255)
+  expiresAt  DateTime
+  revokedAt  DateTime?
+  createdAt  DateTime  @default(now())
+  replacedBy String?
+
+  user User @relation(fields: [userId], references: [userId], onDelete: Cascade)
+
+  @@index([userId])
+  @@map("refresh_tokens")
+}
+
+/// Central audit trail — required by proposal NFR "Audit and Logging" / "Access Logging".
+model AuditLog {
+  id        BigInt   @id @default(autoincrement())
+  userId    Int?
+  action    String   @db.VarChar(100)
+  entity    String?  @db.VarChar(100)
+  entityId  String?  @db.VarChar(64)
+  ipAddress String?  @db.VarChar(64)
+  metadata  Json?
+  createdAt DateTime @default(now())
+
+  user User? @relation(fields: [userId], references: [userId], onDelete: SetNull)
+
+  @@index([userId])
+  @@index([action])
+  @@map("audit_logs")
+}
+
+// -----------------------------------------------------------------------------
+// B. Staff Information (1:1 with User)
+// -----------------------------------------------------------------------------
+
+model Administrator {
+  adminId   Int    @id @default(autoincrement())
+  userId    Int    @unique
+  firstName String @db.VarChar(100)
+  lastName  String @db.VarChar(100)
+
+  user User @relation(fields: [userId], references: [userId], onDelete: Cascade)
+
+  @@map("administrators")
+}
+
+model Director {
+  directorId Int    @id @default(autoincrement())
+  userId     Int    @unique
+  firstName  String @db.VarChar(100)
+  lastName   String @db.VarChar(100)
+
+  user User @relation(fields: [userId], references: [userId], onDelete: Cascade)
+
+  @@map("directors")
+}
+
+model ViceDirector {
+  viceDirectorId Int    @id @default(autoincrement())
+  userId         Int    @unique
+  firstName      String @db.VarChar(100)
+  lastName       String @db.VarChar(100)
+
+  user User @relation(fields: [userId], references: [userId], onDelete: Cascade)
+
+  @@map("vice_directors")
+}
+
+model Teacher {
+  teacherId      Int     @id @default(autoincrement())
+  userId         Int     @unique
+  firstName      String  @db.VarChar(100)
+  lastName       String  @db.VarChar(100)
+  qualification  String? @db.VarChar(255)
+  specialization String? @db.VarChar(255)
+  phoneNumber    String? @db.VarChar(20)
+
+  user User @relation(fields: [userId], references: [userId], onDelete: Cascade)
+
+  classroomsAsHomeroom Classroom[]      @relation("HomeroomTeacher")
+  subjectAssignments   TeacherSubject[]
+  attendanceRecords    Attendance[]
+  gradesGiven          Grade[]
+
+  @@map("teachers")
+}
+
+// -----------------------------------------------------------------------------
+// C. Student and Parent Information
+// -----------------------------------------------------------------------------
+
+enum Gender {
+  M
+  F
+}
+
+/// Defines classrooms/sections (proposal - Table: Classrooms). Relationship: Classroom (1:M) Student.
+model Classroom {
+  classroomId       Int    @id @default(autoincrement())
+  className         String @db.VarChar(50)
+  section           String @db.VarChar(10)
+  academicYear      String @db.VarChar(10)
+  homeroomTeacherId Int?
+
+  homeroomTeacher Teacher? @relation("HomeroomTeacher", fields: [homeroomTeacherId], references: [teacherId], onDelete: SetNull)
+
+  students           Student[]
+  subjectAssignments TeacherSubject[]
+  attendanceRecords  Attendance[]
+
+  @@unique([className, section, academicYear])
+  @@map("classrooms")
+}
+
+/// Subjects offered by the school. Referenced by Grades and TeacherSubject.
+model Subject {
+  subjectId   Int    @id @default(autoincrement())
+  subjectCode String @unique @db.VarChar(20)
+  subjectName String @db.VarChar(100)
+
+  teacherAssignments TeacherSubject[]
+  grades             Grade[]
+
+  @@map("subjects")
+}
+
+/// Resolves which Teacher teaches which Subject to which Classroom (M:N support table).
+model TeacherSubject {
+  id          Int @id @default(autoincrement())
+  teacherId   Int
+  subjectId   Int
+  classroomId Int
+
+  teacher   Teacher   @relation(fields: [teacherId], references: [teacherId], onDelete: Cascade)
+  subject   Subject   @relation(fields: [subjectId], references: [subjectId], onDelete: Cascade)
+  classroom Classroom @relation(fields: [classroomId], references: [classroomId], onDelete: Cascade)
+
+  @@unique([teacherId, subjectId, classroomId])
+  @@map("teacher_subjects")
+}
+
+/// Contains all student-specific information (proposal - Table: Students). Relationship: Classroom (1:M) Student.
+model Student {
+  studentId       Int      @id @default(autoincrement())
+  userId          Int      @unique
+  classroomId     Int
+  admissionNumber String   @unique @db.VarChar(50)
+  firstName       String   @db.VarChar(100)
+  lastName        String   @db.VarChar(100)
+  gender          Gender
+  dateOfBirth     DateTime @db.Date
+  address         String?  @db.VarChar(255)
+  enrolledAt      DateTime @default(now())
+
+  user      User      @relation(fields: [userId], references: [userId], onDelete: Cascade)
+  classroom Classroom @relation(fields: [classroomId], references: [classroomId])
+
+  parentLinks       StudentParentLink[]
+  attendanceRecords Attendance[]
+  grades            Grade[]
+  academicReports   AcademicReport[]
+  notifications     Notification[]
+
+  @@index([classroomId])
+  @@map("students")
+}
+
+/// Contains information for student guardians/parents (proposal - Table: Parents). 1:1 with User.
+model Parent {
+  parentId    Int     @id @default(autoincrement())
+  userId      Int     @unique
+  fullName    String  @db.VarChar(255)
+  phoneNumber String? @db.VarChar(20)
+
+  user  User                @relation(fields: [userId], references: [userId], onDelete: Cascade)
+  links StudentParentLink[]
+
+  @@map("parents")
+}
+
+enum ParentRelationship {
+  FATHER
+  MOTHER
+  GUARDIAN
+  OTHER
+}
+
+/// Resolves the M:N relationship between Parents and Students (a parent may have many
+/// children in the system; a student may have more than one registered guardian).
+model StudentParentLink {
+  id           Int                @id @default(autoincrement())
+  studentId    Int
+  parentId     Int
+  relationship ParentRelationship
+
+  student Student @relation(fields: [studentId], references: [studentId], onDelete: Cascade)
+  parent  Parent  @relation(fields: [parentId], references: [parentId], onDelete: Cascade)
+
+  @@unique([studentId, parentId])
+  @@map("student_parent_links")
+}
+
+// -----------------------------------------------------------------------------
+// D. Academic Records
+// -----------------------------------------------------------------------------
+
+enum AttendanceStatus {
+  PRESENT
+  ABSENT
+  LATE
+  EXCUSED
+}
+
+model Attendance {
+  attendanceId   Int              @id @default(autoincrement())
+  studentId      Int
+  teacherId      Int
+  classroomId    Int
+  attendanceDate DateTime         @db.Date
+  status         AttendanceStatus
+  remarks        String?          @db.VarChar(255)
+  createdAt      DateTime         @default(now())
+  updatedAt      DateTime         @updatedAt
+
+  student   Student   @relation(fields: [studentId], references: [studentId], onDelete: Cascade)
+  teacher   Teacher   @relation(fields: [teacherId], references: [teacherId])
+  classroom Classroom @relation(fields: [classroomId], references: [classroomId])
+
+  @@unique([studentId, attendanceDate])
+  @@index([classroomId, attendanceDate])
+  @@map("attendance")
+}
+
+enum Semester {
+  SEMESTER_1
+  SEMESTER_2
+}
+
+model Grade {
+  gradeId      Int      @id @default(autoincrement())
+  studentId    Int
+  subjectId    Int
+  teacherId    Int
+  score        Decimal  @db.Decimal(5, 2)
+  letterGrade  String   @db.VarChar(2)
+  semester     Semester
+  academicYear String   @db.VarChar(10)
+  createdAt    DateTime @default(now())
+  updatedAt    DateTime @updatedAt
+
+  student Student @relation(fields: [studentId], references: [studentId], onDelete: Cascade)
+  subject Subject @relation(fields: [subjectId], references: [subjectId])
+  teacher Teacher @relation(fields: [teacherId], references: [teacherId])
+
+  @@unique([studentId, subjectId, semester, academicYear])
+  @@index([studentId])
+  @@map("grades")
+}
+
+model AcademicReport {
+  reportId      Int      @id @default(autoincrement())
+  studentId     Int
+  semester      Semester
+  academicYear  String   @db.VarChar(10)
+  averageMark   Decimal  @db.Decimal(5, 2)
+  rank          Int?
+  generatedDate DateTime @default(now())
+
+  student Student @relation(fields: [studentId], references: [studentId], onDelete: Cascade)
+
+  @@unique([studentId, semester, academicYear])
+  @@map("academic_reports")
+}
+
+enum NotificationStatus {
+  READ
+  UNREAD
+}
+
+model Notification {
+  notificationId  Int                @id @default(autoincrement())
+  studentId       Int?
+  recipientUserId Int?
+  title           String             @db.VarChar(150)
+  message         String             @db.Text
+  sentDate        DateTime           @default(now())
+  status          NotificationStatus @default(UNREAD)
+
+  student       Student? @relation(fields: [studentId], references: [studentId], onDelete: Cascade)
+  recipientUser User?    @relation(fields: [recipientUserId], references: [userId], onDelete: Cascade)
+
+  @@index([studentId])
+  @@index([recipientUserId])
+  @@map("notifications")
 }
