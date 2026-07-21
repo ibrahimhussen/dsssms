@@ -12,10 +12,12 @@
   "type": "commonjs",
   "dependencies": {
     "@prisma/adapter-mariadb": "^7.8.0",
+    "crypto": "^1.0.1",
     "dotenv": "^17.4.2",
     "express": "^5.2.1"
   },
   "devDependencies": {
+    "@types/node": "^26.1.1",
     "@types/pg": "^8.20.0",
     "prisma": "^7.8.0",
     "tsx": "^4.23.1"
