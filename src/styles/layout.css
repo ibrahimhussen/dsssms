@@ -1,0 +1,231 @@
+/* --- Login screen ---------------------------------------------------- */
+
+.login-screen {
+  min-height: 100vh;
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) minmax(0, 1.1fr);
+}
+
+.login-brand-panel {
+  position: relative;
+  background: var(--pine-900);
+  overflow: hidden;
+  display: flex;
+  align-items: flex-end;
+  padding: 48px;
+}
+
+.contour-pattern {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+}
+
+.contour-pattern path {
+  fill: none;
+  stroke: rgba(251, 248, 241, 0.14);
+  stroke-width: 1.5;
+}
+
+.contour-pattern path:nth-child(odd) {
+  stroke: rgba(192, 138, 40, 0.22);
+}
+
+.login-brand-content {
+  position: relative;
+  z-index: 1;
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+.login-brand-tagline {
+  font-family: var(--font-body);
+  color: var(--paper-100);
+  font-size: 1rem;
+  line-height: 1.5;
+  max-width: 26ch;
+}
+
+.login-form-panel {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 32px;
+}
+
+.login-form-wrap {
+  width: 100%;
+  max-width: 380px;
+}
+
+.login-heading {
+  font-size: 1.75rem;
+}
+
+.login-subheading {
+  color: var(--slate-500);
+  font-size: 0.9375rem;
+  margin-bottom: 24px;
+}
+
+.login-form {
+  display: flex;
+  flex-direction: column;
+}
+
+.login-submit {
+  width: 100%;
+  margin-top: 4px;
+}
+
+@media (max-width: 860px) {
+  .login-screen {
+    grid-template-columns: 1fr;
+  }
+  .login-brand-panel {
+    min-height: 220px;
+    padding: 32px;
+  }
+  .wordmark-lg {
+    font-size: 1.75rem;
+  }
+}
+
+/* --- Authenticated app shell ------------------------------------------- */
+
+.app-shell {
+  min-height: 100vh;
+  display: grid;
+  grid-template-columns: 240px 1fr;
+}
+
+.app-sidebar {
+  background: var(--pine-900);
+  color: var(--paper-100);
+  padding: 24px 16px;
+  display: flex;
+  flex-direction: column;
+  gap: 32px;
+}
+
+.app-sidebar-brand {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  padding: 0 8px;
+}
+
+.app-sidebar-brand .wordmark {
+  color: var(--paper-50);
+  font-size: 1.25rem;
+}
+
+.app-sidebar-subtitle {
+  font-size: 0.75rem;
+  color: var(--slate-300);
+}
+
+.app-nav {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
+.app-nav-link {
+  padding: 10px 12px;
+  border-radius: var(--radius-md);
+  color: var(--paper-100);
+  text-decoration: none;
+  font-size: 0.9375rem;
+  font-weight: 500;
+  transition: background-color 0.15s ease;
+}
+
+.app-nav-link:hover {
+  background: rgba(251, 248, 241, 0.08);
+}
+
+.app-nav-link-active {
+  background: var(--pine-700);
+  color: var(--paper-50);
+  font-weight: 600;
+}
+
+.app-main {
+  display: flex;
+  flex-direction: column;
+  min-width: 0;
+}
+
+.app-topbar {
+  display: flex;
+  align-items: center;
+  justify-content: flex-end;
+  gap: 16px;
+  padding: 16px 32px;
+  border-bottom: 1px solid var(--slate-200);
+  background: #fff;
+}
+
+.app-topbar-user {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-end;
+  line-height: 1.3;
+}
+
+.app-topbar-name {
+  font-weight: 600;
+  font-size: 0.9375rem;
+  color: var(--ink-900);
+}
+
+.app-topbar-role {
+  font-size: 0.75rem;
+  color: var(--slate-500);
+}
+
+.app-content {
+  flex: 1;
+  padding: 32px;
+}
+
+@media (max-width: 720px) {
+  .app-shell {
+    grid-template-columns: 1fr;
+  }
+  .app-sidebar {
+    display: none;
+  }
+}
+
+/* --- Generic page scaffolding -------------------------------------------- */
+
+.page {
+  max-width: 720px;
+}
+
+.page-title {
+  font-size: 1.5rem;
+}
+
+.page-lead {
+  color: var(--ink-700);
+  font-size: 0.9375rem;
+}
+
+.status-page {
+  min-height: calc(100vh - 200px);
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+  margin: 0 auto;
+  text-align: left;
+}
+
+.status-page .btn {
+  align-self: flex-start;
+  margin-top: 12px;
+}
