@@ -21,7 +21,7 @@ function toNotificationDto(n: NotificationWithRelations): NotificationDto {
     notificationId: n.notificationId,
     title: n.title,
     message: n.message,
-    sentDate: n.sentDate,
+    sentDate: n.sentDate.toISOString(),
     status: n.status,
     recipientUserId: n.recipientUserId,
     student: n.student

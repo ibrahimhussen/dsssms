@@ -4,7 +4,7 @@ export interface NotificationDto {
   notificationId: number;
   title: string;
   message: string;
-  sentDate: Date;
+  sentDate: string;
   status: NotificationStatus;
   recipientUserId: number | null;
   student: { studentId: number; firstName: string; lastName: string } | null;

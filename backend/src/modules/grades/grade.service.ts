@@ -35,8 +35,8 @@ function toGradeRecordDto(g: GradeWithRelations): GradeRecordDto {
     semester: g.semester,
     academicYear: g.academicYear,
     recordedBy: { teacherId: g.teacher.teacherId, firstName: g.teacher.firstName, lastName: g.teacher.lastName },
-    createdAt: g.createdAt,
-    updatedAt: g.updatedAt,
+    createdAt: g.createdAt.toISOString(),
+    updatedAt: g.updatedAt.toISOString(),
   };
 }
 

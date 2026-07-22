@@ -35,9 +35,9 @@ function toStudentSummaryDto(student: StudentWithRelations): StudentSummaryDto {
     firstName: student.firstName,
     lastName: student.lastName,
     gender: student.gender,
-    dateOfBirth: student.dateOfBirth,
+    dateOfBirth: student.dateOfBirth.toISOString().split('T')[0], // YYYY-MM-DD format
     address: student.address,
-    enrolledAt: student.enrolledAt,
+    enrolledAt: student.enrolledAt.toISOString(),
     classroom: {
       classroomId: student.classroom.classroomId,
       className: student.classroom.className,
@@ -86,6 +86,8 @@ export class StudentService {
       const admissionNumber = generateAdmissionNumber();
 
       try {
+        let guardianCredentials: { fullName: string; username: string; temporaryPassword: string }[] = [];
+
         const student = await prisma.$transaction(async (tx) => {
           const createdUser = await tx.user.create({
             data: {
@@ -110,7 +112,7 @@ export class StudentService {
           const studentId = createdUser.student!.studentId;
 
           if (input.parents?.length) {
-            await this.linkParentsWithinTransaction(tx, studentId, input.parents);
+            guardianCredentials = await this.linkParentsWithinTransaction(tx, studentId, input.parents);
           }
 
           const full = await tx.student.findUniqueOrThrow({
@@ -121,7 +123,11 @@ export class StudentService {
           return full;
         });
 
-        return { student: toStudentSummaryDto(student), credentials: { username, temporaryPassword } };
+        return { 
+          student: toStudentSummaryDto(student), 
+          credentials: { username, temporaryPassword },
+          guardianCredentials,
+        };
       } catch (err) {
         lastError = err;
         const isAdmissionCollision =
@@ -230,7 +236,9 @@ export class StudentService {
     tx: Prisma.TransactionClient,
     studentId: number,
     parentInputs: LinkParentToStudentInput[]
-  ): Promise<void> {
+  ): Promise<{ fullName: string; username: string; temporaryPassword: string }[]> {
+    const guardianCredentials: { fullName: string; username: string; temporaryPassword: string }[] = [];
+
     for (const parentInput of parentInputs) {
       let parentId: number;
 
@@ -241,6 +249,11 @@ export class StudentService {
       } else if (parentInput.newParent) {
         const created = await parentService.createParent(parentInput.newParent, tx);
         parentId = created.parent.parentId;
+        guardianCredentials.push({
+          fullName: created.parent.fullName,
+          username: created.credentials.username,
+          temporaryPassword: created.credentials.temporaryPassword,
+        });
       } else {
         throw new ValidationError('Each parent entry must include either parentId or newParent');
       }
@@ -257,6 +270,8 @@ export class StudentService {
         data: { studentId, parentId, relationship: parentInput.relationship },
       });
     }
+
+    return guardianCredentials;
   }
 
   private async assertExists(studentId: number) {

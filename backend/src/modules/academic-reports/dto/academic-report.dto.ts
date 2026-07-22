@@ -8,5 +8,5 @@ export interface AcademicReportDto {
   academicYear: string;
   averageMark: number;
   rank: number | null;
-  generatedDate: Date;
+  generatedDate: string;
 }

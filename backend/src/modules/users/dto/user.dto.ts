@@ -7,8 +7,9 @@ export interface UserSummaryDto {
   role: RoleName;
   status: UserStatus;
   fullName: string;
-  lastLoginAt: Date | null;
-  createdAt: Date;
+  lastLoginAt: string | null;
+  createdAt: string;
+  teacherId: number | null;
 }
 
 /**

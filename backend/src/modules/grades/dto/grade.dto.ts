@@ -12,8 +12,8 @@ export interface GradeRecordDto {
   semester: Semester;
   academicYear: string;
   recordedBy: { teacherId: number; firstName: string; lastName: string };
-  createdAt: Date;
-  updatedAt: Date;
+  createdAt: string;
+  updatedAt: string;
 }
 
 export interface BulkGradeResultDto {

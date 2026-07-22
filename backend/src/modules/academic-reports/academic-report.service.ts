@@ -17,7 +17,7 @@ function toAcademicReportDto(report: ReportWithStudent): AcademicReportDto {
     academicYear: report.academicYear,
     averageMark: Number(report.averageMark),
     rank: report.rank,
-    generatedDate: report.generatedDate,
+    generatedDate: report.generatedDate.toISOString(),
   };
 }
 

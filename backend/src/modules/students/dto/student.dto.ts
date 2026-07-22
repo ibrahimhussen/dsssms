@@ -22,14 +22,21 @@ export interface StudentSummaryDto {
   firstName: string;
   lastName: string;
   gender: Gender;
-  dateOfBirth: Date;
+  dateOfBirth: string;
   address: string | null;
-  enrolledAt: Date;
+  enrolledAt: string;
   classroom: StudentClassroomSummary;
   parents: StudentParentSummary[];
+}
+
+export interface GuardianCredentialsIssuedDto {
+  fullName: string;
+  username: string;
+  temporaryPassword: string;
 }
 
 export interface CreateStudentResultDto {
   student: StudentSummaryDto;
   credentials: { username: string; temporaryPassword: string };
+  guardianCredentials: GuardianCredentialsIssuedDto[];
 }
