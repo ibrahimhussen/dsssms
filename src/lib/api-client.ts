@@ -79,6 +79,17 @@ apiClient.interceptors.response.use(
   }
 );
 
+/** Same as `unwrap`, but also returns the pagination metadata for list endpoints. */
+export async function unwrapPaginated<T>(
+  promise: Promise<{ data: ApiResponse<T[]> }>
+): Promise<{ items: T[]; meta: import('../types/api').PaginationMeta }> {
+  const { data } = await promise;
+  if (!data.success) {
+    throw new Error(data.message);
+  }
+  return { items: data.data, meta: data.pagination ?? { page: 1, limit: data.data.length, totalItems: data.data.length, totalPages: 1 } };
+}
+
 /** Unwraps the ApiResponse envelope, throwing a plain Error with the server's message on failure. */
 export async function unwrap<T>(promise: Promise<{ data: ApiResponse<T> }>): Promise<T> {
   const { data } = await promise;

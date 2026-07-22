@@ -1,14 +1,15 @@
 import { forwardRef } from 'react';
-import type { InputHTMLAttributes } from 'react';
+import type { ReactNode, SelectHTMLAttributes } from 'react';
 import clsx from 'clsx';
 
-interface TextFieldProps extends InputHTMLAttributes<HTMLInputElement> {
+interface SelectFieldProps extends SelectHTMLAttributes<HTMLSelectElement> {
   label: string;
   error?: string;
+  children: ReactNode;
 }
 
-export const TextField = forwardRef<HTMLInputElement, TextFieldProps>(function TextField(
-  { label, error, id, className, ...rest },
+export const SelectField = forwardRef<HTMLSelectElement, SelectFieldProps>(function SelectField(
+  { label, error, id, className, children, ...rest },
   ref
 ) {
   const fieldId = id ?? rest.name;
@@ -18,7 +19,7 @@ export const TextField = forwardRef<HTMLInputElement, TextFieldProps>(function T
       <label htmlFor={fieldId} className="text-[0.8125rem] font-semibold text-ink-700">
         {label}
       </label>
-      <input
+      <select
         id={fieldId}
         ref={ref}
         className={clsx(
@@ -29,7 +30,9 @@ export const TextField = forwardRef<HTMLInputElement, TextFieldProps>(function T
         aria-invalid={Boolean(error)}
         aria-describedby={error ? `${fieldId}-error` : undefined}
         {...rest}
-      />
+      >
+        {children}
+      </select>
       {error && (
         <p className="m-0 text-[0.8125rem] text-danger-600" id={`${fieldId}-error`} role="alert">
           {error}

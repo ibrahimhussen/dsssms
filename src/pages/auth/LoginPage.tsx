@@ -33,9 +33,16 @@ export function LoginPage() {
   }
 
   return (
-    <div className="login-screen">
-      <section className="login-brand-panel" aria-hidden="true">
-        <svg className="contour-pattern" viewBox="0 0 600 800" preserveAspectRatio="xMidYMid slice">
+    <div className="grid min-h-screen grid-cols-[1fr_1.1fr] max-[860px]:grid-cols-1">
+      <section
+        className="relative flex items-end overflow-hidden bg-pine-900 p-12 max-[860px]:min-h-[220px] max-[860px]:p-8"
+        aria-hidden="true"
+      >
+        <svg
+          className="absolute inset-0 h-full w-full [&>path]:fill-none [&>path]:stroke-[1.5] [&>path:nth-child(odd)]:stroke-gold-500/25 [&>path:nth-child(even)]:stroke-paper-50/15"
+          viewBox="0 0 600 800"
+          preserveAspectRatio="xMidYMid slice"
+        >
           <path d="M-50,120 C120,60 220,180 380,110 C500,60 600,140 650,90" />
           <path d="M-50,220 C100,160 240,280 380,210 C520,140 600,240 650,190" />
           <path d="M-50,320 C130,260 230,380 400,300 C520,240 600,340 650,290" />
@@ -45,9 +52,9 @@ export function LoginPage() {
           <path d="M-50,720 C130,690 230,750 400,700 C520,670 600,740 650,720" />
         </svg>
 
-        <div className="login-brand-content">
-          <span className="wordmark wordmark-lg">DSSSMS</span>
-          <p className="login-brand-tagline">
+        <div className="relative z-10 flex flex-col gap-3">
+          <span className="font-display text-4xl font-semibold text-paper-50 max-[860px]:text-3xl">DSSSMS</span>
+          <p className="max-w-[26ch] font-body text-base leading-relaxed text-paper-100">
             Dinsho Secondary School
             <br />
             Student Management System
@@ -55,13 +62,15 @@ export function LoginPage() {
         </div>
       </section>
 
-      <section className="login-form-panel">
-        <div className="login-form-wrap">
-          <h1 className="login-heading">Sign in</h1>
+      <section className="flex items-center justify-center p-8">
+        <div className="w-full max-w-[380px]">
+          <h1 className="text-[1.75rem]">Sign in</h1>
           <LedgerRule />
-          <p className="login-subheading">Use the username and password issued by your administrator.</p>
+          <p className="mb-6 text-[0.9375rem] text-slate-500">
+            Use the username and password issued by your administrator.
+          </p>
 
-          <form onSubmit={(e) => void handleSubmit(onSubmit)(e)} noValidate className="login-form">
+          <form onSubmit={(e) => void handleSubmit(onSubmit)(e)} noValidate className="flex flex-col">
             <TextField
               label="Username"
               autoComplete="username"
@@ -78,12 +87,12 @@ export function LoginPage() {
             />
 
             {serverError && (
-              <p className="form-error-banner" role="alert">
+              <p className="mb-4 rounded-lg bg-danger-100 px-3 py-2.5 text-sm text-danger-600" role="alert">
                 {serverError}
               </p>
             )}
 
-            <Button type="submit" isLoading={isSubmitting} className="login-submit">
+            <Button type="submit" isLoading={isSubmitting} className="mt-1 w-full">
               Sign in
             </Button>
           </form>
