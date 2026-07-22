@@ -10,6 +10,7 @@ export interface UserSummary {
   fullName: string;
   lastLoginAt: string | null;
   createdAt: string;
+  teacherId: number | null;
 }
 
 export interface IssuedCredentials {

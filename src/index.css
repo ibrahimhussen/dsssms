@@ -1,6 +1,63 @@
 @import "tailwindcss";
-@import './styles/tokens.css';
-@import './styles/base.css';
-@import './styles/components.css';
-@import './styles/layout.css';
 
+/* Design tokens — registering these under @theme makes Tailwind generate
+   matching utilities automatically: bg-pine-900, text-gold-500,
+   border-slate-200, font-display, etc. This is the single source of truth
+   for the app's palette and type scale. */
+@theme {
+  --color-pine-900: #16302a;
+  --color-pine-800: #1c3c33;
+  --color-pine-700: #234c40;
+  --color-pine-600: #2f6152;
+  --color-pine-100: #e6ede9;
+
+  --color-gold-600: #a97722;
+  --color-gold-500: #c08a28;
+  --color-gold-100: #f3e6c8;
+
+  --color-paper-50: #fbf8f1;
+  --color-paper-100: #f3efe4;
+
+  --color-ink-900: #1e1c17;
+  --color-ink-700: #3a372e;
+  --color-slate-500: #6b6a61;
+  --color-slate-300: #b9b6a8;
+  --color-slate-200: #ddd9cb;
+
+  --color-danger-600: #a13a3a;
+  --color-danger-100: #f6e3e1;
+
+  --font-display: 'Fraunces', Georgia, serif;
+  --font-body: 'IBM Plex Sans', 'Segoe UI', sans-serif;
+  --font-mono: 'IBM Plex Mono', Consolas, monospace;
+}
+
+@layer base {
+  body {
+    @apply bg-paper-50 text-ink-900 font-body antialiased;
+  }
+
+  h1,
+  h2,
+  h3 {
+    @apply font-display font-semibold text-pine-900;
+  }
+
+  :focus-visible {
+    @apply outline-none ring-3 ring-gold-500/35 rounded;
+  }
+}
+
+@layer components {
+  /* The app's signature structural motif — a ruled ledger divider, evoking
+     the ruled margin line of a school exercise/attendance book. */
+  .ledger-rule-line {
+    background-image: repeating-linear-gradient(
+      to right,
+      var(--color-slate-300) 0,
+      var(--color-slate-300) 6px,
+      transparent 6px,
+      transparent 12px
+    );
+  }
+}
