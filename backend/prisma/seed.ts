@@ -1,7 +1,29 @@
-import { PrismaClient, RoleName, Gender, ParentRelationship, AttendanceStatus, Semester } from '@prisma/client';
+import {
+  PrismaClient,
+  RoleName,
+  Gender,
+  ParentRelationship,
+  AttendanceStatus,
+  Semester,
+} from '@prisma/client';
+import { PrismaMariaDb } from '@prisma/adapter-mariadb';
 import bcrypt from 'bcryptjs';
+import 'dotenv/config';
 
-const prisma = new PrismaClient();
+const adapter = new PrismaMariaDb({
+  host: 'localhost',
+  port: 3306,
+  user: 'dsssms_user',
+  password: 'mudasir',
+  database: 'dsssms_db',
+  connectionLimit: 5,
+});
+
+const prisma = new PrismaClient({
+  adapter,
+});
+
+
 
 const DEFAULT_PASSWORD = 'Demo@12345'; // Meets the password policy; CHANGE on first login in any real deployment.
 const CURRENT_ACADEMIC_YEAR = '2025/26';
