@@ -36,8 +36,8 @@ function toUserSummaryDto(user: UserWithRoleAndProfiles): UserSummaryDto {
     role: user.role.roleName,
     status: user.status,
     fullName: resolveFullName(user),
-    lastLoginAt: user.lastLoginAt ? user.lastLoginAt.toISOString() : null,
-    createdAt: user.createdAt.toISOString(),
+    lastLoginAt: user.lastLoginAt,
+    createdAt: user.createdAt,
     teacherId: user.teacher?.teacherId ?? null,
   };
 }

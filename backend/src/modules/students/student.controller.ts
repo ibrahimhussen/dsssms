@@ -59,8 +59,15 @@ export class StudentController {
   addParent = asyncHandler(async (req: Request, res: Response) => {
     const { id } = req.params as unknown as StudentIdParam;
     const input = req.body as LinkParentToStudentInput;
-    const student = await studentService.addParentLink(id, input);
-    ApiResponse.success(res, { statusCode: 201, message: 'Parent linked to student', data: student });
+    const result = await studentService.addParentLink(id, input);
+    ApiResponse.success(res, {
+      statusCode: 201,
+      message:
+        result.guardianCredentials.length > 0
+          ? 'Parent linked. Share the temporary credentials securely — they will not be shown again.'
+          : 'Parent linked to student',
+      data: result,
+    });
   });
 
   removeParent = asyncHandler(async (req: Request, res: Response) => {

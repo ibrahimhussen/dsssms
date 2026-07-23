@@ -22,9 +22,9 @@ export interface StudentSummaryDto {
   firstName: string;
   lastName: string;
   gender: Gender;
-  dateOfBirth: string;
+  dateOfBirth: Date;
   address: string | null;
-  enrolledAt: string;
+  enrolledAt: Date;
   classroom: StudentClassroomSummary;
   parents: StudentParentSummary[];
 }
@@ -38,5 +38,6 @@ export interface GuardianCredentialsIssuedDto {
 export interface CreateStudentResultDto {
   student: StudentSummaryDto;
   credentials: { username: string; temporaryPassword: string };
+  /** Populated only for guardians that were newly created (not linked to an existing parentId) during this call. */
   guardianCredentials: GuardianCredentialsIssuedDto[];
 }

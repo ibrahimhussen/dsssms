@@ -35,9 +35,9 @@ function toStudentSummaryDto(student: StudentWithRelations): StudentSummaryDto {
     firstName: student.firstName,
     lastName: student.lastName,
     gender: student.gender,
-    dateOfBirth: student.dateOfBirth.toISOString().split('T')[0], // YYYY-MM-DD format
+    dateOfBirth: student.dateOfBirth,
     address: student.address,
-    enrolledAt: student.enrolledAt.toISOString(),
+    enrolledAt: student.enrolledAt,
     classroom: {
       classroomId: student.classroom.classroomId,
       className: student.classroom.className,
@@ -86,7 +86,7 @@ export class StudentService {
       const admissionNumber = generateAdmissionNumber();
 
       try {
-        let guardianCredentials: { fullName: string; username: string; temporaryPassword: string }[] = [];
+        const guardianCredentials: import('./dto/student.dto').GuardianCredentialsIssuedDto[] = [];
 
         const student = await prisma.$transaction(async (tx) => {
           const createdUser = await tx.user.create({
@@ -112,7 +112,8 @@ export class StudentService {
           const studentId = createdUser.student!.studentId;
 
           if (input.parents?.length) {
-            guardianCredentials = await this.linkParentsWithinTransaction(tx, studentId, input.parents);
+            const newlyCreated = await this.linkParentsWithinTransaction(tx, studentId, input.parents);
+            guardianCredentials.push(...newlyCreated);
           }
 
           const full = await tx.student.findUniqueOrThrow({
@@ -123,8 +124,8 @@ export class StudentService {
           return full;
         });
 
-        return { 
-          student: toStudentSummaryDto(student), 
+        return {
+          student: toStudentSummaryDto(student),
           credentials: { username, temporaryPassword },
           guardianCredentials,
         };
@@ -211,14 +212,13 @@ export class StudentService {
     return toStudentSummaryDto(updated);
   }
 
-  async addParentLink(studentId: number, input: LinkParentToStudentInput): Promise<StudentSummaryDto> {
+  async addParentLink(studentId: number, input: LinkParentToStudentInput): Promise<{ student: StudentSummaryDto; guardianCredentials: import('./dto/student.dto').GuardianCredentialsIssuedDto[] }> {
     await this.assertExists(studentId);
 
-    await prisma.$transaction(async (tx) => {
-      await this.linkParentsWithinTransaction(tx, studentId, [input]);
-    });
+    const guardianCredentials = await prisma.$transaction(async (tx) => this.linkParentsWithinTransaction(tx, studentId, [input]));
 
-    return this.getStudentById(studentId);
+    const student = await this.getStudentById(studentId);
+    return { student, guardianCredentials };
   }
 
   async removeParentLink(studentId: number, parentId: number): Promise<void> {
@@ -231,13 +231,18 @@ export class StudentService {
     await prisma.studentParentLink.delete({ where: { id: link.id } });
   }
 
-  /** Shared by createStudent and addParentLink — links existing or newly-created parents. */
+  /**
+   * Shared by createStudent and addParentLink — links existing or newly-created
+   * parents, returning login credentials for any parent that was newly created
+   * (so the caller can hand them to the guardian; nothing is returned for
+   * guardians linked via an existing parentId, since no new account was made).
+   */
   private async linkParentsWithinTransaction(
     tx: Prisma.TransactionClient,
     studentId: number,
     parentInputs: LinkParentToStudentInput[]
-  ): Promise<{ fullName: string; username: string; temporaryPassword: string }[]> {
-    const guardianCredentials: { fullName: string; username: string; temporaryPassword: string }[] = [];
+  ): Promise<import('./dto/student.dto').GuardianCredentialsIssuedDto[]> {
+    const issuedCredentials: import('./dto/student.dto').GuardianCredentialsIssuedDto[] = [];
 
     for (const parentInput of parentInputs) {
       let parentId: number;
@@ -249,7 +254,7 @@ export class StudentService {
       } else if (parentInput.newParent) {
         const created = await parentService.createParent(parentInput.newParent, tx);
         parentId = created.parent.parentId;
-        guardianCredentials.push({
+        issuedCredentials.push({
           fullName: created.parent.fullName,
           username: created.credentials.username,
           temporaryPassword: created.credentials.temporaryPassword,
@@ -271,7 +276,7 @@ export class StudentService {
       });
     }
 
-    return guardianCredentials;
+    return issuedCredentials;
   }
 
   private async assertExists(studentId: number) {

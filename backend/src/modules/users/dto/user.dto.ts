@@ -7,8 +7,9 @@ export interface UserSummaryDto {
   role: RoleName;
   status: UserStatus;
   fullName: string;
-  lastLoginAt: string | null;
-  createdAt: string;
+  lastLoginAt: Date | null;
+  createdAt: Date;
+  /** Present only when role is TEACHER — the id assignment/homeroom endpoints expect. */
   teacherId: number | null;
 }
 
