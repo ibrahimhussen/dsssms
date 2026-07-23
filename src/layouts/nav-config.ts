@@ -12,9 +12,14 @@ export const NAV_ITEMS: NavItem[] = [
   { label: 'Dashboard', path: '/' },
   { label: 'Staff accounts', path: '/users', allowedRoles: ['ADMIN'] },
   { label: 'Students', path: '/students', allowedRoles: OVERSIGHT_ROLES },
-  // Stage 9 will add: Parents, Classrooms, Subjects, Teaching Assignments,
-  // Attendance, Grades, Academic Reports, Notifications — each scoped to
-  // the roles permitted by the backend RBAC rules.
+  { label: 'Parents', path: '/parents', allowedRoles: OVERSIGHT_ROLES },
+  { label: 'Classrooms', path: '/classrooms', allowedRoles: OVERSIGHT_ROLES },
+  { label: 'Subjects', path: '/subjects', allowedRoles: OVERSIGHT_ROLES },
+  { label: 'Teaching assignments', path: '/teaching-assignments', allowedRoles: OVERSIGHT_ROLES },
+  { label: 'Take attendance', path: '/attendance', allowedRoles: ['TEACHER'] },
+  { label: 'Enter grades', path: '/grades', allowedRoles: ['TEACHER'] },
+  { label: 'Academic reports', path: '/academic-reports', allowedRoles: OVERSIGHT_ROLES },
+  { label: 'Notifications', path: '/notifications' },
 ];
 
 export function getVisibleNavItems(role: RoleName): NavItem[] {
