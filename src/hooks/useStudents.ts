@@ -4,11 +4,12 @@ import type { CreateStudentInput, ListStudentsParams } from '../types/student';
 
 const studentsQueryKey = (params: ListStudentsParams) => ['students', params] as const;
 
-export function useStudents(params: ListStudentsParams) {
+export function useStudents(params: ListStudentsParams, options: { enabled?: boolean } = {}) {
   return useQuery({
     queryKey: studentsQueryKey(params),
     queryFn: () => studentsApi.list(params),
     placeholderData: (previousData) => previousData,
+    enabled: options.enabled ?? true,
   });
 }
 

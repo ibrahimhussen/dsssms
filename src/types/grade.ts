@@ -1,6 +1,4 @@
-import type { PaginationParams } from './pagination';
-
-export type Semester = 'FIRST' | 'SECOND';
+export type Semester = 'SEMESTER_1' | 'SEMESTER_2';
 
 export interface GradeRecord {
   gradeId: number;
@@ -18,12 +16,9 @@ export interface GradeRecord {
   updatedAt: string;
 }
 
-export interface BulkGradeResult {
-  classroomId: number;
-  subjectId: number;
-  semester: Semester;
-  academicYear: string;
-  recordsSaved: number;
+export interface BulkGradeRecordInput {
+  studentId: number;
+  score: number;
 }
 
 export interface BulkRecordGradesInput {
@@ -31,21 +26,12 @@ export interface BulkRecordGradesInput {
   subjectId: number;
   semester: Semester;
   academicYear: string;
-  records: { studentId: number; score: number }[];
+  records: BulkGradeRecordInput[];
 }
 
-export interface UpdateGradeInput {
-  score: number;
-}
-
-export interface ClassroomGradesParams {
+export interface ClassroomGradesQuery {
   classroomId: number;
   subjectId: number;
   semester: Semester;
   academicYear: string;
-}
-
-export interface StudentGradesParams extends PaginationParams {
-  semester?: Semester;
-  academicYear?: string;
 }

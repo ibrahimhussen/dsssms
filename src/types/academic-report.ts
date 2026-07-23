@@ -21,8 +21,3 @@ export interface GenerateReportsResult {
   generated: AcademicReport[];
   skippedStudentIds: number[];
 }
-
-export interface ReportPeriodParams {
-  semester: Semester;
-  academicYear: string;
-}

@@ -1,54 +1,42 @@
-import { apiClient, unwrap, unwrapPaginated } from './api-client';
+import { apiClient, unwrap } from './api-client';
 import { cleanParams } from './clean-params';
-import type { ApiResponse } from '../types/api';
-import type {
-  CreateNotificationInput,
-  ListAllNotificationsParams,
-  ListNotificationsParams,
-  MarkAllAsReadResult,
-  Notification,
-  NotificationInbox,
-  SendToParentsInput,
-  SendToParentsResult,
-} from '../types/notification';
+import type { ApiResponse, PaginationMeta } from '../types/api';
+import type { ListNotificationsParams, NotificationRecord, SendToParentsInput } from '../types/notification';
 
 export const notificationsApi = {
-  send(input: CreateNotificationInput) {
-    return unwrap(apiClient.post<ApiResponse<Notification>>('/notifications', input));
-  },
-
-  sendToParents(studentId: number, input: SendToParentsInput) {
-    return unwrap(
-      apiClient.post<ApiResponse<SendToParentsResult>>(`/notifications/student/${studentId}/parents`, input)
+  async getMyInbox(
+    params: ListNotificationsParams
+  ): Promise<{ items: NotificationRecord[]; unreadCount: number; meta: PaginationMeta }> {
+    const { data } = await apiClient.get<ApiResponse<{ items: NotificationRecord[]; unreadCount: number }>>(
+      '/notifications/me',
+      { params: cleanParams(params) }
     );
-  },
-
-  getMyNotifications(params: ListNotificationsParams) {
-    return unwrapPaginated(
-      apiClient.get<ApiResponse<NotificationInbox>>('/notifications/me', { params: cleanParams(params) })
-    ).then(({ items, meta }) => ({
-      // The backend returns { items, unreadCount } in data, we need to extract items
-      items: (items as any).items || items,
-      unreadCount: (items as any).unreadCount || 0,
-      meta,
-    }));
+    if (!data.success) throw new Error(data.message);
+    return {
+      items: data.data.items,
+      unreadCount: data.data.unreadCount,
+      meta: data.pagination ?? { page: 1, limit: data.data.items.length, totalItems: data.data.items.length, totalPages: 1 },
+    };
   },
 
   markAsRead(notificationId: number) {
-    return unwrap(apiClient.patch<ApiResponse<Notification>>(`/notifications/${notificationId}/read`));
+    return unwrap(apiClient.patch<ApiResponse<NotificationRecord>>(`/notifications/${notificationId}/read`));
   },
 
   markAllAsRead() {
-    return unwrap(apiClient.patch<ApiResponse<MarkAllAsReadResult>>('/notifications/read-all'));
+    return unwrap(apiClient.patch<ApiResponse<{ updatedCount: number }>>('/notifications/read-all'));
   },
 
   delete(notificationId: number) {
     return unwrap(apiClient.delete<ApiResponse<null>>(`/notifications/${notificationId}`));
   },
 
-  listAll(params: ListAllNotificationsParams) {
-    return unwrapPaginated(
-      apiClient.get<ApiResponse<Notification[]>>('/notifications', { params: cleanParams(params) })
+  sendToParents(studentId: number, input: SendToParentsInput) {
+    return unwrap(
+      apiClient.post<ApiResponse<{ studentId: number; notificationsSent: number }>>(
+        `/notifications/student/${studentId}/parents`,
+        input
+      )
     );
   },
 };

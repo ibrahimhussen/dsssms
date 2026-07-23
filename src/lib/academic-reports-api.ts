@@ -1,28 +1,23 @@
 import { apiClient, unwrap } from './api-client';
-import { cleanParams } from './clean-params';
 import type { ApiResponse } from '../types/api';
-import type {
-  AcademicReport,
-  GenerateClassroomReportsInput,
-  GenerateReportsResult,
-  ReportPeriodParams,
-} from '../types/academic-report';
+import type { AcademicReport, GenerateClassroomReportsInput, GenerateReportsResult } from '../types/academic-report';
+import type { Semester } from '../types/grade';
 
 export const academicReportsApi = {
   generateForClassroom(input: GenerateClassroomReportsInput) {
     return unwrap(apiClient.post<ApiResponse<GenerateReportsResult>>('/academic-reports/generate', input));
   },
 
-  getStudentReport(studentId: number, params: ReportPeriodParams) {
-    return unwrap(
-      apiClient.get<ApiResponse<AcademicReport>>(`/academic-reports/student/${studentId}`, {
-        params: cleanParams(params),
-      })
-    );
+  getStudentReportHistory(studentId: number) {
+    return unwrap(apiClient.get<ApiResponse<AcademicReport[]>>(`/academic-reports/student/${studentId}/history`));
   },
 
-  listStudentReports(studentId: number) {
-    return unwrap(apiClient.get<ApiResponse<AcademicReport[]>>(`/academic-reports/student/${studentId}/history`));
+  getStudentReport(studentId: number, semester: Semester, academicYear: string) {
+    return unwrap(
+      apiClient.get<ApiResponse<AcademicReport>>(`/academic-reports/student/${studentId}`, {
+        params: { semester, academicYear },
+      })
+    );
   },
 
   getMyReports() {
