@@ -1,6 +1,9 @@
 import pino from 'pino';
 import { env, isDevelopment } from '../../config/env';
 
+// Use require.resolve to ensure pino-pretty is resolved correctly
+declare const require: any;
+
 /**
  * Central application logger. In development it prints human-readable,
  * colorized output; in production it emits structured JSON suitable for
@@ -21,7 +24,7 @@ export const logger = pino({
   },
   transport: isDevelopment
     ? {
-        target: 'pino-pretty',
+        target: require.resolve('pino-pretty'),
         options: {
           colorize: true,
           translateTime: 'SYS:standard',

@@ -23,10 +23,12 @@ const prisma = new PrismaClient({
   adapter,
 });
 
-
-
 const DEFAULT_PASSWORD = 'Demo@12345'; // Meets the password policy; CHANGE on first login in any real deployment.
-const CURRENT_ACADEMIC_YEAR = '2025/26';
+const CURRENT_ACADEMIC_YEAR = '2026/27';
+
+// Dev convenience only: reseeding resets every demo account's password back to
+// DEFAULT_PASSWORD, even if it already existed. Never do this in a production seed.
+const RESET_PASSWORDS_ON_RESEED = true;
 
 async function hash(password: string): Promise<string> {
   return bcrypt.hash(password, 12);
@@ -43,6 +45,19 @@ async function uniqueUsername(base: string): Promise<string> {
   return candidate;
 }
 
+/** Resets an existing user's password to DEFAULT_PASSWORD, if enabled. */
+async function resetPasswordIfEnabled(username: string, label: string): Promise<void> {
+  if (!RESET_PASSWORDS_ON_RESEED) {
+    console.log(`  ${label} already exists, skipping.`);
+    return;
+  }
+  await prisma.user.update({
+    where: { username },
+    data: { passwordHash: await hash(DEFAULT_PASSWORD) },
+  });
+  console.log(`  ${label} already exists — password reset to: ${DEFAULT_PASSWORD}`);
+}
+
 async function main(): Promise<void> {
   console.log('Seeding roles...');
   for (const roleName of Object.values(RoleName)) {
@@ -55,9 +70,9 @@ async function main(): Promise<void> {
   // --- Admin ---------------------------------------------------------------
   console.log('Seeding default administrator...');
   const adminUsername = 'admin';
-  let adminUser = await prisma.user.findUnique({ where: { username: adminUsername } });
+  const adminUser = await prisma.user.findUnique({ where: { username: adminUsername } });
   if (!adminUser) {
-    adminUser = await prisma.user.create({
+    await prisma.user.create({
       data: {
         username: adminUsername,
         email: 'admin@dinsho-secondary.edu.et',
@@ -68,7 +83,7 @@ async function main(): Promise<void> {
     });
     console.log(`  Created admin — username: ${adminUsername} / password: ${DEFAULT_PASSWORD}`);
   } else {
-    console.log('  Admin already exists, skipping.');
+    await resetPasswordIfEnabled(adminUsername, 'Admin');
   }
 
   // --- Subjects --------------------------------------------------------------
@@ -107,6 +122,8 @@ async function main(): Promise<void> {
       include: { teacher: true },
     });
     console.log(`  Created teacher — username: ${teacherUsername} / password: ${DEFAULT_PASSWORD}`);
+  } else {
+    await resetPasswordIfEnabled(teacherUsername, 'Teacher');
   }
   const teacher = teacherUser.teacher!;
 
@@ -154,9 +171,12 @@ async function main(): Promise<void> {
 
   for (const s of studentSeed) {
     const admissionNumber = `ADM-2025-${1000 + studentSeed.indexOf(s)}`;
-    const existingStudent = await prisma.student.findUnique({ where: { admissionNumber } });
+    const existingStudent = await prisma.student.findUnique({ where: { admissionNumber }, include: { user: true } });
     if (existingStudent) {
       students.push(existingStudent);
+      if (existingStudent.user) {
+        await resetPasswordIfEnabled(existingStudent.user.username, `Student ${existingStudent.user.username}`);
+      }
       continue;
     }
 

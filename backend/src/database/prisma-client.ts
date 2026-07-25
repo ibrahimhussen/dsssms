@@ -3,19 +3,7 @@ import { PrismaMariaDb } from '@prisma/adapter-mariadb';
 import { env, isDevelopment } from '../config/env';
 import { logger } from '../core/logger/logger';
 
-/**
- * A single, shared Prisma client instance for the whole process.
- *
- * Prisma 7 removed the built-in Rust query engine — every database now
- * requires an explicit JS driver adapter passed to the PrismaClient
- * constructor. For MySQL/MariaDB that adapter is @prisma/adapter-mariadb
- * (same wire protocol), constructed here from the same DATABASE_URL the
- * rest of the app already validates via config/env.ts.
- *
- * We stash the client on `globalThis` in development so that `tsx watch`
- * hot reloads don't spawn a fresh client (and a fresh connection pool) on
- * every file save.
- */
+
 const globalForPrisma = globalThis as unknown as { prisma?: PrismaClient };
 
 function createPrismaClient(): PrismaClient {
