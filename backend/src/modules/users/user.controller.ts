@@ -2,7 +2,13 @@ import { Request, Response } from 'express';
 import { asyncHandler } from '../../core/http/async-handler';
 import { ApiResponse } from '../../core/http/api-response';
 import { userService } from './user.service';
-import { CreateStaffInput, ListUsersQuery, UserIdParam, UpdateUserStatusInput } from './validation/user.validation';
+import {
+  CreateStaffInput,
+  ListUsersQuery,
+  listUsersQuerySchema,
+  UserIdParam,
+  UpdateUserStatusInput,
+} from './validation/user.validation';
 
 export class UserController {
   createStaff = asyncHandler(async (req: Request, res: Response) => {
@@ -16,7 +22,7 @@ export class UserController {
   });
 
   list = asyncHandler(async (req: Request, res: Response) => {
-    const query = req.query as unknown as ListUsersQuery;
+    const query: ListUsersQuery = listUsersQuerySchema.parse(req.query);
     const { items, meta } = await userService.listUsers(query);
     ApiResponse.success(res, { message: 'Users retrieved', data: items, pagination: meta });
   });

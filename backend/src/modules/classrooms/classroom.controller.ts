@@ -5,6 +5,7 @@ import { classroomService } from './classroom.service';
 import {
   CreateClassroomInput,
   ListClassroomsQuery,
+  listClassroomsQuerySchema,
   ClassroomIdParam,
   UpdateClassroomInput,
 } from './validation/classroom.validation';
@@ -17,7 +18,7 @@ export class ClassroomController {
   });
 
   list = asyncHandler(async (req: Request, res: Response) => {
-    const query = req.query as unknown as ListClassroomsQuery;
+    const query: ListClassroomsQuery = listClassroomsQuerySchema.parse(req.query);
     const { items, meta } = await classroomService.listClassrooms(query);
     ApiResponse.success(res, { message: 'Classrooms retrieved', data: items, pagination: meta });
   });

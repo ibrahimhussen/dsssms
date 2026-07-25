@@ -6,6 +6,7 @@ import { UnauthorizedError } from '../../core/errors/app-error';
 import {
   CreateStudentInput,
   ListStudentsQuery,
+  listStudentsQuerySchema,
   StudentIdParam,
   UpdateStudentInput,
   TransferClassroomInput,
@@ -25,7 +26,7 @@ export class StudentController {
   });
 
   list = asyncHandler(async (req: Request, res: Response) => {
-    const query = req.query as unknown as ListStudentsQuery;
+    const query: ListStudentsQuery = listStudentsQuerySchema.parse(req.query);
     const { items, meta } = await studentService.listStudents(query);
     ApiResponse.success(res, { message: 'Students retrieved', data: items, pagination: meta });
   });
