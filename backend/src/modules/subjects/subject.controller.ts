@@ -2,7 +2,13 @@ import { Request, Response } from 'express';
 import { asyncHandler } from '../../core/http/async-handler';
 import { ApiResponse } from '../../core/http/api-response';
 import { subjectService } from './subject.service';
-import { CreateSubjectInput, ListSubjectsQuery, SubjectIdParam, UpdateSubjectInput } from './validation/subject.validation';
+import {
+  CreateSubjectInput,
+  ListSubjectsQuery,
+  listSubjectsQuerySchema,
+  SubjectIdParam,
+  UpdateSubjectInput,
+} from './validation/subject.validation';
 
 export class SubjectController {
   create = asyncHandler(async (req: Request, res: Response) => {
@@ -12,7 +18,7 @@ export class SubjectController {
   });
 
   list = asyncHandler(async (req: Request, res: Response) => {
-    const query = req.query as unknown as ListSubjectsQuery;
+    const query: ListSubjectsQuery = listSubjectsQuerySchema.parse(req.query);
     const { items, meta } = await subjectService.listSubjects(query);
     ApiResponse.success(res, { message: 'Subjects retrieved', data: items, pagination: meta });
   });
