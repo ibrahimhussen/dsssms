@@ -1,19 +1,25 @@
 import { NextFunction, Request, Response } from 'express';
-import { AnyZodObject, ZodError } from 'zod';
+import { ZodType, ZodError } from 'zod';
 import { ValidationError } from '../core/errors/app-error';
 
 type RequestPart = 'body' | 'query' | 'params';
 
-/**
- * Validates and (via zod's parse) coerces `req[part]` against the given
- * schema. On failure, raises a ValidationError with field-level details so
- * the client can render inline form errors. On success, `req[part]` is
- * replaced with the parsed (and thus type-safe, defaulted, trimmed) value.
- */
-export function validate(schema: AnyZodObject, part: RequestPart = 'body') {
+export function validate(schema: ZodType, part: RequestPart = 'body') {
   return (req: Request, _res: Response, next: NextFunction): void => {
     try {
-      req[part] = schema.parse(req[part]);
+      const parsed = schema.parse(req[part]);
+
+      if (part === 'query') {
+        Object.defineProperty(req, 'query', {
+          value: parsed,
+          writable: true,
+          configurable: true,
+          enumerable: true,
+        });
+      } else {
+        req[part] = parsed;
+      }
+
       next();
     } catch (err) {
       if (err instanceof ZodError) {
