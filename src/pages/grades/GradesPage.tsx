@@ -5,6 +5,7 @@ import { useClassroomGrades, useRecordBulkGrades } from '../../hooks/useGrades';
 import { SelectField } from '../../components/ui/SelectField';
 import { TextField } from '../../components/ui/TextField';
 import { Button } from '../../components/ui/Button';
+import { Badge } from '../../components/ui/Badge';
 import { LedgerRule } from '../../components/ui/LedgerRule';
 import { EmptyState } from '../../components/ui/EmptyState';
 import type { Semester } from '../../types/grade';
@@ -147,6 +148,9 @@ export function GradesPage() {
                   <th className="border-b border-slate-200 bg-paper-100 px-4 py-3 text-left text-xs font-semibold tracking-wide text-ink-700 uppercase">
                     Letter grade
                   </th>
+                  <th className="border-b border-slate-200 bg-paper-100 px-4 py-3 text-left text-xs font-semibold tracking-wide text-ink-700 uppercase">
+                    Status
+                  </th>
                 </tr>
               </thead>
               <tbody>
@@ -167,6 +171,15 @@ export function GradesPage() {
                       />
                     </td>
                     <td className="px-4 py-3 font-mono text-xs text-slate-500">{existingLetterFor(s.studentId) ?? '—'}</td>
+                    <td className="px-4 py-3">
+                      {draftScores[s.studentId] !== undefined && draftScores[s.studentId] !== String(existingScoreFor(s.studentId) ?? '') ? (
+                        <Badge tone="warning">Unsaved change</Badge>
+                      ) : existingScoreFor(s.studentId) !== undefined ? (
+                        <Badge tone="positive">Saved</Badge>
+                      ) : (
+                        <Badge>Not entered</Badge>
+                      )}
+                    </td>
                   </tr>
                 ))}
               </tbody>

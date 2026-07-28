@@ -34,3 +34,15 @@ export interface BulkMarkAttendanceInput {
   attendanceDate: string;
   records: BulkAttendanceRecordInput[];
 }
+
+export interface AttendanceHistoryParams {
+  page?: number;
+  limit?: number;
+  from?: string;
+  to?: string;
+}
+
+export interface AttendanceSummaryParams {
+  from?: string;
+  to?: string;
+}

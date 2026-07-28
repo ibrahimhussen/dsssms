@@ -1,7 +1,7 @@
 import { Modal } from './Modal';
 import { Button } from './Button';
 
-interface CredentialItem {
+export interface CredentialsItem {
   label: string;
   username: string;
   temporaryPassword: string;
@@ -10,7 +10,7 @@ interface CredentialItem {
 interface CredentialsDialogProps {
   isOpen: boolean;
   onClose: () => void;
-  items: CredentialItem[];
+  items: CredentialsItem[];
 }
 
 export function CredentialsDialog({ isOpen, onClose, items }: CredentialsDialogProps) {

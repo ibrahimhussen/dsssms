@@ -24,7 +24,8 @@ export function AttendancePage() {
   const { data: assignments } = useMyTeachingAssignments();
   const [classroomId, setClassroomId] = useState<number | undefined>(undefined);
   const [attendanceDate, setAttendanceDate] = useState<string>(todayIsoDate());
-  const [draftStatuses, setDraftStatuses] = useState<Record<number, BulkAttendanceRecordInput>>({});
+  const [draftStatuses, setDraftStatuses] = useState<Record<number, AttendanceStatus>>({});
+  const [draftRemarks, setDraftRemarks] = useState<Record<number, string>>({});
   const [feedback, setFeedback] = useState<{ type: 'success' | 'error'; message: string } | null>(null);
 
   // A teacher may teach the same classroom for several subjects — de-duplicate to one entry per classroom.
@@ -49,28 +50,44 @@ export function AttendancePage() {
   const markBulk = useMarkBulkAttendance();
 
   function statusFor(studentId: number): AttendanceStatus {
-    if (draftStatuses[studentId]) return draftStatuses[studentId].status;
+    if (draftStatuses[studentId]) return draftStatuses[studentId];
     const existing = existingRecords?.find((r) => r.studentId === studentId);
     return existing?.status ?? 'PRESENT';
   }
 
+  function remarksFor(studentId: number): string {
+    if (draftRemarks[studentId] !== undefined) return draftRemarks[studentId];
+    const existing = existingRecords?.find((r) => r.studentId === studentId);
+    return existing?.remarks ?? '';
+  }
+
   function setStatus(studentId: number, status: AttendanceStatus) {
-    setDraftStatuses((prev) => ({ ...prev, [studentId]: { studentId, status } }));
+    setDraftStatuses((prev) => ({ ...prev, [studentId]: status }));
+  }
+
+  function setRemarks(studentId: number, remarks: string) {
+    setDraftRemarks((prev) => ({ ...prev, [studentId]: remarks }));
+  }
+
+  function markAllPresent() {
+    if (!rosterData) return;
+    setDraftStatuses(Object.fromEntries(rosterData.items.map((s) => [s.studentId, 'PRESENT' as AttendanceStatus])));
   }
 
   async function handleSubmit() {
     if (!classroomId || !rosterData) return;
     setFeedback(null);
 
-    const records: BulkAttendanceRecordInput[] = rosterData.items.map((s) => ({
-      studentId: s.studentId,
-      status: statusFor(s.studentId),
-    }));
+    const records: BulkAttendanceRecordInput[] = rosterData.items.map((s) => {
+      const remarks = remarksFor(s.studentId).trim();
+      return { studentId: s.studentId, status: statusFor(s.studentId), ...(remarks ? { remarks } : {}) };
+    });
 
     try {
       const result = await markBulk.mutateAsync({ classroomId, attendanceDate, records });
       setFeedback({ type: 'success', message: `Saved attendance for ${result.recordsSaved} student(s).` });
       setDraftStatuses({});
+      setDraftRemarks({});
     } catch (err) {
       setFeedback({ type: 'error', message: err instanceof Error ? err.message : 'Could not save attendance.' });
     }
@@ -113,6 +130,12 @@ export function AttendancePage() {
         <EmptyState title="No students enrolled" description="This classroom has no enrolled students yet." />
       ) : (
         <>
+          <div className="mb-3 flex justify-end">
+            <Button variant="ghost" onClick={markAllPresent}>
+              Mark all as present
+            </Button>
+          </div>
+
           <div className="overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-sm">
             <table className="w-full border-collapse text-sm">
               <thead>
@@ -122,6 +145,9 @@ export function AttendancePage() {
                   </th>
                   <th className="border-b border-slate-200 bg-paper-100 px-4 py-3 text-left text-xs font-semibold tracking-wide text-ink-700 uppercase">
                     Status
+                  </th>
+                  <th className="border-b border-slate-200 bg-paper-100 px-4 py-3 text-left text-xs font-semibold tracking-wide text-ink-700 uppercase">
+                    Remarks
                   </th>
                 </tr>
               </thead>
@@ -152,6 +178,16 @@ export function AttendancePage() {
                           );
                         })}
                       </div>
+                    </td>
+                    <td className="px-4 py-3">
+                      <input
+                        type="text"
+                        placeholder="Optional note…"
+                        maxLength={255}
+                        value={remarksFor(s.studentId)}
+                        onChange={(e) => setRemarks(s.studentId, e.target.value)}
+                        className="w-full min-w-[160px] rounded-lg border border-slate-200 px-2.5 py-1.5 text-sm"
+                      />
                     </td>
                   </tr>
                 ))}

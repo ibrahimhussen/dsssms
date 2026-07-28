@@ -14,8 +14,11 @@ import { SubjectsPage } from '../pages/subjects/SubjectsPage';
 import { TeacherAssignmentsPage } from '../pages/teacher-subjects/TeacherAssignmentsPage';
 import { AttendancePage } from '../pages/attendance/AttendancePage';
 import { GradesPage } from '../pages/grades/GradesPage';
+import { MyClassesPage } from '../pages/my-classes/MyClassesPage';
 import { AcademicReportsPage } from '../pages/academic-reports/AcademicReportsPage';
 import { NotificationsPage } from '../pages/notifications/NotificationsPage';
+import { MyAttendancePage } from '../pages/my-attendance/MyAttendancePage';
+import { MyGradesPage } from '../pages/my-grades/MyGradesPage';
 
 export const router = createBrowserRouter([
   {
@@ -50,8 +53,17 @@ export const router = createBrowserRouter([
           {
             element: <ProtectedRoute allowedRoles={['TEACHER']} />,
             children: [
+              { path: '/my-classes', element: <MyClassesPage /> },
               { path: '/attendance', element: <AttendancePage /> },
               { path: '/grades', element: <GradesPage /> },
+            ],
+          },
+
+          {
+            element: <ProtectedRoute allowedRoles={['STUDENT']} />,
+            children: [
+              { path: '/my-attendance', element: <MyAttendancePage /> },
+              { path: '/my-grades', element: <MyGradesPage /> },
             ],
           },
 

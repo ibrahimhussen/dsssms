@@ -35,3 +35,10 @@ export interface ClassroomGradesQuery {
   semester: Semester;
   academicYear: string;
 }
+
+export interface StudentGradesParams {
+  page?: number;
+  limit?: number;
+  semester?: Semester;
+  academicYear?: string;
+}

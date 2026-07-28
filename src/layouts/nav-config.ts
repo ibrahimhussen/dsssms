@@ -16,8 +16,11 @@ export const NAV_ITEMS: NavItem[] = [
   { label: 'Classrooms', path: '/classrooms', allowedRoles: OVERSIGHT_ROLES },
   { label: 'Subjects', path: '/subjects', allowedRoles: OVERSIGHT_ROLES },
   { label: 'Teaching assignments', path: '/teaching-assignments', allowedRoles: OVERSIGHT_ROLES },
+  { label: 'My classes', path: '/my-classes', allowedRoles: ['TEACHER'] },
   { label: 'Take attendance', path: '/attendance', allowedRoles: ['TEACHER'] },
   { label: 'Enter grades', path: '/grades', allowedRoles: ['TEACHER'] },
+  { label: 'My attendance', path: '/my-attendance', allowedRoles: ['STUDENT'] },
+  { label: 'My grades', path: '/my-grades', allowedRoles: ['STUDENT'] },
   { label: 'Academic reports', path: '/academic-reports', allowedRoles: OVERSIGHT_ROLES },
   { label: 'Notifications', path: '/notifications' },
 ];

@@ -1,11 +1,23 @@
-import { apiClient, unwrap } from './api-client';
+import { apiClient, unwrap, unwrapPaginated } from './api-client';
 import { cleanParams } from './clean-params';
 import type { ApiResponse } from '../types/api';
-import type { AttendanceRecord, AttendanceSummary, BulkMarkAttendanceInput } from '../types/attendance';
+import type {
+  AttendanceHistoryParams,
+  AttendanceRecord,
+  AttendanceSummary,
+  AttendanceSummaryParams,
+  BulkMarkAttendanceInput,
+} from '../types/attendance';
 
 export const attendanceApi = {
-  getMySummary() {
-    return unwrap(apiClient.get<ApiResponse<AttendanceSummary>>('/attendance/me/summary'));
+  getMySummary(params: AttendanceSummaryParams = {}) {
+    return unwrap(
+      apiClient.get<ApiResponse<AttendanceSummary>>('/attendance/me/summary', { params: cleanParams(params) })
+    );
+  },
+
+  getMyHistory(params: AttendanceHistoryParams = {}) {
+    return unwrapPaginated(apiClient.get<ApiResponse<AttendanceRecord[]>>('/attendance/me', { params: cleanParams(params) }));
   },
 
   getClassroomAttendance(classroomId: number, attendanceDate: string) {
@@ -18,9 +30,15 @@ export const attendanceApi = {
     return unwrap(apiClient.post<ApiResponse<{ classroomId: number; attendanceDate: string; recordsSaved: number }>>('/attendance', input));
   },
 
-  getStudentSummary(studentId: number, params: { from?: string; to?: string } = {}) {
+  getStudentSummary(studentId: number, params: AttendanceSummaryParams = {}) {
     return unwrap(
       apiClient.get<ApiResponse<AttendanceSummary>>(`/attendance/student/${studentId}/summary`, { params: cleanParams(params) })
+    );
+  },
+
+  getStudentHistory(studentId: number, params: AttendanceHistoryParams = {}) {
+    return unwrapPaginated(
+      apiClient.get<ApiResponse<AttendanceRecord[]>>(`/attendance/student/${studentId}`, { params: cleanParams(params) })
     );
   },
 };

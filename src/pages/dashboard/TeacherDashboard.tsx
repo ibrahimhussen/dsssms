@@ -1,35 +1,108 @@
-import { useMyTeachingAssignments } from '../../hooks/useDashboardData';
-import { Card } from '../../components/ui/Card';
+import { Link } from 'react-router-dom';
+import { useMyClassrooms } from '../../hooks/useMyClassrooms';
+import { useTodaysAttendanceStatus } from '../../hooks/useDashboardData';
+import { useMyInbox } from '../../hooks/useNotifications';
+import { Card, StatCard } from '../../components/ui/Card';
+import { Badge } from '../../components/ui/Badge';
+import { Button } from '../../components/ui/Button';
 import { EmptyState } from '../../components/ui/EmptyState';
 
 export function TeacherDashboard() {
-  const { data: assignments, isLoading } = useMyTeachingAssignments();
+  const { data: classrooms, isLoading: isClassroomsLoading } = useMyClassrooms();
+  const classroomIds = classrooms?.map((c) => c.classroomId) ?? [];
+  const { pendingCount, isLoading: isAttendanceStatusLoading } = useTodaysAttendanceStatus(classroomIds);
+  const { data: inbox, isLoading: isInboxLoading } = useMyInbox({ page: 1, limit: 3 });
 
-  return (
-    <Card>
-      <h2 className="mb-3 text-lg">Your teaching assignments</h2>
+  const totalStudents = classrooms?.reduce((sum, c) => sum + c.studentCount, 0) ?? 0;
+  const totalSubjectAssignments = classrooms?.reduce((sum, c) => sum + c.subjects.length, 0) ?? 0;
 
-      {isLoading ? (
-        <p className="text-sm text-slate-500">Loading…</p>
-      ) : !assignments || assignments.length === 0 ? (
+  if (!isClassroomsLoading && (!classrooms || classrooms.length === 0)) {
+    return (
+      <Card>
         <EmptyState
           title="No teaching assignments yet"
           description="An administrator hasn't assigned you to any subject or classroom yet."
         />
-      ) : (
-        <ul className="flex flex-col gap-2">
-          {assignments.map((a) => (
-            <li key={a.id} className="flex items-center justify-between rounded-lg border border-slate-200 px-4 py-3">
-              <span className="text-sm font-semibold text-ink-900">
-                {a.subject.subjectName} ({a.subject.subjectCode})
-              </span>
-              <span className="text-sm text-slate-500">
-                {a.classroom.className} {a.classroom.section} · {a.classroom.academicYear}
-              </span>
-            </li>
-          ))}
-        </ul>
-      )}
-    </Card>
+      </Card>
+    );
+  }
+
+  return (
+    <>
+      <div className="mb-6 flex flex-wrap gap-3">
+        <Link to="/attendance">
+          <Button>Take today's attendance</Button>
+        </Link>
+        <Link to="/grades">
+          <Button variant="secondary">Enter grades</Button>
+        </Link>
+        <Link to="/my-classes">
+          <Button variant="ghost">View my classes</Button>
+        </Link>
+      </div>
+
+      <div className="mb-7 grid grid-cols-[repeat(auto-fit,minmax(180px,1fr))] gap-4">
+        <StatCard label="Classes assigned" value={isClassroomsLoading ? '—' : classrooms?.length ?? 0} />
+        <StatCard label="Students taught" value={isClassroomsLoading ? '—' : totalStudents} />
+        <StatCard label="Subjects taught" value={isClassroomsLoading ? '—' : totalSubjectAssignments} />
+        <StatCard
+          label="Pending: attendance today"
+          value={isClassroomsLoading || isAttendanceStatusLoading ? '—' : pendingCount}
+        />
+      </div>
+
+      <div className="grid grid-cols-[2fr_1fr] gap-5 max-[900px]:grid-cols-1">
+        <Card>
+          <h2 className="mb-3 text-lg">Your classes</h2>
+          <ul className="flex flex-col gap-2">
+            {classrooms?.map((c) => (
+              <li
+                key={c.classroomId}
+                className="flex flex-wrap items-center justify-between gap-2 rounded-lg border border-slate-200 px-4 py-3"
+              >
+                <div>
+                  <span className="text-sm font-semibold text-ink-900">
+                    {c.className} {c.section} · {c.academicYear}
+                  </span>
+                  <div className="mt-1 flex flex-wrap gap-1.5">
+                    {c.subjects.map((s) => (
+                      <Badge key={s.subjectId}>{s.subjectName}</Badge>
+                    ))}
+                  </div>
+                </div>
+                <span className="text-sm text-slate-500">{c.studentCount} student(s)</span>
+              </li>
+            ))}
+          </ul>
+        </Card>
+
+        <Card>
+          <div className="mb-3 flex items-center justify-between">
+            <h2 className="text-lg">Notice board</h2>
+            <Link to="/notifications" className="text-[0.8125rem] font-semibold text-pine-700 hover:underline">
+              View all
+            </Link>
+          </div>
+
+          {isInboxLoading ? (
+            <p className="text-sm text-slate-500">Loading…</p>
+          ) : !inbox || inbox.items.length === 0 ? (
+            <EmptyState title="No notifications" description="You're all caught up." />
+          ) : (
+            <ul className="flex flex-col gap-3">
+              {inbox.items.map((n) => (
+                <li key={n.notificationId} className="rounded-lg border border-paper-100 px-3 py-2.5">
+                  <div className="mb-0.5 flex items-center justify-between gap-2">
+                    <span className="text-sm font-semibold text-ink-900">{n.title}</span>
+                    {n.status === 'UNREAD' && <Badge tone="warning">New</Badge>}
+                  </div>
+                  <p className="line-clamp-2 text-[0.8125rem] text-slate-500">{n.message}</p>
+                </li>
+              ))}
+            </ul>
+          )}
+        </Card>
+      </div>
+    </>
   );
 }

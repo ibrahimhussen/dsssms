@@ -1,4 +1,4 @@
-import { useMutation, useQueryClient } from '@tanstack/react-query';
+import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { academicReportsApi } from '../lib/academic-reports-api';
 import type { GenerateClassroomReportsInput } from '../types/academic-report';
 
@@ -9,5 +9,12 @@ export function useGenerateClassroomReports() {
     onSuccess: () => {
       void queryClient.invalidateQueries({ queryKey: ['academic-reports'] });
     },
+  });
+}
+
+export function useMyAcademicReports() {
+  return useQuery({
+    queryKey: ['academic-reports', 'me'],
+    queryFn: () => academicReportsApi.getMyReports(),
   });
 }
