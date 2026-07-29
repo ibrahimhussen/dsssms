@@ -135,6 +135,14 @@ endpoint:
   semester/year
 - **Notifications**: direct send, "notify all parents of a student", inbox
   with read/unread state
+- **Timetable**: oversight roles build each classroom's weekly schedule from
+  its teaching assignments (with double-booking checks for both the teacher
+  and the classroom); teachers and students each see their own read-only view
+- **Assignments & homework**: teachers set homework per class, with a
+  per-student submission checklist; students self-report completion
+  (auto-flagged late if submitted after the due date) and teachers can
+  correct any student's status. There's no file-upload layer in this system,
+  so this is a completion checklist, not file submission.
 
 ## Known limitations / next steps
 
@@ -157,7 +165,13 @@ These are flagged deliberately rather than hidden:
 4. **Grading scale is a placeholder.** `computeLetterGrade` in
    `backend/src/core/utils/grading.util.ts` uses a sensible default A+–F
    cutoff — adjust it to the school's actual policy if different.
-5. **This was built without network access to actually run `npm install`,
+5. **The Timetable and Assignments schema additions need a migration.**
+   `TimetableEntry`, `Assignment`, and `AssignmentSubmission` were added to
+   `prisma/schema.prisma` after the database was last migrated. Run
+   `npx prisma migrate dev --name add_timetable_and_assignments` (and
+   `npx prisma generate`) before starting the backend, or these routes will
+   fail against a stale database.
+6. **This was built without network access to actually run `npm install`,
    `prisma generate`, or a build.** Every file was reviewed by hand, but if
    something doesn't compile on first try, that's why — check the exact
    error and it's very likely a small fix (missing peer dependency version,

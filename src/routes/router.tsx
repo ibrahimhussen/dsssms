@@ -19,6 +19,10 @@ import { AcademicReportsPage } from '../pages/academic-reports/AcademicReportsPa
 import { NotificationsPage } from '../pages/notifications/NotificationsPage';
 import { MyAttendancePage } from '../pages/my-attendance/MyAttendancePage';
 import { MyGradesPage } from '../pages/my-grades/MyGradesPage';
+import { TimetablePage } from '../pages/timetable/TimetablePage';
+import { TimetableAdminPage } from '../pages/timetable-admin/TimetableAdminPage';
+import { TeacherHomeworkPage } from '../pages/homework/TeacherHomeworkPage';
+import { StudentHomeworkPage } from '../pages/my-homework/StudentHomeworkPage';
 
 export const router = createBrowserRouter([
   {
@@ -46,6 +50,7 @@ export const router = createBrowserRouter([
               { path: '/classrooms', element: <ClassroomsPage /> },
               { path: '/subjects', element: <SubjectsPage /> },
               { path: '/teaching-assignments', element: <TeacherAssignmentsPage /> },
+              { path: '/timetable-admin', element: <TimetableAdminPage /> },
               { path: '/academic-reports', element: <AcademicReportsPage /> },
             ],
           },
@@ -56,6 +61,7 @@ export const router = createBrowserRouter([
               { path: '/my-classes', element: <MyClassesPage /> },
               { path: '/attendance', element: <AttendancePage /> },
               { path: '/grades', element: <GradesPage /> },
+              { path: '/homework', element: <TeacherHomeworkPage /> },
             ],
           },
 
@@ -64,7 +70,13 @@ export const router = createBrowserRouter([
             children: [
               { path: '/my-attendance', element: <MyAttendancePage /> },
               { path: '/my-grades', element: <MyGradesPage /> },
+              { path: '/my-homework', element: <StudentHomeworkPage /> },
             ],
+          },
+
+          {
+            element: <ProtectedRoute allowedRoles={['TEACHER', 'STUDENT']} />,
+            children: [{ path: '/timetable', element: <TimetablePage /> }],
           },
 
           // Visible to every authenticated role — no role restriction in nav-config.

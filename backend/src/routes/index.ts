@@ -10,6 +10,8 @@ import { attendanceRoutes } from '../modules/attendance/attendance.routes';
 import { gradeRoutes } from '../modules/grades/grade.routes';
 import { academicReportRoutes } from '../modules/academic-reports/academic-report.routes';
 import { notificationRoutes } from '../modules/notifications/notification.routes';
+import { timetableRoutes } from '../modules/timetable/timetable.routes';
+import { assignmentRoutes } from '../modules/assignments/assignment.routes';
 
 const router = Router();
 
@@ -24,6 +26,8 @@ router.use('/attendance', attendanceRoutes);
 router.use('/grades', gradeRoutes);
 router.use('/academic-reports', academicReportRoutes);
 router.use('/notifications', notificationRoutes);
+router.use('/timetable', timetableRoutes);
+router.use('/assignments', assignmentRoutes);
 
 // Backend API surface complete. Stage 7+ builds the frontend against these routes.
 

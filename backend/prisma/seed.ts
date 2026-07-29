@@ -144,9 +144,10 @@ async function main(): Promise<void> {
 
   // --- Teaching assignments ------------------------------------------------------
   console.log('Seeding teaching assignments...');
+  const teacherSubjectAssignments = [];
   for (const subject of subjects.slice(0, 2)) {
     // Teacher teaches Math and English to this demo classroom.
-    await prisma.teacherSubject.upsert({
+    const assignment = await prisma.teacherSubject.upsert({
       where: {
         teacherId_subjectId_classroomId: {
           teacherId: teacher.teacherId,
@@ -156,6 +157,35 @@ async function main(): Promise<void> {
       },
       update: {},
       create: { teacherId: teacher.teacherId, subjectId: subject.subjectId, classroomId: classroom.classroomId },
+    });
+    teacherSubjectAssignments.push(assignment);
+  }
+
+  // --- Timetable ------------------------------------------------------------------
+  console.log('Seeding a sample weekly timetable...');
+  const timetableSeed = [
+    { teacherSubject: teacherSubjectAssignments[0], dayOfWeek: 'MONDAY' as const, startTime: '08:00', endTime: '08:45', roomNumber: 'Room 12' },
+    { teacherSubject: teacherSubjectAssignments[1], dayOfWeek: 'MONDAY' as const, startTime: '08:45', endTime: '09:30', roomNumber: 'Room 12' },
+    { teacherSubject: teacherSubjectAssignments[0], dayOfWeek: 'WEDNESDAY' as const, startTime: '09:30', endTime: '10:15', roomNumber: 'Room 12' },
+    { teacherSubject: teacherSubjectAssignments[1], dayOfWeek: 'FRIDAY' as const, startTime: '08:00', endTime: '08:45', roomNumber: 'Room 12' },
+  ];
+  for (const slot of timetableSeed) {
+    await prisma.timetableEntry.upsert({
+      where: {
+        teacherSubjectId_dayOfWeek_startTime: {
+          teacherSubjectId: slot.teacherSubject.id,
+          dayOfWeek: slot.dayOfWeek,
+          startTime: slot.startTime,
+        },
+      },
+      update: {},
+      create: {
+        teacherSubjectId: slot.teacherSubject.id,
+        dayOfWeek: slot.dayOfWeek,
+        startTime: slot.startTime,
+        endTime: slot.endTime,
+        roomNumber: slot.roomNumber,
+      },
     });
   }
 
@@ -273,6 +303,27 @@ async function main(): Promise<void> {
         },
       });
     }
+  }
+
+  // --- Sample assignment ------------------------------------------------------
+  console.log('Seeding a sample assignment...');
+  const dueDate = new Date();
+  dueDate.setDate(dueDate.getDate() + 7);
+  const existingAssignment = await prisma.assignment.findFirst({
+    where: { teacherSubjectId: teacherSubjectAssignments[0].id, title: 'Algebra worksheet — Chapter 3' },
+  });
+  if (!existingAssignment) {
+    const assignment = await prisma.assignment.create({
+      data: {
+        teacherSubjectId: teacherSubjectAssignments[0].id,
+        title: 'Algebra worksheet — Chapter 3',
+        description: 'Complete odd-numbered questions 1–25 and show your working.',
+        dueDate,
+      },
+    });
+    await prisma.assignmentSubmission.createMany({
+      data: students.map((s) => ({ assignmentId: assignment.assignmentId, studentId: s.studentId })),
+    });
   }
 
   console.log('\nSeeding complete. All demo accounts use the password: ' + DEFAULT_PASSWORD);

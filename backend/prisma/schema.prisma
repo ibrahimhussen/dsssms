@@ -213,6 +213,9 @@ model TeacherSubject {
   subject   Subject   @relation(fields: [subjectId], references: [subjectId], onDelete: Cascade)
   classroom Classroom @relation(fields: [classroomId], references: [classroomId], onDelete: Cascade)
 
+  timetableEntries TimetableEntry[]
+  assignments      Assignment[]
+
   @@unique([teacherId, subjectId, classroomId])
   @@map("teacher_subjects")
 }
@@ -233,11 +236,12 @@ model Student {
   user      User      @relation(fields: [userId], references: [userId], onDelete: Cascade)
   classroom Classroom @relation(fields: [classroomId], references: [classroomId])
 
-  parentLinks       StudentParentLink[]
-  attendanceRecords Attendance[]
-  grades            Grade[]
-  academicReports   AcademicReport[]
-  notifications     Notification[]
+  parentLinks           StudentParentLink[]
+  attendanceRecords     Attendance[]
+  grades                Grade[]
+  academicReports       AcademicReport[]
+  notifications         Notification[]
+  assignmentSubmissions AssignmentSubmission[]
 
   @@index([classroomId])
   @@map("students")
@@ -370,4 +374,82 @@ model Notification {
   @@index([studentId])
   @@index([recipientUserId])
   @@map("notifications")
+}
+
+// -----------------------------------------------------------------------------
+// E. Timetable and Assignments
+// -----------------------------------------------------------------------------
+
+enum DayOfWeek {
+  MONDAY
+  TUESDAY
+  WEDNESDAY
+  THURSDAY
+  FRIDAY
+  SATURDAY
+}
+
+/// One weekly period slot for a teaching assignment (Teacher+Subject+Classroom).
+/// Powers the Teacher Portal's "Class Timetable" and the Student Portal's
+/// "My Timetable" views. Managed by oversight roles (Admin/Director/Vice
+/// Director); teachers and students only ever read their own slice of it.
+model TimetableEntry {
+  timetableEntryId Int       @id @default(autoincrement())
+  teacherSubjectId Int
+  dayOfWeek        DayOfWeek
+  startTime        String    @db.VarChar(5) // "HH:MM", 24-hour
+  endTime          String    @db.VarChar(5)
+  roomNumber       String?   @db.VarChar(50)
+  createdAt        DateTime  @default(now())
+  updatedAt        DateTime  @updatedAt
+
+  teacherSubject TeacherSubject @relation(fields: [teacherSubjectId], references: [id], onDelete: Cascade)
+
+  @@unique([teacherSubjectId, dayOfWeek, startTime])
+  @@index([teacherSubjectId])
+  @@map("timetable_entries")
+}
+
+enum SubmissionStatus {
+  NOT_SUBMITTED
+  SUBMITTED
+  LATE
+}
+
+/// Homework/assignment set by a teacher for one of their teaching assignments
+/// (a specific subject taught to a specific classroom). Submission tracking
+/// is a per-student checklist rather than file upload — this system has no
+/// file storage layer, so students self-report completion and teachers can
+/// correct that status.
+model Assignment {
+  assignmentId     Int      @id @default(autoincrement())
+  teacherSubjectId Int
+  title            String   @db.VarChar(150)
+  description      String?  @db.Text
+  dueDate          DateTime @db.Date
+  createdAt        DateTime @default(now())
+  updatedAt        DateTime @updatedAt
+
+  teacherSubject TeacherSubject         @relation(fields: [teacherSubjectId], references: [id], onDelete: Cascade)
+  submissions    AssignmentSubmission[]
+
+  @@index([teacherSubjectId])
+  @@map("assignments")
+}
+
+model AssignmentSubmission {
+  submissionId Int              @id @default(autoincrement())
+  assignmentId Int
+  studentId    Int
+  status       SubmissionStatus @default(NOT_SUBMITTED)
+  submittedAt  DateTime?
+  notes        String?          @db.VarChar(500)
+  updatedAt    DateTime         @updatedAt
+
+  assignment Assignment @relation(fields: [assignmentId], references: [assignmentId], onDelete: Cascade)
+  student    Student    @relation(fields: [studentId], references: [studentId], onDelete: Cascade)
+
+  @@unique([assignmentId, studentId])
+  @@index([studentId])
+  @@map("assignment_submissions")
 }
