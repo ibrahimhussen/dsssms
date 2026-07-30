@@ -66,11 +66,6 @@ export class SubjectService {
       throw new ConflictError('Cannot delete a subject that is currently assigned to teachers/classrooms');
     }
 
-    const gradeCount = await prisma.grade.count({ where: { subjectId } });
-    if (gradeCount > 0) {
-      throw new ConflictError('Cannot delete a subject that already has grade records');
-    }
-
     await prisma.subject.delete({ where: { subjectId } });
   }
 

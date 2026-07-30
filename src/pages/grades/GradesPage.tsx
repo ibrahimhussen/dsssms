@@ -1,14 +1,26 @@
-import { useMemo, useState } from 'react';
+import { useState } from 'react';
 import { useMyTeachingAssignments } from '../../hooks/useDashboardData';
-import { useStudents } from '../../hooks/useStudents';
-import { useClassroomGrades, useRecordBulkGrades } from '../../hooks/useGrades';
+import { useClassroomTotals, useDeleteGradeComponent, useGradeScheme } from '../../hooks/useGrades';
 import { SelectField } from '../../components/ui/SelectField';
 import { TextField } from '../../components/ui/TextField';
 import { Button } from '../../components/ui/Button';
 import { Badge } from '../../components/ui/Badge';
+import { Card } from '../../components/ui/Card';
 import { LedgerRule } from '../../components/ui/LedgerRule';
 import { EmptyState } from '../../components/ui/EmptyState';
-import type { Semester } from '../../types/grade';
+import { ConfirmDialog } from '../../components/ui/ConfirmDialog';
+import { AddGradeComponentModal } from './AddGradeComponentModal';
+import { GradeEntryModal } from './GradeEntryModal';
+import type { GradeCategory, GradeComponent, Semester } from '../../types/grade';
+
+const CATEGORY_LABELS: Record<GradeCategory, string> = {
+  QUIZ: 'Quiz',
+  ASSIGNMENT: 'Assignment',
+  TEST: 'Test',
+  MID_EXAM: 'Mid Exam',
+  FINAL_EXAM: 'Final Exam',
+  OTHER: 'Other',
+};
 
 function currentAcademicYear(): string {
   const year = new Date().getFullYear();
@@ -17,83 +29,25 @@ function currentAcademicYear(): string {
 
 export function GradesPage() {
   const { data: assignments } = useMyTeachingAssignments();
-  const [assignmentKey, setAssignmentKey] = useState<string>('');
+  const [teacherSubjectId, setTeacherSubjectId] = useState<string>('');
   const [semester, setSemester] = useState<Semester>('SEMESTER_1');
   const [academicYear, setAcademicYear] = useState<string>(currentAcademicYear());
-  const [draftScores, setDraftScores] = useState<Record<number, string>>({});
-  const [feedback, setFeedback] = useState<{ type: 'success' | 'error'; message: string } | null>(null);
+  const [isAddOpen, setIsAddOpen] = useState(false);
+  const [entryComponentId, setEntryComponentId] = useState<number | null>(null);
+  const [pendingDelete, setPendingDelete] = useState<GradeComponent | null>(null);
 
-  const selectedAssignment = useMemo(
-    () => assignments?.find((a) => `${a.classroom.classroomId}:${a.subject.subjectId}` === assignmentKey),
-    [assignments, assignmentKey]
-  );
+  const selectedAssignment = assignments?.find((a) => String(a.id) === teacherSubjectId);
+  const scope = { teacherSubjectId: Number(teacherSubjectId), semester, academicYear };
+  const hasScope = Boolean(teacherSubjectId && semester && academicYear);
 
-  const { data: rosterData, isLoading: isRosterLoading } = useStudents(
-    { classroomId: selectedAssignment?.classroom.classroomId, limit: 100 },
-    { enabled: Boolean(selectedAssignment) }
-  );
+  const { data: scheme, isLoading: isSchemeLoading } = useGradeScheme(hasScope ? scope : {});
+  const { data: totals, isLoading: isTotalsLoading } = useClassroomTotals(hasScope ? scope : {});
+  const deleteComponent = useDeleteGradeComponent();
 
-  const gradesQuery = useClassroomGrades(
-    selectedAssignment
-      ? {
-          classroomId: selectedAssignment.classroom.classroomId,
-          subjectId: selectedAssignment.subject.subjectId,
-          semester,
-          academicYear,
-        }
-      : {}
-  );
-
-  const recordBulk = useRecordBulkGrades();
-
-  function existingScoreFor(studentId: number): number | undefined {
-    return gradesQuery.data?.find((g) => g.studentId === studentId)?.score;
-  }
-
-  function existingLetterFor(studentId: number): string | undefined {
-    return gradesQuery.data?.find((g) => g.studentId === studentId)?.letterGrade;
-  }
-
-  function scoreFor(studentId: number): string {
-    if (draftScores[studentId] !== undefined) return draftScores[studentId];
-    const existing = existingScoreFor(studentId);
-    return existing !== undefined ? String(existing) : '';
-  }
-
-  function setScore(studentId: number, value: string) {
-    setDraftScores((prev) => ({ ...prev, [studentId]: value }));
-  }
-
-  async function handleSubmit() {
-    if (!selectedAssignment || !rosterData) return;
-    setFeedback(null);
-
-    const records = rosterData.items
-      .map((s) => {
-        const raw = scoreFor(s.studentId);
-        const score = Number(raw);
-        return raw !== '' && Number.isFinite(score) ? { studentId: s.studentId, score } : null;
-      })
-      .filter((r): r is { studentId: number; score: number } => r !== null);
-
-    if (records.length === 0) {
-      setFeedback({ type: 'error', message: 'Enter at least one valid score before saving.' });
-      return;
-    }
-
-    try {
-      const result = await recordBulk.mutateAsync({
-        classroomId: selectedAssignment.classroom.classroomId,
-        subjectId: selectedAssignment.subject.subjectId,
-        semester,
-        academicYear,
-        records,
-      });
-      setFeedback({ type: 'success', message: `Saved grades for ${result.recordsSaved} student(s).` });
-      setDraftScores({});
-    } catch (err) {
-      setFeedback({ type: 'error', message: err instanceof Error ? err.message : 'Could not save grades.' });
-    }
+  async function handleConfirmDelete() {
+    if (!pendingDelete) return;
+    await deleteComponent.mutateAsync(pendingDelete.gradeComponentId);
+    setPendingDelete(null);
   }
 
   return (
@@ -105,18 +59,15 @@ export function GradesPage() {
         <SelectField
           label="Subject & classroom"
           className="min-w-[260px]"
-          value={assignmentKey}
-          onChange={(e) => setAssignmentKey(e.target.value)}
+          value={teacherSubjectId}
+          onChange={(e) => setTeacherSubjectId(e.target.value)}
         >
           <option value="">Select…</option>
-          {assignments?.map((a) => {
-            const key = `${a.classroom.classroomId}:${a.subject.subjectId}`;
-            return (
-              <option key={key} value={key}>
-                {a.subject.subjectName} — {a.classroom.className} {a.classroom.section} ({a.classroom.academicYear})
-              </option>
-            );
-          })}
+          {assignments?.map((a) => (
+            <option key={a.id} value={a.id}>
+              {a.subject.subjectName} — {a.classroom.className} {a.classroom.section} ({a.classroom.academicYear})
+            </option>
+          ))}
         </SelectField>
 
         <SelectField label="Semester" value={semester} onChange={(e) => setSemester(e.target.value as Semester)}>
@@ -129,81 +80,106 @@ export function GradesPage() {
 
       {!selectedAssignment ? (
         <EmptyState title="Select a subject and classroom to begin" />
-      ) : isRosterLoading || gradesQuery.isLoading ? (
+      ) : isSchemeLoading || !scheme ? (
         <p className="text-sm text-slate-500">Loading…</p>
-      ) : !rosterData || rosterData.items.length === 0 ? (
-        <EmptyState title="No students enrolled" description="This classroom has no enrolled students yet." />
       ) : (
         <>
-          <div className="overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-sm">
-            <table className="w-full border-collapse text-sm">
-              <thead>
-                <tr>
-                  <th className="border-b border-slate-200 bg-paper-100 px-4 py-3 text-left text-xs font-semibold tracking-wide text-ink-700 uppercase">
-                    Student
-                  </th>
-                  <th className="border-b border-slate-200 bg-paper-100 px-4 py-3 text-left text-xs font-semibold tracking-wide text-ink-700 uppercase">
-                    Score (0–100)
-                  </th>
-                  <th className="border-b border-slate-200 bg-paper-100 px-4 py-3 text-left text-xs font-semibold tracking-wide text-ink-700 uppercase">
-                    Letter grade
-                  </th>
-                  <th className="border-b border-slate-200 bg-paper-100 px-4 py-3 text-left text-xs font-semibold tracking-wide text-ink-700 uppercase">
-                    Status
-                  </th>
-                </tr>
-              </thead>
-              <tbody>
-                {rosterData.items.map((s) => (
-                  <tr key={s.studentId} className="border-b border-paper-100 last:border-b-0">
-                    <td className="px-4 py-3">
-                      {s.firstName} {s.lastName}
-                    </td>
-                    <td className="px-4 py-3">
-                      <input
-                        type="number"
-                        min={0}
-                        max={100}
-                        step={0.5}
-                        value={scoreFor(s.studentId)}
-                        onChange={(e) => setScore(s.studentId, e.target.value)}
-                        className="w-24 rounded-lg border border-slate-200 px-2.5 py-1.5 text-sm"
-                      />
-                    </td>
-                    <td className="px-4 py-3 font-mono text-xs text-slate-500">{existingLetterFor(s.studentId) ?? '—'}</td>
-                    <td className="px-4 py-3">
-                      {draftScores[s.studentId] !== undefined && draftScores[s.studentId] !== String(existingScoreFor(s.studentId) ?? '') ? (
-                        <Badge tone="warning">Unsaved change</Badge>
-                      ) : existingScoreFor(s.studentId) !== undefined ? (
-                        <Badge tone="positive">Saved</Badge>
-                      ) : (
-                        <Badge>Not entered</Badge>
-                      )}
-                    </td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
-          </div>
-
-          {feedback && (
-            <p
-              className={`mt-4 rounded-lg px-3 py-2.5 text-sm ${
-                feedback.type === 'success' ? 'bg-pine-100 text-pine-800' : 'bg-danger-100 text-danger-600'
-              }`}
-              role="status"
-            >
-              {feedback.message}
-            </p>
-          )}
-
-          <div className="mt-4 flex justify-end">
-            <Button onClick={() => void handleSubmit()} isLoading={recordBulk.isPending}>
-              Save grades
+          <div className="mb-5 flex flex-wrap items-center justify-between gap-3">
+            <div className="flex flex-wrap items-center gap-2">
+              <Badge tone={scheme.totalMaxMarks === 100 ? 'positive' : 'warning'}>
+                {scheme.totalMaxMarks}/100 marks allocated
+              </Badge>
+              <Badge tone={scheme.hasFinalExam ? 'positive' : 'danger'}>
+                {scheme.hasFinalExam ? 'Final Exam included' : 'Final Exam missing (mandatory)'}
+              </Badge>
+            </div>
+            <Button onClick={() => setIsAddOpen(true)} disabled={scheme.remainingMarks <= 0}>
+              Add component
             </Button>
           </div>
+
+          {scheme.components.length === 0 ? (
+            <EmptyState
+              title="No grading scheme yet"
+              description="Add components (Quiz, Assignment, Mid Exam, Final Exam…) that together total 100 marks."
+            />
+          ) : (
+            <div className="mb-8 grid grid-cols-[repeat(auto-fit,minmax(240px,1fr))] gap-4">
+              {scheme.components.map((c) => (
+                <Card key={c.gradeComponentId}>
+                  <div className="mb-2 flex items-center justify-between gap-2">
+                    <Badge>{CATEGORY_LABELS[c.category]}</Badge>
+                    <span className="text-sm font-semibold text-ink-900">/ {c.maxMarks}</span>
+                  </div>
+                  <p className="mb-3 font-display text-lg font-semibold text-ink-900">{c.name}</p>
+                  <div className="flex gap-2">
+                    <Button variant="ghost" onClick={() => setEntryComponentId(c.gradeComponentId)}>
+                      Enter scores
+                    </Button>
+                    <Button variant="danger" onClick={() => setPendingDelete(c)}>
+                      Delete
+                    </Button>
+                  </div>
+                </Card>
+              ))}
+            </div>
+          )}
+
+          <h2 className="mb-3 text-lg">Class totals</h2>
+          {isTotalsLoading ? (
+            <p className="text-sm text-slate-500">Loading…</p>
+          ) : !totals || totals.length === 0 ? (
+            <EmptyState title="No students enrolled" description="This classroom has no enrolled students yet." />
+          ) : (
+            <div className="overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-sm">
+              <table className="w-full border-collapse text-sm">
+                <thead>
+                  <tr>
+                    <th className="border-b border-slate-200 bg-paper-100 px-4 py-3 text-left text-xs font-semibold tracking-wide text-ink-700 uppercase">
+                      Student
+                    </th>
+                    <th className="border-b border-slate-200 bg-paper-100 px-4 py-3 text-left text-xs font-semibold tracking-wide text-ink-700 uppercase">
+                      Total
+                    </th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {totals.map((t) => (
+                    <tr key={t.studentId} className="border-b border-paper-100 last:border-b-0">
+                      <td className="px-4 py-3">{t.studentName}</td>
+                      <td className="px-4 py-3 font-mono text-sm">
+                        {t.totalScore} / {t.totalMaxMarks}
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+          )}
         </>
       )}
+
+      {hasScope && (
+        <AddGradeComponentModal
+          isOpen={isAddOpen}
+          onClose={() => setIsAddOpen(false)}
+          scope={scope}
+          remainingMarks={scheme?.remainingMarks ?? 100}
+          hasFinalExam={scheme?.hasFinalExam ?? false}
+        />
+      )}
+
+      <GradeEntryModal gradeComponentId={entryComponentId} onClose={() => setEntryComponentId(null)} />
+
+      <ConfirmDialog
+        isOpen={Boolean(pendingDelete)}
+        title="Delete grade component"
+        message={`Delete "${pendingDelete?.name}"? This removes every student's score for it too.`}
+        confirmLabel="Delete"
+        isLoading={deleteComponent.isPending}
+        onConfirm={() => void handleConfirmDelete()}
+        onCancel={() => setPendingDelete(null)}
+      />
     </div>
   );
 }

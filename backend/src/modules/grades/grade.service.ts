@@ -1,42 +1,35 @@
-import { Prisma, RoleName } from '@prisma/client';
+import { GradeCategory, Prisma, RoleName, Semester } from '@prisma/client';
 import { prisma } from '../../database/prisma-client';
-import { BadRequestError, ForbiddenError, NotFoundError } from '../../core/errors/app-error';
-import { getPaginationParams, buildPaginationMeta, PaginationQuery } from '../../core/http/pagination';
-import { computeLetterGrade } from '../../core/utils/grading.util';
-import { teacherSubjectService } from '../teacher-subjects/teacher-subject.service';
+import { BadRequestError, ConflictError, ForbiddenError, NotFoundError } from '../../core/errors/app-error';
 import { assertCanAccessStudentRecords } from '../../core/authorization/student-access';
 import { AuthenticatedUser } from '../../middlewares/authenticate.middleware';
 import {
-  BulkRecordGradesInput,
-  ClassroomGradesQuery,
+  CreateGradeComponentInput,
+  GradeComponentQuery,
+  RecordComponentEntriesInput,
   StudentGradesQuery,
-  UpdateGradeInput,
 } from './validation/grade.validation';
-import { BulkGradeResultDto, GradeRecordDto } from './dto/grade.dto';
+import {
+  ClassroomSubjectTotalDto,
+  ComponentRosterDto,
+  GradeComponentDto,
+  GradeEntryResultDto,
+  GradeSchemeDto,
+  SubjectGradeBreakdownDto,
+} from './dto/grade.dto';
 
-const GRADE_INCLUDE = {
-  student: true,
-  subject: true,
-  teacher: true,
-} satisfies Prisma.GradeInclude;
+const OVERSIGHT_ROLES: RoleName[] = [RoleName.ADMIN, RoleName.DIRECTOR, RoleName.VICE_DIRECTOR];
+const SCHEME_MAX_TOTAL = 100;
 
-type GradeWithRelations = Prisma.GradeGetPayload<{ include: typeof GRADE_INCLUDE }>;
-
-function toGradeRecordDto(g: GradeWithRelations): GradeRecordDto {
+function toComponentDto(c: { gradeComponentId: number; teacherSubjectId: number; semester: Semester; academicYear: string; category: GradeCategory; name: string; maxMarks: Prisma.Decimal }): GradeComponentDto {
   return {
-    gradeId: g.gradeId,
-    studentId: g.studentId,
-    studentName: `${g.student.firstName} ${g.student.lastName}`,
-    subjectId: g.subjectId,
-    subjectCode: g.subject.subjectCode,
-    subjectName: g.subject.subjectName,
-    score: Number(g.score),
-    letterGrade: g.letterGrade,
-    semester: g.semester,
-    academicYear: g.academicYear,
-    recordedBy: { teacherId: g.teacher.teacherId, firstName: g.teacher.firstName, lastName: g.teacher.lastName },
-    createdAt: g.createdAt.toISOString(),
-    updatedAt: g.updatedAt.toISOString(),
+    gradeComponentId: c.gradeComponentId,
+    teacherSubjectId: c.teacherSubjectId,
+    semester: c.semester,
+    academicYear: c.academicYear,
+    category: c.category,
+    name: c.name,
+    maxMarks: Number(c.maxMarks),
   };
 }
 
@@ -46,153 +39,263 @@ async function getTeacherIdForUser(userId: number): Promise<number> {
   return teacher.teacherId;
 }
 
-const OVERSIGHT_ROLES: RoleName[] = [RoleName.ADMIN, RoleName.DIRECTOR, RoleName.VICE_DIRECTOR];
+async function assertTeacherOwnsTeacherSubject(teacherId: number, teacherSubjectId: number) {
+  const teacherSubject = await prisma.teacherSubject.findUnique({ where: { id: teacherSubjectId } });
+  if (!teacherSubject) throw new NotFoundError('Teaching assignment');
+  if (teacherSubject.teacherId !== teacherId) {
+    throw new ForbiddenError('You may only manage grades for subjects you teach');
+  }
+  return teacherSubject;
+}
 
 export class GradeService {
   /**
-   * Records scores for an entire classroom roster for one subject/semester
-   * in a single call. Verifies the recording teacher is actually assigned
-   * to teach that subject in that classroom before allowing the write.
+   * Adds one assessment component (e.g. "Quiz 1", worth 10 marks) to a
+   * subject's grading scheme for a semester. FINAL_EXAM is capped at exactly
+   * 50 marks and only one is allowed per scheme; every component together
+   * may never exceed 100 marks, though the scheme can be built up gradually
+   * — it doesn't need to total 100 immediately.
    */
-  async recordBulkGrades(actor: AuthenticatedUser, input: BulkRecordGradesInput): Promise<BulkGradeResultDto> {
+  async createComponent(actor: AuthenticatedUser, input: CreateGradeComponentInput): Promise<GradeComponentDto> {
     const teacherId = await getTeacherIdForUser(actor.userId);
+    await assertTeacherOwnsTeacherSubject(teacherId, input.teacherSubjectId);
 
-    await teacherSubjectService.assertTeacherAssignedToClassroom({
-      teacherId,
-      classroomId: input.classroomId,
-      subjectId: input.subjectId,
+    const existing = await prisma.gradeComponent.findMany({
+      where: { teacherSubjectId: input.teacherSubjectId, semester: input.semester, academicYear: input.academicYear },
     });
 
+    if (input.category === GradeCategory.FINAL_EXAM && existing.some((c) => c.category === GradeCategory.FINAL_EXAM)) {
+      throw new ConflictError('A Final Exam component already exists for this subject and semester');
+    }
+
+    const currentTotal = existing.reduce((sum, c) => sum + Number(c.maxMarks), 0);
+    if (currentTotal + input.maxMarks > SCHEME_MAX_TOTAL) {
+      throw new ConflictError(
+        `Adding this component would exceed ${SCHEME_MAX_TOTAL} total marks (currently ${currentTotal}/${SCHEME_MAX_TOTAL} allocated)`
+      );
+    }
+
+    const created = await prisma.gradeComponent.create({ data: input });
+    return toComponentDto(created);
+  }
+
+  async deleteComponent(actor: AuthenticatedUser, gradeComponentId: number): Promise<void> {
+    const teacherId = await getTeacherIdForUser(actor.userId);
+    const component = await prisma.gradeComponent.findUnique({
+      where: { gradeComponentId },
+      include: { teacherSubject: true },
+    });
+    if (!component) throw new NotFoundError('Grade component');
+    if (component.teacherSubject.teacherId !== teacherId) {
+      throw new ForbiddenError('You may only manage grades for subjects you teach');
+    }
+    await prisma.gradeComponent.delete({ where: { gradeComponentId } });
+  }
+
+  /** The full component scheme for one subject/semester, with an allocation summary. */
+  async listComponents(actor: AuthenticatedUser, query: GradeComponentQuery): Promise<GradeSchemeDto> {
+    if (!OVERSIGHT_ROLES.includes(actor.role)) {
+      if (actor.role !== RoleName.TEACHER) throw new ForbiddenError();
+      const teacherId = await getTeacherIdForUser(actor.userId);
+      await assertTeacherOwnsTeacherSubject(teacherId, query.teacherSubjectId);
+    }
+
+    const components = await prisma.gradeComponent.findMany({
+      where: { teacherSubjectId: query.teacherSubjectId, semester: query.semester, academicYear: query.academicYear },
+      orderBy: { createdAt: 'asc' },
+    });
+
+    const totalMaxMarks = components.reduce((sum, c) => sum + Number(c.maxMarks), 0);
+
+    return {
+      components: components.map(toComponentDto),
+      totalMaxMarks,
+      remainingMarks: SCHEME_MAX_TOTAL - totalMaxMarks,
+      hasFinalExam: components.some((c) => c.category === GradeCategory.FINAL_EXAM),
+    };
+  }
+
+  /** Bulk-upserts one component's scores across a set of students. */
+  async recordComponentEntries(
+    actor: AuthenticatedUser,
+    gradeComponentId: number,
+    input: RecordComponentEntriesInput
+  ): Promise<GradeEntryResultDto> {
+    const teacherId = await getTeacherIdForUser(actor.userId);
+    const component = await prisma.gradeComponent.findUnique({
+      where: { gradeComponentId },
+      include: { teacherSubject: true },
+    });
+    if (!component) throw new NotFoundError('Grade component');
+    if (component.teacherSubject.teacherId !== teacherId) {
+      throw new ForbiddenError('You may only manage grades for subjects you teach');
+    }
+
     const studentIds = input.records.map((r) => r.studentId);
-    const uniqueStudentIds = new Set(studentIds);
-    if (uniqueStudentIds.size !== studentIds.length) {
-      throw new BadRequestError('Duplicate studentId entries in the grade batch');
+    if (new Set(studentIds).size !== studentIds.length) {
+      throw new BadRequestError('Duplicate studentId entries in the score batch');
+    }
+
+    const maxMarks = Number(component.maxMarks);
+    const overMax = input.records.find((r) => r.score > maxMarks);
+    if (overMax) {
+      throw new BadRequestError(`Score cannot exceed ${maxMarks} for "${component.name}"`);
     }
 
     const studentsInClassroom = await prisma.student.findMany({
-      where: { classroomId: input.classroomId, studentId: { in: studentIds } },
+      where: { classroomId: component.teacherSubject.classroomId, studentId: { in: studentIds } },
       select: { studentId: true },
     });
-
     if (studentsInClassroom.length !== studentIds.length) {
       const found = new Set(studentsInClassroom.map((s) => s.studentId));
       const missing = studentIds.filter((id) => !found.has(id));
-      throw new BadRequestError(`These students are not enrolled in classroom ${input.classroomId}: ${missing.join(', ')}`);
+      throw new BadRequestError(`These students are not enrolled in this classroom: ${missing.join(', ')}`);
     }
 
     await prisma.$transaction(
-      input.records.map((record) =>
-        prisma.grade.upsert({
-          where: {
-            studentId_subjectId_semester_academicYear: {
-              studentId: record.studentId,
-              subjectId: input.subjectId,
-              semester: input.semester,
-              academicYear: input.academicYear,
-            },
-          },
-          create: {
-            studentId: record.studentId,
-            subjectId: input.subjectId,
-            teacherId,
-            score: record.score,
-            letterGrade: computeLetterGrade(record.score),
-            semester: input.semester,
-            academicYear: input.academicYear,
-          },
-          update: {
-            teacherId,
-            score: record.score,
-            letterGrade: computeLetterGrade(record.score),
-          },
+      input.records.map((r) =>
+        prisma.gradeEntry.upsert({
+          where: { gradeComponentId_studentId: { gradeComponentId, studentId: r.studentId } },
+          create: { gradeComponentId, studentId: r.studentId, score: r.score },
+          update: { score: r.score },
         })
       )
     );
 
+    return { gradeComponentId, recordsSaved: input.records.length };
+  }
+
+  /** One component's full class roster with each student's current score (or null if ungraded). */
+  async getComponentRoster(actor: AuthenticatedUser, gradeComponentId: number): Promise<ComponentRosterDto> {
+    const component = await prisma.gradeComponent.findUnique({
+      where: { gradeComponentId },
+      include: { teacherSubject: true },
+    });
+    if (!component) throw new NotFoundError('Grade component');
+
+    if (!OVERSIGHT_ROLES.includes(actor.role)) {
+      const teacherId = await getTeacherIdForUser(actor.userId);
+      if (component.teacherSubject.teacherId !== teacherId) throw new ForbiddenError();
+    }
+
+    const [roster, entries] = await Promise.all([
+      prisma.student.findMany({
+        where: { classroomId: component.teacherSubject.classroomId },
+        orderBy: { firstName: 'asc' },
+      }),
+      prisma.gradeEntry.findMany({ where: { gradeComponentId } }),
+    ]);
+
+    const scoreByStudent = new Map(entries.map((e) => [e.studentId, Number(e.score)]));
+
     return {
-      classroomId: input.classroomId,
-      subjectId: input.subjectId,
-      semester: input.semester,
-      academicYear: input.academicYear,
-      recordsSaved: input.records.length,
+      component: toComponentDto(component),
+      roster: roster.map((s) => ({
+        studentId: s.studentId,
+        studentName: `${s.firstName} ${s.lastName}`,
+        score: scoreByStudent.get(s.studentId) ?? null,
+      })),
     };
   }
 
-  async updateGrade(actor: AuthenticatedUser, gradeId: number, input: UpdateGradeInput): Promise<GradeRecordDto> {
-    const record = await prisma.grade.findUnique({ where: { gradeId }, include: GRADE_INCLUDE });
-    if (!record) throw new NotFoundError('Grade record');
+  /** Every student's running total (sum of scores / sum of max marks) for one subject/semester scheme. */
+  async getClassroomTotals(actor: AuthenticatedUser, query: GradeComponentQuery): Promise<ClassroomSubjectTotalDto[]> {
+    const teacherSubject = await prisma.teacherSubject.findUnique({ where: { id: query.teacherSubjectId } });
+    if (!teacherSubject) throw new NotFoundError('Teaching assignment');
 
     if (!OVERSIGHT_ROLES.includes(actor.role)) {
       const teacherId = await getTeacherIdForUser(actor.userId);
-      if (record.teacherId !== teacherId) {
-        throw new ForbiddenError('You may only correct grades you recorded yourself');
-      }
+      if (teacherSubject.teacherId !== teacherId) throw new ForbiddenError();
     }
 
-    const updated = await prisma.grade.update({
-      where: { gradeId },
-      data: { score: input.score, letterGrade: computeLetterGrade(input.score) },
-      include: GRADE_INCLUDE,
-    });
+    const [components, students] = await Promise.all([
+      prisma.gradeComponent.findMany({
+        where: { teacherSubjectId: query.teacherSubjectId, semester: query.semester, academicYear: query.academicYear },
+        include: { entries: true },
+      }),
+      prisma.student.findMany({ where: { classroomId: teacherSubject.classroomId }, orderBy: { firstName: 'asc' } }),
+    ]);
 
-    return toGradeRecordDto(updated);
+    const totalMaxMarks = components.reduce((sum, c) => sum + Number(c.maxMarks), 0);
+
+    return students.map((s) => {
+      const totalScore = components.reduce((sum, c) => {
+        const entry = c.entries.find((e) => e.studentId === s.studentId);
+        return sum + (entry ? Number(entry.score) : 0);
+      }, 0);
+      return { studentId: s.studentId, studentName: `${s.firstName} ${s.lastName}`, totalScore, totalMaxMarks };
+    });
   }
 
-  async getClassroomGrades(actor: AuthenticatedUser, query: ClassroomGradesQuery): Promise<GradeRecordDto[]> {
-    if (!OVERSIGHT_ROLES.includes(actor.role)) {
-      if (actor.role !== RoleName.TEACHER) throw new ForbiddenError();
-      const teacherId = await getTeacherIdForUser(actor.userId);
-      await teacherSubjectService.assertTeacherAssignedToClassroom({
-        teacherId,
-        classroomId: query.classroomId,
-        subjectId: query.subjectId,
-      });
-    }
-
-    const records = await prisma.grade.findMany({
-      where: {
-        subjectId: query.subjectId,
-        semester: query.semester,
-        academicYear: query.academicYear,
-        student: { classroomId: query.classroomId },
-      },
-      include: GRADE_INCLUDE,
-      orderBy: { student: { firstName: 'asc' } },
-    });
-
-    return records.map(toGradeRecordDto);
-  }
-
+  /** A student's full grade breakdown across every subject, grouped by subject/semester/year. */
   async getStudentGrades(
     actor: AuthenticatedUser,
     studentId: number,
     query: StudentGradesQuery
-  ): Promise<{ items: GradeRecordDto[]; meta: ReturnType<typeof buildPaginationMeta> }> {
+  ): Promise<SubjectGradeBreakdownDto[]> {
     await assertCanAccessStudentRecords(actor, studentId);
 
-    const { skip, take } = getPaginationParams(query as PaginationQuery);
+    const student = await prisma.student.findUnique({ where: { studentId } });
+    if (!student) throw new NotFoundError('Student');
 
-    const where: Prisma.GradeWhereInput = {
-      studentId,
-      ...(query.semester && { semester: query.semester }),
-      ...(query.academicYear && { academicYear: query.academicYear }),
-    };
+    const teacherSubjects = await prisma.teacherSubject.findMany({
+      where: { classroomId: student.classroomId },
+      include: { subject: true, teacher: true },
+    });
 
-    const [items, totalItems] = await Promise.all([
-      prisma.grade.findMany({
-        where,
-        include: GRADE_INCLUDE,
-        skip,
-        take,
-        orderBy: [{ academicYear: 'desc' }, { semester: 'asc' }],
-      }),
-      prisma.grade.count({ where }),
-    ]);
+    const results: SubjectGradeBreakdownDto[] = [];
 
-    return {
-      items: items.map(toGradeRecordDto),
-      meta: buildPaginationMeta({ page: query.page, limit: query.limit, totalItems }),
-    };
+    for (const ts of teacherSubjects) {
+      const components = await prisma.gradeComponent.findMany({
+        where: {
+          teacherSubjectId: ts.id,
+          ...(query.semester && { semester: query.semester }),
+          ...(query.academicYear && { academicYear: query.academicYear }),
+        },
+        include: { entries: { where: { studentId } } },
+        orderBy: { createdAt: 'asc' },
+      });
+
+      if (components.length === 0) continue;
+
+      const bySemesterYear = new Map<string, typeof components>();
+      for (const c of components) {
+        const key = `${c.semester}|${c.academicYear}`;
+        const list = bySemesterYear.get(key) ?? [];
+        list.push(c);
+        bySemesterYear.set(key, list);
+      }
+
+      for (const [key, comps] of bySemesterYear) {
+        const [semester, academicYear] = key.split('|') as [Semester, string];
+        const componentBreakdown = comps.map((c) => ({
+          gradeComponentId: c.gradeComponentId,
+          category: c.category,
+          name: c.name,
+          maxMarks: Number(c.maxMarks),
+          score: c.entries[0] ? Number(c.entries[0].score) : null,
+        }));
+
+        results.push({
+          teacherSubjectId: ts.id,
+          subject: {
+            subjectId: ts.subject.subjectId,
+            subjectCode: ts.subject.subjectCode,
+            subjectName: ts.subject.subjectName,
+          },
+          teacher: { teacherId: ts.teacher.teacherId, firstName: ts.teacher.firstName, lastName: ts.teacher.lastName },
+          semester,
+          academicYear,
+          components: componentBreakdown,
+          totalScore: componentBreakdown.reduce((sum, c) => sum + (c.score ?? 0), 0),
+          totalMaxMarks: componentBreakdown.reduce((sum, c) => sum + c.maxMarks, 0),
+        });
+      }
+    }
+
+    return results.sort(
+      (a, b) => b.academicYear.localeCompare(a.academicYear) || a.subject.subjectName.localeCompare(b.subject.subjectName)
+    );
   }
 }
 

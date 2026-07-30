@@ -24,9 +24,15 @@ function toAcademicReportDto(report: ReportWithStudent): AcademicReportDto {
 export class AcademicReportService {
   /**
    * Regenerates the average mark and class rank for every student in a
-   * classroom for a given semester/academic year. Students with no grade
-   * records for that period are skipped (nothing meaningful to average) and
-   * reported back separately so the caller knows grading isn't complete.
+   * classroom for a given semester/academic year. For each subject, a
+   * student's mark is normalized to a percentage of that subject's grading
+   * scheme (sum of entered scores / sum of the scheme's max marks) so a
+   * partially-built scheme (e.g. missing the Final Exam component) still
+   * averages fairly against subjects with a complete /100 scheme. A subject
+   * with no grading scheme defined yet for this semester is skipped for
+   * that student. Students with no gradable subjects at all are skipped
+   * entirely and reported back separately so the caller knows grading
+   * isn't complete.
    *
    * Uses standard competition ranking (1, 2, 2, 4 — ties share a rank and
    * the next rank accounts for the tie).
@@ -38,23 +44,50 @@ export class AcademicReportService {
     if (!classroom) throw new NotFoundError('Classroom');
 
     const students = await prisma.student.findMany({ where: { classroomId: input.classroomId } });
+    const teacherSubjects = await prisma.teacherSubject.findMany({ where: { classroomId: input.classroomId } });
+
+    const components = await prisma.gradeComponent.findMany({
+      where: {
+        teacherSubjectId: { in: teacherSubjects.map((ts) => ts.id) },
+        semester: input.semester,
+        academicYear: input.academicYear,
+      },
+      include: { entries: true },
+    });
+
+    const componentsByTeacherSubject = new Map<number, typeof components>();
+    for (const c of components) {
+      const list = componentsByTeacherSubject.get(c.teacherSubjectId) ?? [];
+      list.push(c);
+      componentsByTeacherSubject.set(c.teacherSubjectId, list);
+    }
 
     const averages: { studentId: number; average: number }[] = [];
     const skippedStudentIds: number[] = [];
 
     for (const student of students) {
-      const grades = await prisma.grade.findMany({
-        where: { studentId: student.studentId, semester: input.semester, academicYear: input.academicYear },
-        select: { score: true },
-      });
+      const subjectPercentages: number[] = [];
 
-      if (grades.length === 0) {
+      for (const ts of teacherSubjects) {
+        const comps = componentsByTeacherSubject.get(ts.id) ?? [];
+        const totalMaxMarks = comps.reduce((sum, c) => sum + Number(c.maxMarks), 0);
+        if (totalMaxMarks === 0) continue;
+
+        const totalScore = comps.reduce((sum, c) => {
+          const entry = c.entries.find((e) => e.studentId === student.studentId);
+          return sum + (entry ? Number(entry.score) : 0);
+        }, 0);
+
+        subjectPercentages.push((totalScore / totalMaxMarks) * 100);
+      }
+
+      if (subjectPercentages.length === 0) {
         skippedStudentIds.push(student.studentId);
         continue;
       }
 
-      const total = grades.reduce((sum, g) => sum + Number(g.score), 0);
-      averages.push({ studentId: student.studentId, average: Math.round((total / grades.length) * 100) / 100 });
+      const total = subjectPercentages.reduce((sum, v) => sum + v, 0);
+      averages.push({ studentId: student.studentId, average: Math.round((total / subjectPercentages.length) * 100) / 100 });
     }
 
     // Standard competition ranking: sort descending, ties share a rank,

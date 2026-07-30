@@ -1,56 +1,61 @@
 import { z } from 'zod';
-import { Semester } from '@prisma/client';
-import { paginationQuerySchema } from '../../../core/http/pagination';
+import { GradeCategory, Semester } from '@prisma/client';
 
-const scoreField = z.coerce.number().min(0, 'Score cannot be negative').max(100, 'Score cannot exceed 100');
 const academicYearField = z
   .string()
   .trim()
   .regex(/^\d{4}(\/\d{2,4})?$/, 'Academic year must look like "2025" or "2025/26"');
 
-export const bulkRecordGradesSchema = z.object({
-  classroomId: z.coerce.number().int().positive(),
-  subjectId: z.coerce.number().int().positive(),
+const maxMarksField = z.coerce.number().positive('Max marks must be greater than 0').max(100);
+
+export const createGradeComponentSchema = z
+  .object({
+    teacherSubjectId: z.coerce.number().int().positive(),
+    semester: z.nativeEnum(Semester),
+    academicYear: academicYearField,
+    category: z.nativeEnum(GradeCategory),
+    name: z.string().trim().min(1, 'Name is required').max(100),
+    maxMarks: maxMarksField,
+  })
+  .refine((data) => data.category !== GradeCategory.FINAL_EXAM || data.maxMarks === 50, {
+    message: 'Final Exam must be worth exactly 50 marks',
+    path: ['maxMarks'],
+  });
+
+export const gradeComponentQuerySchema = z.object({
+  teacherSubjectId: z.coerce.number().int().positive(),
   semester: z.nativeEnum(Semester),
   academicYear: academicYearField,
+});
+
+export const gradeComponentIdParamSchema = z.object({
+  id: z.coerce.number().int().positive(),
+});
+
+export const recordComponentEntriesSchema = z.object({
   records: z
     .array(
       z.object({
         studentId: z.coerce.number().int().positive(),
-        score: scoreField,
+        score: z.coerce.number().min(0, 'Score cannot be negative'),
       })
     )
-    .min(1, 'At least one grade record is required')
+    .min(1, 'At least one score is required')
     .max(200),
 });
 
-export const updateGradeSchema = z.object({
-  score: scoreField,
-});
-
-export const classroomGradesQuerySchema = z.object({
-  classroomId: z.coerce.number().int().positive(),
-  subjectId: z.coerce.number().int().positive(),
-  semester: z.nativeEnum(Semester),
-  academicYear: academicYearField,
-});
-
-export const studentGradesQuerySchema = paginationQuerySchema.extend({
+export const studentGradesQuerySchema = z.object({
   semester: z.nativeEnum(Semester).optional(),
   academicYear: academicYearField.optional(),
-});
-
-export const gradeIdParamSchema = z.object({
-  id: z.coerce.number().int().positive(),
 });
 
 export const studentIdParamSchema = z.object({
   studentId: z.coerce.number().int().positive(),
 });
 
-export type BulkRecordGradesInput = z.infer<typeof bulkRecordGradesSchema>;
-export type UpdateGradeInput = z.infer<typeof updateGradeSchema>;
-export type ClassroomGradesQuery = z.infer<typeof classroomGradesQuerySchema>;
+export type CreateGradeComponentInput = z.infer<typeof createGradeComponentSchema>;
+export type GradeComponentQuery = z.infer<typeof gradeComponentQuerySchema>;
+export type GradeComponentIdParam = z.infer<typeof gradeComponentIdParamSchema>;
+export type RecordComponentEntriesInput = z.infer<typeof recordComponentEntriesSchema>;
 export type StudentGradesQuery = z.infer<typeof studentGradesQuerySchema>;
-export type GradeIdParam = z.infer<typeof gradeIdParamSchema>;
 export type StudentIdParam = z.infer<typeof studentIdParamSchema>;

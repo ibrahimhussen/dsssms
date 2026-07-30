@@ -128,8 +128,14 @@ endpoint:
 - **Attendance**: daily roster marking per classroom, same-day correction
   window for teachers, full oversight correction for admin roles, per-student
   history and summaries
-- **Grades**: bulk score entry per classroom/subject/semester, automatic
-  letter-grade computation
+- **Grades**: component-based grading matching Ethiopian secondary school
+  practice — a teacher builds a subject's assessment scheme per semester out
+  of components (Quiz, Assignment, Test, Mid Exam, or a custom name), each
+  worth a teacher-chosen number of marks, with the scheme capped at 100
+  total. Final Exam is mandatory and fixed at exactly 50 marks. Scores are
+  entered per component per student; a student's subject total is the sum
+  of their component scores out of the scheme's total marks. No letter
+  grades — everything is numeric, out of 100.
 - **Academic reports**: per-classroom average + class rank generation
   (standard competition ranking, ties handled correctly), regenerable per
   semester/year
@@ -162,16 +168,18 @@ These are flagged deliberately rather than hidden:
    logic (competition ranking, token duration parsing, password/grade
    policy) — see `backend/src/**/__tests__/`. Integration/E2E tests against a
    real database are not included.
-4. **Grading scale is a placeholder.** `computeLetterGrade` in
-   `backend/src/core/utils/grading.util.ts` uses a sensible default A+–F
-   cutoff — adjust it to the school's actual policy if different.
-5. **The Timetable and Assignments schema additions need a migration.**
-   `TimetableEntry`, `Assignment`, and `AssignmentSubmission` were added to
-   `prisma/schema.prisma` after the database was last migrated. Run
-   `npx prisma migrate dev --name add_timetable_and_assignments` (and
+4. **The Timetable, Assignments, and Grades schema changes all need a
+   migration.** `TimetableEntry`, `Assignment`, `AssignmentSubmission`,
+   `GradeComponent`, and `GradeEntry` were added — and the old single-score
+   `Grade` model removed — after the database was last migrated. This is a
+   breaking change for the grades table specifically: if you have real data
+   in the old `grades` table, write a one-off script to convert each row
+   into a component + entry before migrating, or accept the loss if it's
+   still pre-launch demo data. Run
+   `npx prisma migrate dev --name add_timetable_assignments_and_grading` (and
    `npx prisma generate`) before starting the backend, or these routes will
    fail against a stale database.
-6. **This was built without network access to actually run `npm install`,
+5. **This was built without network access to actually run `npm install`,
    `prisma generate`, or a build.** Every file was reviewed by hand, but if
    something doesn't compile on first try, that's why — check the exact
    error and it's very likely a small fix (missing peer dependency version,

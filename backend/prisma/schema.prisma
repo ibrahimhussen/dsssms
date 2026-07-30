@@ -158,7 +158,6 @@ model Teacher {
   classroomsAsHomeroom Classroom[]      @relation("HomeroomTeacher")
   subjectAssignments   TeacherSubject[]
   attendanceRecords    Attendance[]
-  gradesGiven          Grade[]
 
   @@map("teachers")
 }
@@ -197,7 +196,6 @@ model Subject {
   subjectName String @db.VarChar(100)
 
   teacherAssignments TeacherSubject[]
-  grades             Grade[]
 
   @@map("subjects")
 }
@@ -215,6 +213,7 @@ model TeacherSubject {
 
   timetableEntries TimetableEntry[]
   assignments      Assignment[]
+  gradeComponents  GradeComponent[]
 
   @@unique([teacherId, subjectId, classroomId])
   @@map("teacher_subjects")
@@ -238,7 +237,7 @@ model Student {
 
   parentLinks           StudentParentLink[]
   attendanceRecords     Attendance[]
-  grades                Grade[]
+  gradeEntries          GradeEntry[]
   academicReports       AcademicReport[]
   notifications         Notification[]
   assignmentSubmissions AssignmentSubmission[]
@@ -318,25 +317,57 @@ enum Semester {
   SEMESTER_2
 }
 
-model Grade {
-  gradeId      Int      @id @default(autoincrement())
-  studentId    Int
-  subjectId    Int
-  teacherId    Int
-  score        Decimal  @db.Decimal(5, 2)
-  letterGrade  String   @db.VarChar(2)
-  semester     Semester
-  academicYear String   @db.VarChar(10)
-  createdAt    DateTime @default(now())
-  updatedAt    DateTime @updatedAt
+enum GradeCategory {
+  QUIZ
+  ASSIGNMENT
+  TEST
+  MID_EXAM
+  FINAL_EXAM
+  OTHER
+}
 
-  student Student @relation(fields: [studentId], references: [studentId], onDelete: Cascade)
-  subject Subject @relation(fields: [subjectId], references: [subjectId])
-  teacher Teacher @relation(fields: [teacherId], references: [teacherId])
+/// One assessment component in a subject's grading scheme for a given
+/// teaching assignment + semester + academic year (e.g. "Quiz 1" worth 10
+/// marks, out of a scheme that must total 100). A teacher builds this list
+/// up component by component. FINAL_EXAM is mandatory and must be worth
+/// exactly 50 marks; every other category is optional and the teacher
+/// chooses its name and weight, as long as the whole scheme never exceeds
+/// 100 marks. Multiple components of the same category are allowed (e.g.
+/// "Quiz 1", "Quiz 2"), distinguished by name.
+model GradeComponent {
+  gradeComponentId Int           @id @default(autoincrement())
+  teacherSubjectId Int
+  semester         Semester
+  academicYear     String        @db.VarChar(10)
+  category         GradeCategory
+  name             String        @db.VarChar(100)
+  maxMarks         Decimal       @db.Decimal(5, 2)
+  createdAt        DateTime      @default(now())
+  updatedAt        DateTime      @updatedAt
 
-  @@unique([studentId, subjectId, semester, academicYear])
+  teacherSubject TeacherSubject @relation(fields: [teacherSubjectId], references: [id], onDelete: Cascade)
+  entries        GradeEntry[]
+
+  @@unique([teacherSubjectId, semester, academicYear, name])
+  @@index([teacherSubjectId, semester, academicYear])
+  @@map("grade_components")
+}
+
+/// One student's score for one grade component.
+model GradeEntry {
+  gradeEntryId     Int      @id @default(autoincrement())
+  gradeComponentId Int
+  studentId        Int
+  score            Decimal  @db.Decimal(5, 2)
+  createdAt        DateTime @default(now())
+  updatedAt        DateTime @updatedAt
+
+  gradeComponent GradeComponent @relation(fields: [gradeComponentId], references: [gradeComponentId], onDelete: Cascade)
+  student        Student        @relation(fields: [studentId], references: [studentId], onDelete: Cascade)
+
+  @@unique([gradeComponentId, studentId])
   @@index([studentId])
-  @@map("grades")
+  @@map("grade_entries")
 }
 
 model AcademicReport {

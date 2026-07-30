@@ -1,26 +1,55 @@
-import { apiClient, unwrap, unwrapPaginated } from './api-client';
+import { apiClient, unwrap } from './api-client';
 import { cleanParams } from './clean-params';
 import type { ApiResponse } from '../types/api';
-import type { BulkRecordGradesInput, ClassroomGradesQuery, GradeRecord, StudentGradesParams } from '../types/grade';
+import type {
+  ClassroomSubjectTotal,
+  ComponentRoster,
+  CreateGradeComponentInput,
+  GradeComponent,
+  GradeComponentQuery,
+  GradeScheme,
+  RecordComponentEntriesInput,
+  StudentGradesParams,
+  SubjectGradeBreakdown,
+} from '../types/grade';
 
 export const gradesApi = {
-  getClassroomGrades(query: ClassroomGradesQuery) {
-    return unwrap(apiClient.get<ApiResponse<GradeRecord[]>>('/grades', { params: query }));
+  createComponent(input: CreateGradeComponentInput) {
+    return unwrap(apiClient.post<ApiResponse<GradeComponent>>('/grades/components', input));
   },
 
-  recordBulk(input: BulkRecordGradesInput) {
+  deleteComponent(gradeComponentId: number) {
+    return unwrap(apiClient.delete<ApiResponse<null>>(`/grades/components/${gradeComponentId}`));
+  },
+
+  listComponents(query: GradeComponentQuery) {
+    return unwrap(apiClient.get<ApiResponse<GradeScheme>>('/grades/components', { params: query }));
+  },
+
+  recordComponentEntries(gradeComponentId: number, input: RecordComponentEntriesInput) {
     return unwrap(
-      apiClient.post<ApiResponse<{ classroomId: number; subjectId: number; recordsSaved: number }>>('/grades', input)
+      apiClient.post<ApiResponse<{ gradeComponentId: number; recordsSaved: number }>>(
+        `/grades/components/${gradeComponentId}/entries`,
+        input
+      )
     );
   },
 
+  getComponentRoster(gradeComponentId: number) {
+    return unwrap(apiClient.get<ApiResponse<ComponentRoster>>(`/grades/components/${gradeComponentId}/entries`));
+  },
+
+  getClassroomTotals(query: GradeComponentQuery) {
+    return unwrap(apiClient.get<ApiResponse<ClassroomSubjectTotal[]>>('/grades/classroom-totals', { params: query }));
+  },
+
   getMyGrades(params: StudentGradesParams = {}) {
-    return unwrapPaginated(apiClient.get<ApiResponse<GradeRecord[]>>('/grades/me', { params: cleanParams(params) }));
+    return unwrap(apiClient.get<ApiResponse<SubjectGradeBreakdown[]>>('/grades/me', { params: cleanParams(params) }));
   },
 
   getStudentGrades(studentId: number, params: StudentGradesParams = {}) {
-    return unwrapPaginated(
-      apiClient.get<ApiResponse<GradeRecord[]>>(`/grades/student/${studentId}`, { params: cleanParams(params) })
+    return unwrap(
+      apiClient.get<ApiResponse<SubjectGradeBreakdown[]>>(`/grades/student/${studentId}`, { params: cleanParams(params) })
     );
   },
 };

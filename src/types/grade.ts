@@ -1,44 +1,81 @@
 export type Semester = 'SEMESTER_1' | 'SEMESTER_2';
 
-export interface GradeRecord {
-  gradeId: number;
+export type GradeCategory = 'QUIZ' | 'ASSIGNMENT' | 'TEST' | 'MID_EXAM' | 'FINAL_EXAM' | 'OTHER';
+
+export interface GradeComponent {
+  gradeComponentId: number;
+  teacherSubjectId: number;
+  semester: Semester;
+  academicYear: string;
+  category: GradeCategory;
+  name: string;
+  maxMarks: number;
+}
+
+export interface GradeScheme {
+  components: GradeComponent[];
+  totalMaxMarks: number;
+  remainingMarks: number;
+  hasFinalExam: boolean;
+}
+
+export interface CreateGradeComponentInput {
+  teacherSubjectId: number;
+  semester: Semester;
+  academicYear: string;
+  category: GradeCategory;
+  name: string;
+  maxMarks: number;
+}
+
+export interface GradeComponentQuery {
+  teacherSubjectId: number;
+  semester: Semester;
+  academicYear: string;
+}
+
+export interface ComponentRosterEntry {
   studentId: number;
   studentName: string;
-  subjectId: number;
-  subjectCode: string;
-  subjectName: string;
-  score: number;
-  letterGrade: string;
-  semester: Semester;
-  academicYear: string;
-  recordedBy: { teacherId: number; firstName: string; lastName: string };
-  createdAt: string;
-  updatedAt: string;
+  score: number | null;
 }
 
-export interface BulkGradeRecordInput {
+export interface ComponentRoster {
+  component: GradeComponent;
+  roster: ComponentRosterEntry[];
+}
+
+export interface RecordComponentEntriesInput {
+  records: { studentId: number; score: number }[];
+}
+
+export interface ClassroomSubjectTotal {
   studentId: number;
-  score: number;
+  studentName: string;
+  totalScore: number;
+  totalMaxMarks: number;
 }
 
-export interface BulkRecordGradesInput {
-  classroomId: number;
-  subjectId: number;
-  semester: Semester;
-  academicYear: string;
-  records: BulkGradeRecordInput[];
+export interface SubjectGradeComponentBreakdown {
+  gradeComponentId: number;
+  category: GradeCategory;
+  name: string;
+  maxMarks: number;
+  score: number | null;
 }
 
-export interface ClassroomGradesQuery {
-  classroomId: number;
-  subjectId: number;
+export interface SubjectGradeBreakdown {
+  teacherSubjectId: number;
+  subject: { subjectId: number; subjectCode: string; subjectName: string };
+  teacher: { teacherId: number; firstName: string; lastName: string };
   semester: Semester;
   academicYear: string;
+  components: SubjectGradeComponentBreakdown[];
+  totalScore: number;
+  totalMaxMarks: number;
 }
 
 export interface StudentGradesParams {
-  page?: number;
-  limit?: number;
   semester?: Semester;
   academicYear?: string;
 }

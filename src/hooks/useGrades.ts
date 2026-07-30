@@ -1,26 +1,69 @@
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { gradesApi } from '../lib/grades-api';
-import type { BulkRecordGradesInput, ClassroomGradesQuery, StudentGradesParams } from '../types/grade';
+import type {
+  CreateGradeComponentInput,
+  GradeComponentQuery,
+  RecordComponentEntriesInput,
+  StudentGradesParams,
+} from '../types/grade';
 
-function isCompleteQuery(query: Partial<ClassroomGradesQuery>): query is ClassroomGradesQuery {
-  return Boolean(query.classroomId && query.subjectId && query.semester && query.academicYear);
+function isCompleteQuery(query: Partial<GradeComponentQuery>): query is GradeComponentQuery {
+  return Boolean(query.teacherSubjectId && query.semester && query.academicYear);
 }
 
-export function useClassroomGrades(query: Partial<ClassroomGradesQuery>) {
+export function useGradeScheme(query: Partial<GradeComponentQuery>) {
   return useQuery({
-    queryKey: ['grades', 'classroom', query],
-    queryFn: () => gradesApi.getClassroomGrades(query as ClassroomGradesQuery),
+    queryKey: ['grades', 'components', query],
+    queryFn: () => gradesApi.listComponents(query as GradeComponentQuery),
     enabled: isCompleteQuery(query),
   });
 }
 
-export function useRecordBulkGrades() {
+export function useCreateGradeComponent() {
   const queryClient = useQueryClient();
   return useMutation({
-    mutationFn: (input: BulkRecordGradesInput) => gradesApi.recordBulk(input),
+    mutationFn: (input: CreateGradeComponentInput) => gradesApi.createComponent(input),
     onSuccess: () => {
       void queryClient.invalidateQueries({ queryKey: ['grades'] });
     },
+  });
+}
+
+export function useDeleteGradeComponent() {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: (gradeComponentId: number) => gradesApi.deleteComponent(gradeComponentId),
+    onSuccess: () => {
+      void queryClient.invalidateQueries({ queryKey: ['grades'] });
+    },
+  });
+}
+
+export function useComponentRoster(gradeComponentId: number | undefined) {
+  return useQuery({
+    queryKey: ['grades', 'components', gradeComponentId, 'entries'],
+    queryFn: () => gradesApi.getComponentRoster(gradeComponentId!),
+    enabled: Boolean(gradeComponentId),
+  });
+}
+
+export function useRecordComponentEntries() {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: ({ gradeComponentId, input }: { gradeComponentId: number; input: RecordComponentEntriesInput }) =>
+      gradesApi.recordComponentEntries(gradeComponentId, input),
+    onSuccess: (_result, variables) => {
+      void queryClient.invalidateQueries({ queryKey: ['grades', 'components', variables.gradeComponentId, 'entries'] });
+      void queryClient.invalidateQueries({ queryKey: ['grades', 'classroom-totals'] });
+    },
+  });
+}
+
+export function useClassroomTotals(query: Partial<GradeComponentQuery>) {
+  return useQuery({
+    queryKey: ['grades', 'classroom-totals', query],
+    queryFn: () => gradesApi.getClassroomTotals(query as GradeComponentQuery),
+    enabled: isCompleteQuery(query),
   });
 }
 
@@ -28,7 +71,6 @@ export function useMyGrades(params: StudentGradesParams = {}) {
   return useQuery({
     queryKey: ['grades', 'me', params],
     queryFn: () => gradesApi.getMyGrades(params),
-    placeholderData: (previousData) => previousData,
   });
 }
 
@@ -37,6 +79,5 @@ export function useStudentGrades(studentId: number | undefined, params: StudentG
     queryKey: ['grades', 'student', studentId, params],
     queryFn: () => gradesApi.getStudentGrades(studentId!, params),
     enabled: Boolean(studentId),
-    placeholderData: (previousData) => previousData,
   });
 }

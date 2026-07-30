@@ -276,32 +276,50 @@ async function main(): Promise<void> {
   }
 
   // --- Sample grades (Semester 1) ------------------------------------------------
-  console.log('Seeding sample grades for Semester 1...');
-  const sampleScores = [88, 76, 93];
-  for (const [subjectIndex, subject] of subjects.slice(0, 2).entries()) {
-    for (const [studentIndex, student] of students.entries()) {
-      const score = sampleScores[(studentIndex + subjectIndex) % sampleScores.length];
-      const letterGrade = score >= 90 ? 'A+' : score >= 80 ? 'A' : score >= 75 ? 'B+' : score >= 70 ? 'B' : 'C';
-      await prisma.grade.upsert({
+  console.log('Seeding a sample grading scheme and scores for Semester 1...');
+  const gradeComponentSeed = [
+    { category: 'QUIZ' as const, name: 'Quiz 1', maxMarks: 10 },
+    { category: 'ASSIGNMENT' as const, name: 'Assignment 1', maxMarks: 10 },
+    { category: 'MID_EXAM' as const, name: 'Mid Exam', maxMarks: 30 },
+    { category: 'FINAL_EXAM' as const, name: 'Final Exam', maxMarks: 50 },
+  ];
+
+  for (const teacherSubject of teacherSubjectAssignments) {
+    const components = [];
+    for (const c of gradeComponentSeed) {
+      const component = await prisma.gradeComponent.upsert({
         where: {
-          studentId_subjectId_semester_academicYear: {
-            studentId: student.studentId,
-            subjectId: subject.subjectId,
+          teacherSubjectId_semester_academicYear_name: {
+            teacherSubjectId: teacherSubject.id,
             semester: Semester.SEMESTER_1,
             academicYear: CURRENT_ACADEMIC_YEAR,
+            name: c.name,
           },
         },
         update: {},
         create: {
-          studentId: student.studentId,
-          subjectId: subject.subjectId,
-          teacherId: teacher.teacherId,
-          score,
-          letterGrade,
+          teacherSubjectId: teacherSubject.id,
           semester: Semester.SEMESTER_1,
           academicYear: CURRENT_ACADEMIC_YEAR,
+          category: c.category,
+          name: c.name,
+          maxMarks: c.maxMarks,
         },
       });
+      components.push(component);
+    }
+
+    for (const [studentIndex, student] of students.entries()) {
+      for (const component of components) {
+        // A simple deterministic spread so demo scores aren't all identical.
+        const ratio = 0.65 + (0.3 * ((studentIndex + component.gradeComponentId) % 4)) / 3;
+        const score = Math.round(Number(component.maxMarks) * ratio * 100) / 100;
+        await prisma.gradeEntry.upsert({
+          where: { gradeComponentId_studentId: { gradeComponentId: component.gradeComponentId, studentId: student.studentId } },
+          update: {},
+          create: { gradeComponentId: component.gradeComponentId, studentId: student.studentId, score },
+        });
+      }
     }
   }
 
