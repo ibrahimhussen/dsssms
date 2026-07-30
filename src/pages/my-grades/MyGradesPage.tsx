@@ -8,8 +8,12 @@ import { LedgerRule } from '../../components/ui/LedgerRule';
 import { EmptyState } from '../../components/ui/EmptyState';
 import { Table } from '../../components/ui/Table';
 import type { Column } from '../../components/ui/Table';
-import { Pagination } from '../../components/ui/Pagination';
-import type { GradeRecord, Semester, StudentGradesParams } from '../../types/grade';
+// import { Pagination } from '../../components/ui/Pagination';
+import type {
+  SubjectGradeBreakdown,
+  Semester,
+  StudentGradesParams,
+} from '../../types/grade';
 
 const SEMESTER_LABELS: Record<Semester, string> = {
   SEMESTER_1: 'Semester 1',
@@ -17,7 +21,10 @@ const SEMESTER_LABELS: Record<Semester, string> = {
 };
 
 export function MyGradesPage() {
-  const [filters, setFilters] = useState<StudentGradesParams>({ page: 1, limit: 20 });
+const [filters, setFilters] = useState<StudentGradesParams>({
+  semester: undefined,
+  academicYear: undefined,
+});
   const { data: gradesData, isLoading: isGradesLoading } = useMyGrades(filters);
   const { data: reports, isLoading: isReportsLoading } = useMyAcademicReports();
 
@@ -25,13 +32,24 @@ export function MyGradesPage() {
     ? [...reports].sort((a, b) => b.academicYear.localeCompare(a.academicYear) || b.semester.localeCompare(a.semester))
     : [];
 
-  const columns: Column<GradeRecord>[] = [
-    { header: 'Subject', render: (g) => `${g.subjectName} (${g.subjectCode})` },
-    { header: 'Score', render: (g) => g.score },
-    { header: 'Letter grade', className: 'font-mono text-[0.8125rem]', render: (g) => g.letterGrade },
-    { header: 'Semester', render: (g) => SEMESTER_LABELS[g.semester] },
-    { header: 'Academic year', render: (g) => g.academicYear },
-  ];
+const columns: Column<SubjectGradeBreakdown>[] = [
+    {
+    header: 'Subject',
+    render: (g) => `${g.subject.subjectName} (${g.subject.subjectCode})`,
+  },
+  {
+    header: 'Score',
+    render: (g) => `${g.totalScore} / ${g.totalMaxMarks}`,
+  },
+  {
+    header: 'Semester',
+    render: (g) => SEMESTER_LABELS[g.semester],
+  },
+  {
+    header: 'Academic year',
+    render: (g) => g.academicYear,
+  },
+];
 
   return (
     <div className="max-w-full">
@@ -84,13 +102,15 @@ export function MyGradesPage() {
 
       <Table
         columns={columns}
-        rows={gradesData?.items ?? []}
-        getRowKey={(g) => g.gradeId}
+        rows={gradesData ?? []}
+        getRowKey={(g) =>
+  `${g.teacherSubjectId}-${g.semester}-${g.academicYear}`
+}
         isLoading={isGradesLoading}
         emptyMessage="No grades recorded yet."
       />
 
-      {gradesData && <Pagination meta={gradesData.meta} onPageChange={(page) => setFilters((prev) => ({ ...prev, page }))} />}
+    
     </div>
   );
 }

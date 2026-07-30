@@ -299,4 +299,4 @@ export class GradeService {
     );
   }
 }
-
+export const gradeService = new GradeService();
