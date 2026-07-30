@@ -52,6 +52,7 @@ export interface RecordComponentEntriesInput {
 export interface ClassroomSubjectTotal {
   studentId: number;
   studentName: string;
+  componentScores: { gradeComponentId: number; score: number | null }[];
   totalScore: number;
   totalMaxMarks: number;
 }

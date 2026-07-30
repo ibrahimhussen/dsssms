@@ -36,6 +36,7 @@ export interface ComponentRosterDto {
 export interface ClassroomSubjectTotalDto {
   studentId: number;
   studentName: string;
+  componentScores: { gradeComponentId: number; score: number | null }[];
   totalScore: number;
   totalMaxMarks: number;
 }

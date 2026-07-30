@@ -131,13 +131,22 @@ export function GradesPage() {
           ) : !totals || totals.length === 0 ? (
             <EmptyState title="No students enrolled" description="This classroom has no enrolled students yet." />
           ) : (
-            <div className="overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-sm">
+            <div className="overflow-x-auto rounded-2xl border border-slate-200 bg-white shadow-sm">
               <table className="w-full border-collapse text-sm">
                 <thead>
                   <tr>
                     <th className="border-b border-slate-200 bg-paper-100 px-4 py-3 text-left text-xs font-semibold tracking-wide text-ink-700 uppercase">
                       Student
                     </th>
+                    {scheme.components.map((c) => (
+                      <th
+                        key={c.gradeComponentId}
+                        className="border-b border-slate-200 bg-paper-100 px-4 py-3 text-left text-xs font-semibold tracking-wide text-ink-700 uppercase"
+                      >
+                        {c.name}
+                        <span className="ml-1 font-normal normal-case text-slate-500">/ {c.maxMarks}</span>
+                      </th>
+                    ))}
                     <th className="border-b border-slate-200 bg-paper-100 px-4 py-3 text-left text-xs font-semibold tracking-wide text-ink-700 uppercase">
                       Total
                     </th>
@@ -146,8 +155,16 @@ export function GradesPage() {
                 <tbody>
                   {totals.map((t) => (
                     <tr key={t.studentId} className="border-b border-paper-100 last:border-b-0">
-                      <td className="px-4 py-3">{t.studentName}</td>
-                      <td className="px-4 py-3 font-mono text-sm">
+                      <td className="px-4 py-3 whitespace-nowrap">{t.studentName}</td>
+                      {scheme.components.map((c) => {
+                        const cell = t.componentScores.find((cs) => cs.gradeComponentId === c.gradeComponentId);
+                        return (
+                          <td key={c.gradeComponentId} className="px-4 py-3 font-mono text-sm">
+                            {cell?.score ?? '—'}
+                          </td>
+                        );
+                      })}
+                      <td className="px-4 py-3 font-mono text-sm font-semibold">
                         {t.totalScore} / {t.totalMaxMarks}
                       </td>
                     </tr>

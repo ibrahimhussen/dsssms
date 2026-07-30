@@ -219,11 +219,12 @@ export class GradeService {
     const totalMaxMarks = components.reduce((sum, c) => sum + Number(c.maxMarks), 0);
 
     return students.map((s) => {
-      const totalScore = components.reduce((sum, c) => {
+      const componentScores = components.map((c) => {
         const entry = c.entries.find((e) => e.studentId === s.studentId);
-        return sum + (entry ? Number(entry.score) : 0);
-      }, 0);
-      return { studentId: s.studentId, studentName: `${s.firstName} ${s.lastName}`, totalScore, totalMaxMarks };
+        return { gradeComponentId: c.gradeComponentId, score: entry ? Number(entry.score) : null };
+      });
+      const totalScore = componentScores.reduce((sum, c) => sum + (c.score ?? 0), 0);
+      return { studentId: s.studentId, studentName: `${s.firstName} ${s.lastName}`, componentScores, totalScore, totalMaxMarks };
     });
   }
 
@@ -299,4 +300,3 @@ export class GradeService {
   }
 }
 
-export const gradeService = new GradeService();
