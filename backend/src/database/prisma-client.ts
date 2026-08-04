@@ -7,7 +7,21 @@ import { logger } from '../core/logger/logger';
 const globalForPrisma = globalThis as unknown as { prisma?: PrismaClient };
 
 function createPrismaClient(): PrismaClient {
-  const adapter = new PrismaMariaDb(env.DATABASE_URL);
+  const dbUrl = new URL(env.DATABASE_URL);
+
+  const adapter = new PrismaMariaDb({
+    host: dbUrl.hostname,
+    port: dbUrl.port ? Number(dbUrl.port) : 3306,
+    user: decodeURIComponent(dbUrl.username),
+    password: decodeURIComponent(dbUrl.password),
+    database: dbUrl.pathname.replace(/^\//, ''),
+    connectionLimit: 10,
+    // Required for MySQL's caching_sha2_password auth plugin (default on
+    // MySQL 8.4+/9.x) to complete its RSA handshake over an unencrypted
+    // TCP connection. Without this, the driver hangs during auth instead
+    // of erroring, which surfaces as a pool timeout with active=0 idle=0.
+    allowPublicKeyRetrieval: true,
+  });
 
   return new PrismaClient({
     adapter,
