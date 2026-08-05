@@ -1,20 +1,23 @@
 import { Link } from 'react-router-dom';
-import { useMyAttendanceSummary } from '../../hooks/useDashboardData';
+import { useMyAttendanceSummary, useMyAttendanceTrend } from '../../hooks/useDashboardData';
 import { useMyAcademicReports } from '../../hooks/useAcademicReports';
 import { useMyInbox } from '../../hooks/useNotifications';
 import { Card, StatCard } from '../../components/ui/Card';
 import { Badge } from '../../components/ui/Badge';
 import { Button } from '../../components/ui/Button';
 import { EmptyState } from '../../components/ui/EmptyState';
+import { LineChart } from '../../components/ui/Charts';
 
 export function StudentDashboard() {
   const { data, isLoading } = useMyAttendanceSummary();
   const { data: reports, isLoading: isReportsLoading } = useMyAcademicReports();
   const { data: inbox, isLoading: isInboxLoading } = useMyInbox({ page: 1, limit: 3 });
+  const { data: attendanceTrend, isLoading: isAttendanceTrendLoading } = useMyAttendanceTrend();
 
-  const latestReport = reports
-    ? [...reports].sort((a, b) => b.generatedDate.localeCompare(a.generatedDate))[0]
-    : undefined;
+  const sortedReports = reports
+    ? [...reports].sort((a, b) => (a.academicYear + a.semester).localeCompare(b.academicYear + b.semester))
+    : [];
+  const latestReport = sortedReports[sortedReports.length - 1];
 
   return (
     <>
@@ -89,6 +92,33 @@ export function StudentDashboard() {
                 </li>
               ))}
             </ul>
+          )}
+        </Card>
+      </div>
+
+      <div className="mt-5 grid grid-cols-2 gap-5 max-[900px]:grid-cols-1">
+        <Card>
+          <h2 className="mb-4 text-lg">Academic progress</h2>
+          {isReportsLoading ? (
+            <p className="text-sm text-slate-500">Loading…</p>
+          ) : (
+            <LineChart
+              data={sortedReports.map((r) => ({
+                label: `${r.semester === 'SEMESTER_1' ? 'S1' : 'S2'} ${r.academicYear}`,
+                value: r.averageMark,
+              }))}
+              valueSuffix="%"
+              emptyLabel="No report cards yet"
+            />
+          )}
+        </Card>
+
+        <Card>
+          <h2 className="mb-4 text-lg">Attendance trend</h2>
+          {isAttendanceTrendLoading ? (
+            <p className="text-sm text-slate-500">Loading…</p>
+          ) : (
+            <LineChart data={attendanceTrend ?? []} valueSuffix="%" emptyLabel="No attendance recorded yet" />
           )}
         </Card>
       </div>

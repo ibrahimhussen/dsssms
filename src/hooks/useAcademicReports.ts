@@ -18,3 +18,12 @@ export function useMyAcademicReports() {
     queryFn: () => academicReportsApi.getMyReports(),
   });
 }
+
+/** Full report-card history for a specific student (used by the parent dashboard). */
+export function useStudentReportHistory(studentId: number | undefined) {
+  return useQuery({
+    queryKey: ['academic-reports', 'student', studentId, 'history'],
+    queryFn: () => academicReportsApi.getStudentReportHistory(studentId!),
+    enabled: studentId !== undefined,
+  });
+}
