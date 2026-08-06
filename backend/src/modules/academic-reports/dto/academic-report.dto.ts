@@ -10,3 +10,31 @@ export interface AcademicReportDto {
   rank: number | null;
   generatedDate: string;
 }
+
+export interface TranscriptSubjectRowDto {
+  subjectName: string;
+  totalScore: number;
+  totalMaxMarks: number;
+  percentage: number;
+}
+
+export interface TranscriptPeriodDto {
+  semester: Semester;
+  academicYear: string;
+  subjects: TranscriptSubjectRowDto[];
+  periodAverage: number;
+  rank: number | null;
+}
+
+export interface TranscriptDto {
+  studentId: number;
+  studentName: string;
+  admissionNumber: string;
+  gender: string;
+  dateOfBirth: string;
+  classroomLabel: string;
+  enrolledAt: string;
+  periods: TranscriptPeriodDto[];
+  cumulativeAverage: number | null;
+  generatedDate: string;
+}

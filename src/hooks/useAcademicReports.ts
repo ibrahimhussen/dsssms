@@ -27,3 +27,19 @@ export function useStudentReportHistory(studentId: number | undefined) {
     enabled: studentId !== undefined,
   });
 }
+
+export function useMyTranscript() {
+  return useQuery({
+    queryKey: ['academic-reports', 'me', 'transcript'],
+    queryFn: () => academicReportsApi.getMyTranscript(),
+  });
+}
+
+/** A specific student's transcript (used by the parent dashboard and oversight/teacher views). */
+export function useStudentTranscript(studentId: number | undefined) {
+  return useQuery({
+    queryKey: ['academic-reports', 'student', studentId, 'transcript'],
+    queryFn: () => academicReportsApi.getStudentTranscript(studentId!),
+    enabled: studentId !== undefined,
+  });
+}
