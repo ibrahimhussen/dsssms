@@ -6,6 +6,7 @@ import { notificationService } from './notification.service';
 import {
   CreateNotificationInput,
   SendToParentsInput,
+  BroadcastNotificationInput,
   ListNotificationsQuery,
   ListAllNotificationsQuery,
   NotificationIdParam,
@@ -25,6 +26,17 @@ export class NotificationController {
     const input = req.body as SendToParentsInput;
     const result = await notificationService.sendToParents(req.user, studentId, input);
     ApiResponse.success(res, { statusCode: 201, message: `Notification sent to ${result.notificationsSent} parent(s)`, data: result });
+  });
+
+  broadcast = asyncHandler(async (req: Request, res: Response) => {
+    if (!req.user) throw new UnauthorizedError();
+    const input = req.body as BroadcastNotificationInput;
+    const result = await notificationService.broadcast(req.user, input, req.ip);
+    ApiResponse.success(res, {
+      statusCode: 201,
+      message: `Announcement sent to ${result.notificationsSent} recipient(s)`,
+      data: result,
+    });
   });
 
   getMyNotifications = asyncHandler(async (req: Request, res: Response) => {

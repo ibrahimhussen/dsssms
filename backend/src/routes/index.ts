@@ -13,6 +13,9 @@ import { notificationRoutes } from '../modules/notifications/notification.routes
 import { timetableRoutes } from '../modules/timetable/timetable.routes';
 import { assignmentRoutes } from '../modules/assignments/assignment.routes';
 import { dashboardRoutes } from '../modules/dashboard/dashboard.routes';
+import { auditLogRoutes } from '../modules/audit-logs/audit-log.routes';
+import { systemSettingRoutes } from '../modules/system-settings/system-setting.routes';
+import { backupRoutes } from '../modules/backups/backup.routes';
 
 const router = Router();
 
@@ -30,6 +33,9 @@ router.use('/notifications', notificationRoutes);
 router.use('/timetable', timetableRoutes);
 router.use('/assignments', assignmentRoutes);
 router.use('/dashboard', dashboardRoutes);
+router.use('/audit-logs', auditLogRoutes);
+router.use('/system-settings', systemSettingRoutes);
+router.use('/backups', backupRoutes);
 
 // Backend API surface complete. Stage 7+ builds the frontend against these routes.
 

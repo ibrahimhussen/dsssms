@@ -1,16 +1,28 @@
-import { NotificationStatus, Prisma } from '@prisma/client';
+import { NotificationStatus, Prisma, RoleName } from '@prisma/client';
 import { prisma } from '../../database/prisma-client';
-import { ForbiddenError, NotFoundError } from '../../core/errors/app-error';
+import { BadRequestError, ForbiddenError, NotFoundError } from '../../core/errors/app-error';
 import { getPaginationParams, buildPaginationMeta, PaginationQuery } from '../../core/http/pagination';
 import { assertCanAccessStudentRecords } from '../../core/authorization/student-access';
 import { AuthenticatedUser } from '../../middlewares/authenticate.middleware';
+import { teacherSubjectService } from '../teacher-subjects/teacher-subject.service';
+import { recordAudit } from '../../core/audit/audit-recorder';
 import {
+  BroadcastNotificationInput,
   CreateNotificationInput,
   ListAllNotificationsQuery,
   ListNotificationsQuery,
   SendToParentsInput,
 } from './validation/notification.validation';
-import { NotificationDto, SendToParentsResultDto } from './dto/notification.dto';
+import { BroadcastResultDto, NotificationDto, SendToParentsResultDto } from './dto/notification.dto';
+
+const OVERSIGHT_ROLES: RoleName[] = [RoleName.ADMIN, RoleName.DIRECTOR, RoleName.VICE_DIRECTOR];
+const STAFF_ROLES: RoleName[] = [...OVERSIGHT_ROLES, RoleName.TEACHER];
+
+async function getTeacherIdForUser(userId: number): Promise<number> {
+  const teacher = await prisma.teacher.findUnique({ where: { userId } });
+  if (!teacher) throw new ForbiddenError('No teacher profile is associated with this account');
+  return teacher.teacherId;
+}
 
 const NOTIFICATION_INCLUDE = { student: true } satisfies Prisma.NotificationInclude;
 
@@ -83,6 +95,89 @@ export class NotificationService {
     });
 
     return { studentId, notificationsSent: links.length };
+  }
+
+  /**
+   * Sends the same title/message to an entire audience in one call — the
+   * "Send Announcement" workflow. Oversight roles can target any audience;
+   * a Teacher may only message the students or parents of a classroom
+   * they're actually assigned to teach.
+   */
+  async broadcast(actor: AuthenticatedUser, input: BroadcastNotificationInput, ipAddress?: string): Promise<BroadcastResultDto> {
+    const isOversight = OVERSIGHT_ROLES.includes(actor.role);
+    const isClassroomAudience = input.audience === 'CLASSROOM_STUDENTS' || input.audience === 'CLASSROOM_PARENTS';
+
+    if (!isOversight) {
+      if (actor.role !== RoleName.TEACHER || !isClassroomAudience) {
+        throw new ForbiddenError('Only oversight roles can message this audience');
+      }
+    }
+
+    if (isClassroomAudience) {
+      if (!input.classroomId) throw new BadRequestError('classroomId is required for this audience');
+      if (actor.role === RoleName.TEACHER) {
+        const teacherId = await getTeacherIdForUser(actor.userId);
+        await teacherSubjectService.assertTeacherAssignedToClassroom({ teacherId, classroomId: input.classroomId });
+      }
+    }
+
+    let recipientUserIds: number[] = [];
+
+    switch (input.audience) {
+      case 'ALL_STAFF': {
+        const users = await prisma.user.findMany({ where: { role: { roleName: { in: STAFF_ROLES } } }, select: { userId: true } });
+        recipientUserIds = users.map((u) => u.userId);
+        break;
+      }
+      case 'ALL_TEACHERS': {
+        const teachers = await prisma.teacher.findMany({ select: { userId: true } });
+        recipientUserIds = teachers.map((t) => t.userId);
+        break;
+      }
+      case 'ALL_PARENTS': {
+        const parents = await prisma.parent.findMany({ select: { userId: true } });
+        recipientUserIds = parents.map((p) => p.userId);
+        break;
+      }
+      case 'ALL_STUDENTS': {
+        const students = await prisma.student.findMany({ select: { userId: true } });
+        recipientUserIds = students.map((s) => s.userId);
+        break;
+      }
+      case 'CLASSROOM_STUDENTS': {
+        const students = await prisma.student.findMany({ where: { classroomId: input.classroomId }, select: { userId: true } });
+        recipientUserIds = students.map((s) => s.userId);
+        break;
+      }
+      case 'CLASSROOM_PARENTS': {
+        const links = await prisma.studentParentLink.findMany({
+          where: { student: { classroomId: input.classroomId } },
+          select: { parent: { select: { userId: true } } },
+        });
+        recipientUserIds = [...new Set<number>(links.map((l) => l.parent.userId))];
+        break;
+      }
+    }
+
+    if (recipientUserIds.length > 0) {
+      await prisma.notification.createMany({
+        data: recipientUserIds.map((recipientUserId) => ({
+          recipientUserId,
+          title: input.title,
+          message: input.message,
+        })),
+      });
+    }
+
+    await recordAudit({
+      userId: actor.userId,
+      action: 'NOTIFICATION_BROADCAST',
+      entity: 'Notification',
+      ipAddress,
+      metadata: { audience: input.audience, classroomId: input.classroomId, recipientCount: recipientUserIds.length },
+    });
+
+    return { audience: input.audience, notificationsSent: recipientUserIds.length };
   }
 
   async getMyNotifications(

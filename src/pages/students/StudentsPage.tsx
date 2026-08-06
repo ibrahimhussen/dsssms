@@ -1,6 +1,7 @@
 import { useState } from 'react';
 import { useStudents } from '../../hooks/useStudents';
 import { useClassroomOptions } from '../../hooks/useClassrooms';
+import { studentsApi } from '../../lib/students-api';
 import { Table } from '../../components/ui/Table';
 import type { Column } from '../../components/ui/Table';
 import { Pagination } from '../../components/ui/Pagination';
@@ -11,15 +12,27 @@ import { LedgerRule } from '../../components/ui/LedgerRule';
 import { CredentialsDialog } from '../../components/ui/CredentialsDialog';
 import type { CredentialsItem } from '../../components/ui/CredentialsDialog';
 import { CreateStudentModal } from './CreateStudentModal';
+import { MessageParentsModal } from './MessageParentsModal';
 import type { StudentSummary, CreateStudentResult, ListStudentsParams } from '../../types/student';
 
 export function StudentsPage() {
   const [filters, setFilters] = useState<ListStudentsParams>({ page: 1, limit: 20 });
   const [isCreateOpen, setCreateOpen] = useState(false);
   const [issuedCredentials, setIssuedCredentials] = useState<CredentialsItem[]>([]);
+  const [isExporting, setIsExporting] = useState(false);
+  const [messageTarget, setMessageTarget] = useState<StudentSummary | null>(null);
 
   const { data, isLoading } = useStudents(filters);
   const { data: classroomsData } = useClassroomOptions();
+
+  async function handleExport() {
+    setIsExporting(true);
+    try {
+      await studentsApi.exportToExcel({ classroomId: filters.classroomId, search: filters.search });
+    } finally {
+      setIsExporting(false);
+    }
+  }
 
   function updateFilter<K extends keyof ListStudentsParams>(key: K, value: ListStudentsParams[K]) {
     setFilters((prev) => ({ ...prev, [key]: value, page: 1 }));
@@ -54,6 +67,15 @@ export function StudentsPage() {
       header: 'Guardians',
       render: (s) => (s.parents.length > 0 ? s.parents.map((p) => p.fullName).join(', ') : '—'),
     },
+    {
+      header: '',
+      render: (s) =>
+        s.parents.length > 0 ? (
+          <Button variant="ghost" onClick={() => setMessageTarget(s)}>
+            Message parents
+          </Button>
+        ) : null,
+    },
   ];
 
   return (
@@ -86,7 +108,12 @@ export function StudentsPage() {
           />
         </div>
 
-        <Button onClick={() => setCreateOpen(true)}>Register student</Button>
+        <div className="flex gap-3">
+          <Button variant="secondary" onClick={() => void handleExport()} isLoading={isExporting}>
+            Export to Excel
+          </Button>
+          <Button onClick={() => setCreateOpen(true)}>Register student</Button>
+        </div>
       </div>
 
       <Table
@@ -102,6 +129,8 @@ export function StudentsPage() {
       <CreateStudentModal isOpen={isCreateOpen} onClose={() => setCreateOpen(false)} onCreated={handleCreated} />
 
       <CredentialsDialog isOpen={issuedCredentials.length > 0} onClose={() => setIssuedCredentials([])} items={issuedCredentials} />
+
+      <MessageParentsModal student={messageTarget} onClose={() => setMessageTarget(null)} />
     </div>
   );
 }

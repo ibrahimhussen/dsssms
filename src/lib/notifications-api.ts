@@ -1,7 +1,13 @@
 import { apiClient, unwrap } from './api-client';
 import { cleanParams } from './clean-params';
 import type { ApiResponse, PaginationMeta } from '../types/api';
-import type { ListNotificationsParams, NotificationRecord, SendToParentsInput } from '../types/notification';
+import type {
+  BroadcastNotificationInput,
+  BroadcastResult,
+  ListNotificationsParams,
+  NotificationRecord,
+  SendToParentsInput,
+} from '../types/notification';
 
 export const notificationsApi = {
   async getMyInbox(
@@ -38,5 +44,9 @@ export const notificationsApi = {
         input
       )
     );
+  },
+
+  broadcast(input: BroadcastNotificationInput) {
+    return unwrap(apiClient.post<ApiResponse<BroadcastResult>>('/notifications/broadcast', input));
   },
 };

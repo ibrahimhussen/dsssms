@@ -17,6 +17,7 @@ router.use(authenticate);
 const OVERSIGHT_ROLES = [RoleName.ADMIN, RoleName.DIRECTOR, RoleName.VICE_DIRECTOR];
 
 router.get('/me', authorize(RoleName.STUDENT), academicReportController.getMyReports);
+router.get('/me/transcript', authorize(RoleName.STUDENT), academicReportController.getMyTranscript);
 
 router.post(
   '/generate',
@@ -34,9 +35,28 @@ router.get(
 );
 
 router.get(
+  '/student/:studentId/pdf',
+  validate(studentIdParamSchema, 'params'),
+  validate(reportPeriodQuerySchema, 'query'),
+  academicReportController.getReportCardPdf
+);
+
+router.get(
   '/student/:studentId/history',
   validate(studentIdParamSchema, 'params'),
   academicReportController.listStudentReports
+);
+
+router.get(
+  '/student/:studentId/transcript',
+  validate(studentIdParamSchema, 'params'),
+  academicReportController.getTranscript
+);
+
+router.get(
+  '/student/:studentId/transcript/pdf',
+  validate(studentIdParamSchema, 'params'),
+  academicReportController.getTranscriptPdf
 );
 
 export const academicReportRoutes = router;

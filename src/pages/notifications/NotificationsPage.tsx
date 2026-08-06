@@ -5,15 +5,22 @@ import {
   useMarkAllNotificationsRead,
   useDeleteNotification,
 } from '../../hooks/useNotifications';
+import { useAuth } from '../../context/AuthContext';
 import { Button } from '../../components/ui/Button';
 import { SelectField } from '../../components/ui/SelectField';
 import { Badge } from '../../components/ui/Badge';
 import { LedgerRule } from '../../components/ui/LedgerRule';
 import { Pagination } from '../../components/ui/Pagination';
 import { EmptyState } from '../../components/ui/EmptyState';
+import { ComposeAnnouncementModal } from './ComposeAnnouncementModal';
 import type { ListNotificationsParams, NotificationStatus } from '../../types/notification';
 
+const COMPOSE_ROLES = ['ADMIN', 'DIRECTOR', 'VICE_DIRECTOR', 'TEACHER'];
+
 export function NotificationsPage() {
+  const { user } = useAuth();
+  const canCompose = Boolean(user && COMPOSE_ROLES.includes(user.role));
+  const [isComposeOpen, setComposeOpen] = useState(false);
   const [filters, setFilters] = useState<ListNotificationsParams>({ page: 1, limit: 20 });
 
   const { data, isLoading } = useMyInbox(filters);
@@ -32,6 +39,7 @@ export function NotificationsPage() {
             </span>
           )}
         </h1>
+        {canCompose && <Button onClick={() => setComposeOpen(true)}>Send announcement</Button>}
       </div>
       <LedgerRule />
 
@@ -100,6 +108,8 @@ export function NotificationsPage() {
       )}
 
       {data && <Pagination meta={data.meta} onPageChange={(page) => setFilters((prev) => ({ ...prev, page }))} />}
+
+      {canCompose && <ComposeAnnouncementModal isOpen={isComposeOpen} onClose={() => setComposeOpen(false)} />}
     </div>
   );
 }

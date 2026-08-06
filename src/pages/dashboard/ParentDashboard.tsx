@@ -7,14 +7,18 @@ import {
   useChildAttendanceTrend,
 } from '../../hooks/useDashboardData';
 import { useStudentReportHistory } from '../../hooks/useAcademicReports';
+import { academicReportsApi } from '../../lib/academic-reports-api';
 import { Card, StatCard } from '../../components/ui/Card';
 import { Badge } from '../../components/ui/Badge';
+import { Button } from '../../components/ui/Button';
 import { EmptyState } from '../../components/ui/EmptyState';
 import { LineChart } from '../../components/ui/Charts';
 
 export function ParentDashboard() {
   const { data: profile, isLoading: isProfileLoading } = useMyParentProfile();
   const [selectedStudentId, setSelectedStudentId] = useState<number | undefined>(undefined);
+  const [isDownloadingReportCard, setIsDownloadingReportCard] = useState(false);
+  const [isDownloadingTranscript, setIsDownloadingTranscript] = useState(false);
 
   const children = profile?.children ?? [];
   const activeStudentId = selectedStudentId ?? children[0]?.studentId;
@@ -28,6 +32,25 @@ export function ParentDashboard() {
     ? [...reports].sort((a, b) => (a.academicYear + a.semester).localeCompare(b.academicYear + b.semester))
     : [];
   const latestReport = sortedReports[sortedReports.length - 1];
+
+  async function handleDownloadTranscript() {
+    if (!activeChild) return;
+    setIsDownloadingTranscript(true);
+    try {
+      await academicReportsApi.downloadTranscriptPdf(activeChild.studentId, activeChild.admissionNumber);
+    } finally {
+      setIsDownloadingTranscript(false);
+    }
+  }
+  async function handleDownloadReportCard() {
+    if (!activeStudentId || !latestReport) return;
+    setIsDownloadingReportCard(true);
+    try {
+      await academicReportsApi.downloadReportCardPdf(activeStudentId, latestReport.semester, latestReport.academicYear);
+    } finally {
+      setIsDownloadingReportCard(false);
+    }
+  }
 
   return (
     <>
@@ -90,6 +113,18 @@ export function ParentDashboard() {
             <Link to="/notifications" className="text-sm font-semibold text-pine-700 hover:underline">
               Contact school / notifications
             </Link>
+            {latestReport && (
+              <>
+                <span className="text-slate-300">·</span>
+                <Button variant="ghost" onClick={() => void handleDownloadReportCard()} isLoading={isDownloadingReportCard}>
+                  Download latest report card (PDF)
+                </Button>
+                <span className="text-slate-300">·</span>
+                <Button variant="ghost" onClick={() => void handleDownloadTranscript()} isLoading={isDownloadingTranscript}>
+                  Download transcript (PDF)
+                </Button>
+              </>
+            )}
           </div>
 
           <div className="grid grid-cols-2 gap-5 max-[900px]:grid-cols-1">

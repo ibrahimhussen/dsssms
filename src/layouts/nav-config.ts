@@ -25,8 +25,12 @@ export const NAV_ITEMS: NavItem[] = [
   { label: 'My timetable', path: '/timetable', allowedRoles: ['STUDENT'] },
   { label: 'My attendance', path: '/my-attendance', allowedRoles: ['STUDENT'] },
   { label: 'My grades', path: '/my-grades', allowedRoles: ['STUDENT'] },
+  { label: 'Transcript', path: '/transcript', allowedRoles: ['STUDENT'] },
   { label: 'Assignments', path: '/my-homework', allowedRoles: ['STUDENT'] },
   { label: 'Academic reports', path: '/academic-reports', allowedRoles: OVERSIGHT_ROLES },
+  { label: 'Audit logs', path: '/audit-logs', allowedRoles: ['ADMIN'] },
+  { label: 'System settings', path: '/system-settings', allowedRoles: ['ADMIN'] },
+  { label: 'Backup & restore', path: '/backups', allowedRoles: ['ADMIN'] },
   { label: 'Notifications', path: '/notifications' },
 ];
 

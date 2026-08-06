@@ -1,5 +1,6 @@
 import { apiClient, unwrap, unwrapPaginated } from './api-client';
 import { cleanParams } from './clean-params';
+import { triggerBlobDownload } from './download-file';
 import type { ApiResponse } from '../types/api';
 import type { CreateStudentInput, CreateStudentResult, ListStudentsParams, StudentSummary } from '../types/student';
 
@@ -8,6 +9,14 @@ export const studentsApi = {
     return unwrapPaginated(
       apiClient.get<ApiResponse<StudentSummary[]>>('/students', { params: cleanParams(params) })
     );
+  },
+
+  async exportToExcel(params: Pick<ListStudentsParams, 'classroomId' | 'search'>): Promise<void> {
+    const response = await apiClient.get<Blob>('/students/export', {
+      params: cleanParams(params),
+      responseType: 'blob',
+    });
+    triggerBlobDownload(response.data, 'students.xlsx');
   },
 
   getById(studentId: number) {

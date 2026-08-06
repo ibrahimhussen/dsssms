@@ -19,10 +19,14 @@ import { AcademicReportsPage } from '../pages/academic-reports/AcademicReportsPa
 import { NotificationsPage } from '../pages/notifications/NotificationsPage';
 import { MyAttendancePage } from '../pages/my-attendance/MyAttendancePage';
 import { MyGradesPage } from '../pages/my-grades/MyGradesPage';
+import { TranscriptPage } from '../pages/transcript/TranscriptPage';
 import { TimetablePage } from '../pages/timetable/TimetablePage';
 import { TimetableAdminPage } from '../pages/timetable-admin/TimetableAdminPage';
 import { TeacherHomeworkPage } from '../pages/homework/TeacherHomeworkPage';
 import { StudentHomeworkPage } from '../pages/my-homework/StudentHomeworkPage';
+import { AuditLogsPage } from '../pages/audit-logs/AuditLogsPage';
+import { SystemSettingsPage } from '../pages/system-settings/SystemSettingsPage';
+import { BackupRestorePage } from '../pages/backups/BackupRestorePage';
 
 export const router = createBrowserRouter([
   {
@@ -39,7 +43,12 @@ export const router = createBrowserRouter([
 
           {
             element: <ProtectedRoute allowedRoles={['ADMIN']} />,
-            children: [{ path: '/users', element: <UsersPage /> }],
+            children: [
+              { path: '/users', element: <UsersPage /> },
+              { path: '/audit-logs', element: <AuditLogsPage /> },
+              { path: '/system-settings', element: <SystemSettingsPage /> },
+              { path: '/backups', element: <BackupRestorePage /> },
+            ],
           },
 
           {
@@ -70,6 +79,7 @@ export const router = createBrowserRouter([
             children: [
               { path: '/my-attendance', element: <MyAttendancePage /> },
               { path: '/my-grades', element: <MyGradesPage /> },
+              { path: '/transcript', element: <TranscriptPage /> },
               { path: '/my-homework', element: <StudentHomeworkPage /> },
             ],
           },

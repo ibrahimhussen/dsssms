@@ -7,6 +7,7 @@ import { validate } from '../../middlewares/validate.middleware';
 import {
   createNotificationSchema,
   sendToParentsSchema,
+  broadcastNotificationSchema,
   listNotificationsQuerySchema,
   listAllNotificationsQuerySchema,
   notificationIdParamSchema,
@@ -32,6 +33,13 @@ router.post(
   validate(studentIdParamSchema, 'params'),
   validate(sendToParentsSchema),
   notificationController.sendToParents
+);
+
+router.post(
+  '/broadcast',
+  authorize(...OVERSIGHT_AND_TEACHER),
+  validate(broadcastNotificationSchema),
+  notificationController.broadcast
 );
 
 router.get(
