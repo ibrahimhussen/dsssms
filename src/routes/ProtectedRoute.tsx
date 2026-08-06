@@ -1,9 +1,11 @@
 import { Navigate, Outlet, useLocation } from 'react-router-dom';
+import type { ReactNode } from 'react';
 import { useAuth } from '../context/AuthContext';
 import type { RoleName } from '../types/auth';
 
 interface ProtectedRouteProps {
   allowedRoles?: RoleName[];
+  children?: ReactNode;
 }
 
 /**
@@ -12,7 +14,7 @@ interface ProtectedRouteProps {
  * matching the same role checks the backend applies on each endpoint, so
  * the UI never even offers a screen the API would reject.
  */
-export function ProtectedRoute({ allowedRoles }: ProtectedRouteProps) {
+export function ProtectedRoute({ allowedRoles, children }: ProtectedRouteProps) {
   const { user, isLoading } = useAuth();
   const location = useLocation();
 
@@ -33,5 +35,5 @@ export function ProtectedRoute({ allowedRoles }: ProtectedRouteProps) {
     return <Navigate to="/unauthorized" replace />;
   }
 
-  return <Outlet />;
+  return children ?? <Outlet />;
 }
