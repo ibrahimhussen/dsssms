@@ -16,6 +16,7 @@ import { dashboardRoutes } from '../modules/dashboard/dashboard.routes';
 import { auditLogRoutes } from '../modules/audit-logs/audit-log.routes';
 import { systemSettingRoutes } from '../modules/system-settings/system-setting.routes';
 import { backupRoutes } from '../modules/backups/backup.routes';
+import { disciplineRoutes } from '../modules/discipline/discipline.routes';
 
 const router = Router();
 
@@ -36,6 +37,7 @@ router.use('/dashboard', dashboardRoutes);
 router.use('/audit-logs', auditLogRoutes);
 router.use('/system-settings', systemSettingRoutes);
 router.use('/backups', backupRoutes);
+router.use('/discipline-records', disciplineRoutes);
 
 // Backend API surface complete. Stage 7+ builds the frontend against these routes.
 

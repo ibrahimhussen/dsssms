@@ -4,7 +4,7 @@ export const createStudentFormSchema = z
   .object({
     firstName: z.string().trim().min(1, 'First name is required').max(100),
     lastName: z.string().trim().min(1, 'Last name is required').max(100),
-    gender: z.enum(['M', 'F'], { errorMap: () => ({ message: 'Select a gender' }) }),
+    gender: z.enum(['M', 'F']),
     dateOfBirth: z.string().min(1, 'Date of birth is required'),
     address: z.string().trim().max(255).optional(),
     classroomId: z.coerce.number().int().positive('Select a classroom'),

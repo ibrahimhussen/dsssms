@@ -1,16 +1,16 @@
 import { Link } from 'react-router-dom';
-import { useOverviewCounts } from '../../hooks/useOverviewCounts';
+import { useDirectorDashboard } from '../../hooks/useDashboardStats';
 import { StatCard, Card } from '../../components/ui/Card';
 
 export function OversightDashboard() {
-  const { data, isLoading } = useOverviewCounts();
+  const { data, isLoading } = useDirectorDashboard();
 
   return (
     <>
       <div className="mb-7 grid grid-cols-[repeat(auto-fit,minmax(180px,1fr))] gap-4">
-        <StatCard label="Students enrolled" value={isLoading ? '—' : data?.studentCount} />
-        <StatCard label="Teachers" value={isLoading ? '—' : data?.teacherCount} />
-        <StatCard label="Classrooms" value={isLoading ? '—' : data?.classroomCount} />
+        <StatCard label="Students enrolled" value={isLoading ? '—' : data?.stats?.totalStudents} />
+        <StatCard label="Teachers" value={isLoading ? '—' : data?.stats?.totalTeachers} />
+        <StatCard label="Attendance rate" value={isLoading ? '—' : `${data?.stats?.attendanceRateToday ?? 0}%`} />
       </div>
 
       <Card>

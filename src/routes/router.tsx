@@ -27,6 +27,12 @@ import { StudentHomeworkPage } from '../pages/my-homework/StudentHomeworkPage';
 import { AuditLogsPage } from '../pages/audit-logs/AuditLogsPage';
 import { SystemSettingsPage } from '../pages/system-settings/SystemSettingsPage';
 import { BackupRestorePage } from '../pages/backups/BackupRestorePage';
+import { TeachersPage } from '../pages/teachers/TeachersPage';
+import { SchoolPerformancePage } from '../pages/school-performance/SchoolPerformancePage';
+import { DisciplineRecordsPage } from '../pages/discipline/DisciplineRecordsPage';
+import { AttendanceReportsPage } from '../pages/attendance/AttendanceReportsPage';
+import { AnnouncementsPage } from '../pages/announcements/AnnouncementsPage';
+import { ProfilePage } from '../pages/profile/ProfilePage';
 
 export const router = createBrowserRouter([
   {
@@ -46,13 +52,18 @@ export const router = createBrowserRouter([
           { path: '/system-settings', element: <ProtectedRoute allowedRoles={['ADMIN']}><SystemSettingsPage /></ProtectedRoute> },
           { path: '/backups', element: <ProtectedRoute allowedRoles={['ADMIN']}><BackupRestorePage /></ProtectedRoute> },
 
+          { path: '/teachers', element: <ProtectedRoute allowedRoles={['ADMIN', 'DIRECTOR', 'VICE_DIRECTOR']}><TeachersPage /></ProtectedRoute> },
           { path: '/students', element: <ProtectedRoute allowedRoles={['ADMIN', 'DIRECTOR', 'VICE_DIRECTOR']}><StudentsPage /></ProtectedRoute> },
           { path: '/parents', element: <ProtectedRoute allowedRoles={['ADMIN', 'DIRECTOR', 'VICE_DIRECTOR']}><ParentsPage /></ProtectedRoute> },
           { path: '/classrooms', element: <ProtectedRoute allowedRoles={['ADMIN', 'DIRECTOR', 'VICE_DIRECTOR']}><ClassroomsPage /></ProtectedRoute> },
           { path: '/subjects', element: <ProtectedRoute allowedRoles={['ADMIN', 'DIRECTOR', 'VICE_DIRECTOR']}><SubjectsPage /></ProtectedRoute> },
           { path: '/teaching-assignments', element: <ProtectedRoute allowedRoles={['ADMIN', 'DIRECTOR', 'VICE_DIRECTOR']}><TeacherAssignmentsPage /></ProtectedRoute> },
           { path: '/timetable-admin', element: <ProtectedRoute allowedRoles={['ADMIN', 'DIRECTOR', 'VICE_DIRECTOR']}><TimetableAdminPage /></ProtectedRoute> },
+          { path: '/attendance-reports', element: <ProtectedRoute allowedRoles={['ADMIN', 'DIRECTOR', 'VICE_DIRECTOR']}><AttendanceReportsPage /></ProtectedRoute> },
           { path: '/academic-reports', element: <ProtectedRoute allowedRoles={['ADMIN', 'DIRECTOR', 'VICE_DIRECTOR']}><AcademicReportsPage /></ProtectedRoute> },
+          { path: '/school-performance', element: <ProtectedRoute allowedRoles={['ADMIN', 'DIRECTOR', 'VICE_DIRECTOR']}><SchoolPerformancePage /></ProtectedRoute> },
+          { path: '/discipline-records', element: <ProtectedRoute allowedRoles={['ADMIN', 'DIRECTOR', 'VICE_DIRECTOR', 'TEACHER']}><DisciplineRecordsPage /></ProtectedRoute> },
+          { path: '/announcements', element: <ProtectedRoute allowedRoles={['ADMIN', 'DIRECTOR', 'VICE_DIRECTOR']}><AnnouncementsPage /></ProtectedRoute> },
 
           { path: '/my-classes', element: <ProtectedRoute allowedRoles={['TEACHER']}><MyClassesPage /></ProtectedRoute> },
           { path: '/attendance', element: <ProtectedRoute allowedRoles={['TEACHER']}><AttendancePage /></ProtectedRoute> },
@@ -68,6 +79,7 @@ export const router = createBrowserRouter([
 
           // Visible to every authenticated role — no role restriction in nav-config.
           { path: '/notifications', element: <NotificationsPage /> },
+          { path: '/profile', element: <ProfilePage /> },
         ],
       },
     ],

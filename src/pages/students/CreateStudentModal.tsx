@@ -29,7 +29,7 @@ export function CreateStudentModal({ isOpen, onClose, onCreated }: CreateStudent
     reset,
     formState: { errors, isSubmitting },
   } = useForm<CreateStudentFormValues>({
-    resolver: zodResolver(createStudentFormSchema),
+    resolver: zodResolver(createStudentFormSchema) as any,
     defaultValues: { addGuardian: false },
   });
 

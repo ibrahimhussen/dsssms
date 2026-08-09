@@ -29,7 +29,7 @@ export function CreateAssignmentModal({ isOpen, onClose, onCreated }: CreateAssi
     handleSubmit,
     reset,
     formState: { errors, isSubmitting },
-  } = useForm<CreateAssignmentFormValues>({ resolver: zodResolver(createAssignmentFormSchema) });
+  } = useForm<CreateAssignmentFormValues>({ resolver: zodResolver(createAssignmentFormSchema) as any });
 
   async function onSubmit(values: CreateAssignmentFormValues) {
     setServerError(null);

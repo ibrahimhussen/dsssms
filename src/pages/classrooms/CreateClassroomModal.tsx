@@ -26,7 +26,7 @@ export function CreateClassroomModal({ isOpen, onClose, onCreated }: CreateClass
     handleSubmit,
     reset,
     formState: { errors, isSubmitting },
-  } = useForm<CreateClassroomFormValues>({ resolver: zodResolver(createClassroomFormSchema) });
+  } = useForm<CreateClassroomFormValues>({ resolver: zodResolver(createClassroomFormSchema) as any });
 
   async function onSubmit(values: CreateClassroomFormValues) {
     setServerError(null);

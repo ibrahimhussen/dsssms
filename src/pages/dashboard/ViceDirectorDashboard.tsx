@@ -25,21 +25,30 @@ export function ViceDirectorDashboard() {
 
   return (
     <>
-      <div className="mb-6 flex flex-wrap gap-3">
-        <Link to="/students" className="text-sm font-semibold text-pine-700 hover:underline">
-          View student records
+      <div className="mb-6 flex flex-wrap items-center gap-3 rounded-lg bg-pine-50 p-3.5 border border-pine-200">
+        <span className="text-xs font-semibold text-pine-900 uppercase tracking-wide">Operational Actions:</span>
+        <Link to="/students" className="text-xs font-semibold text-pine-700 hover:underline">
+          Manage students
         </Link>
         <span className="text-slate-300">·</span>
-        <Link to="/teaching-assignments" className="text-sm font-semibold text-pine-700 hover:underline">
+        <Link to="/classrooms" className="text-xs font-semibold text-pine-700 hover:underline">
+          Manage classrooms
+        </Link>
+        <span className="text-slate-300">·</span>
+        <Link to="/teaching-assignments" className="text-xs font-semibold text-pine-700 hover:underline">
           Assign teachers
         </Link>
         <span className="text-slate-300">·</span>
-        <Link to="/timetable-admin" className="text-sm font-semibold text-pine-700 hover:underline">
-          Manage timetable
+        <Link to="/discipline-records" className="text-xs font-semibold text-pine-700 hover:underline">
+          Manage discipline records
         </Link>
         <span className="text-slate-300">·</span>
-        <Link to="/academic-reports" className="text-sm font-semibold text-pine-700 hover:underline">
-          Review reports
+        <Link to="/attendance-reports" className="text-xs font-semibold text-pine-700 hover:underline">
+          Monitor attendance
+        </Link>
+        <span className="text-slate-300">·</span>
+        <Link to="/academic-reports" className="text-xs font-semibold text-pine-700 hover:underline">
+          Generate reports
         </Link>
       </div>
 

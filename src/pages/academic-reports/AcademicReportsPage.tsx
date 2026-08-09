@@ -8,6 +8,7 @@ import { LedgerRule } from '../../components/ui/LedgerRule';
 import { Table } from '../../components/ui/Table';
 import type { Column } from '../../components/ui/Table';
 import { EmptyState } from '../../components/ui/EmptyState';
+import { Badge } from '../../components/ui/Badge';
 import type { AcademicReport } from '../../types/academic-report';
 import type { Semester } from '../../types/grade';
 
@@ -41,6 +42,7 @@ export function AcademicReportsPage() {
     { header: 'Rank', render: (r) => r.rank ?? '—' },
     { header: 'Student', render: (r) => r.studentName },
     { header: 'Average mark', render: (r) => r.averageMark.toFixed(2) },
+    { header: 'Status', render: () => <Badge tone="positive">APPROVED</Badge> },
   ];
 
   return (

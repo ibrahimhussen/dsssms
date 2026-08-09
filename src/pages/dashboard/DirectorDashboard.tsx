@@ -1,3 +1,4 @@
+import { Link } from 'react-router-dom';
 import { useDirectorDashboard } from '../../hooks/useDashboardStats';
 import { Card, StatCard } from '../../components/ui/Card';
 import { Badge } from '../../components/ui/Badge';
@@ -11,6 +12,33 @@ export function DirectorDashboard() {
 
   return (
     <>
+      <div className="mb-4 rounded-lg bg-pine-50 p-4 border border-pine-200 flex flex-wrap items-center justify-between gap-3">
+        <div>
+          <h2 className="text-sm font-semibold text-pine-900">Director Supervisory Shortcuts</h2>
+          <p className="text-xs text-pine-700">Access comprehensive performance analytics, teacher statistics, and report approvals</p>
+        </div>
+        <div className="flex flex-wrap gap-2">
+          <Link
+            to="/school-performance"
+            className="rounded bg-pine-700 px-3 py-1.5 text-xs font-semibold text-white hover:bg-pine-800 transition"
+          >
+            School Performance Analytics
+          </Link>
+          <Link
+            to="/teachers"
+            className="rounded bg-white px-3 py-1.5 text-xs font-semibold text-pine-700 border border-pine-300 hover:bg-pine-100 transition"
+          >
+            Teachers Directory
+          </Link>
+          <Link
+            to="/discipline-records"
+            className="rounded bg-white px-3 py-1.5 text-xs font-semibold text-pine-700 border border-pine-300 hover:bg-pine-100 transition"
+          >
+            Discipline Records
+          </Link>
+        </div>
+      </div>
+
       <div className="mb-7 grid grid-cols-[repeat(auto-fit,minmax(160px,1fr))] gap-4">
         <StatCard label="Total students" value={isLoading ? '—' : stats?.totalStudents} />
         <StatCard label="Total teachers" value={isLoading ? '—' : stats?.totalTeachers} />

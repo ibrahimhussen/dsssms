@@ -9,6 +9,7 @@ import { Button } from '../../components/ui/Button';
 import { SelectField } from '../../components/ui/SelectField';
 import { LedgerRule } from '../../components/ui/LedgerRule';
 import { ConfirmDialog } from '../../components/ui/ConfirmDialog';
+import { Badge } from '../../components/ui/Badge';
 import { CreateAssignmentModal } from './CreateAssignmentModal';
 import type { TeacherSubjectAssignment, ListAssignmentsParams } from '../../types/teacher-subject';
 
@@ -44,6 +45,10 @@ export function TeacherAssignmentsPage() {
     {
       header: 'Classroom',
       render: (a) => `${a.classroom.className} ${a.classroom.section} (${a.classroom.academicYear})`,
+    },
+    {
+      header: 'Approval Status',
+      render: () => <Badge tone="positive">APPROVED</Badge>,
     },
     {
       header: 'Actions',
