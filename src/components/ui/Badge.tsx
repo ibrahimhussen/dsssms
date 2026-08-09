@@ -3,6 +3,7 @@ import type { ReactNode } from 'react';
 
 interface BadgeProps {
   tone?: 'neutral' | 'positive' | 'warning' | 'danger';
+  className?: string;
   children: ReactNode;
 }
 
@@ -13,9 +14,9 @@ const TONE_CLASSES: Record<NonNullable<BadgeProps['tone']>, string> = {
   danger: 'bg-danger-100 text-danger-600',
 };
 
-export function Badge({ tone = 'neutral', children }: BadgeProps) {
+export function Badge({ tone = 'neutral', className, children }: BadgeProps) {
   return (
-    <span className={clsx('inline-flex items-center rounded-full px-2.5 py-0.5 text-xs font-semibold', TONE_CLASSES[tone])}>
+    <span className={clsx('inline-flex items-center rounded-full px-2.5 py-0.5 text-xs font-semibold', TONE_CLASSES[tone], className)}>
       {children}
     </span>
   );

@@ -1,7 +1,6 @@
 import { useMemo } from 'react';
 import type { DayOfWeek, TimetableEntry } from '../../types/timetable';
 import { Badge } from '../../components/ui/Badge';
-import { Button } from '../../components/ui/Button';
 
 export interface StandardPeriod {
   id: string;
@@ -61,11 +60,18 @@ export function TimetableMatrixTable({
   onDeleteSlot,
   isTeacherView = false,
 }: TimetableMatrixTableProps) {
+  const normalizedSessionFilter = sessionFilter?.toUpperCase() as 'MORNING' | 'AFTERNOON' | undefined;
+
   // Build time periods combining default periods and any custom entry times
   const periods = useMemo(() => {
     // Start from the session-filtered default periods
-    const basePeriods = sessionFilter
-      ? DEFAULT_PERIODS.filter((p) => p.session === 'Break' ? p.id.startsWith(sessionFilter === 'MORNING' ? 'm-' : 'a-') : p.session === sessionFilter)
+    const basePeriods = normalizedSessionFilter
+      ? DEFAULT_PERIODS.filter((p) => {
+          if (p.session === 'Break') {
+            return p.id.startsWith(normalizedSessionFilter === 'MORNING' ? 'm-' : 'a-');
+          }
+          return p.session.toUpperCase() === normalizedSessionFilter;
+        })
       : DEFAULT_PERIODS;
 
     const periodList = [...basePeriods];
@@ -75,7 +81,7 @@ export function TimetableMatrixTable({
       if (!exists) {
         const entrySession = e.startTime < '12:30' ? 'Morning' : 'Afternoon';
         // Only add custom period if it matches session filter
-        if (!sessionFilter || entrySession.toUpperCase() === sessionFilter) {
+        if (!normalizedSessionFilter || entrySession.toUpperCase() === normalizedSessionFilter) {
           periodList.push({
             id: `custom-${e.startTime}-${e.endTime}`,
             name: `${e.startTime} - ${e.endTime}`,
@@ -89,7 +95,7 @@ export function TimetableMatrixTable({
     }
 
     return periodList.sort((a, b) => a.startTime.localeCompare(b.startTime));
-  }, [entries, sessionFilter]);
+  }, [entries, normalizedSessionFilter]);
 
   const morningCount = periods.filter((p) => p.session === 'Morning' || p.id === 'm-mb').length;
   const afternoonCount = periods.filter((p) => p.session === 'Afternoon' || p.id === 'a-ab').length;

@@ -2,7 +2,7 @@ import type { ButtonHTMLAttributes, ReactNode } from 'react';
 import clsx from 'clsx';
 
 interface ButtonProps extends ButtonHTMLAttributes<HTMLButtonElement> {
-  variant?: 'primary' | 'secondary' | 'ghost' | 'danger';
+  variant?: 'primary' | 'secondary' | 'ghost' | 'outline' | 'danger';
   isLoading?: boolean;
   children: ReactNode;
 }
@@ -11,6 +11,7 @@ const VARIANT_CLASSES: Record<NonNullable<ButtonProps['variant']>, string> = {
   primary: 'bg-pine-900 text-paper-50 border-transparent hover:bg-pine-700',
   secondary: 'bg-transparent text-pine-900 border-pine-900 hover:bg-pine-100',
   ghost: 'bg-transparent text-ink-700 border-slate-200 hover:bg-paper-100',
+  outline: 'bg-white text-slate-700 border-slate-300 hover:bg-slate-50',
   danger: 'bg-danger-600 text-paper-50 border-transparent hover:opacity-90',
 };
 
