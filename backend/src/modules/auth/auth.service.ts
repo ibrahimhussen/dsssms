@@ -9,7 +9,7 @@ import {
   verifyRefreshToken,
 } from '../../core/utils/jwt.util';
 import { durationToFutureDate, hashToken } from '../../core/utils/token.util';
-import { logger } from '../../core/logger/logger';
+import { recordAudit } from '../../core/audit/audit-recorder';
 import { LoginResponseDto, RefreshResponseDto, AuthenticatedUserDto } from './dto/auth.dto';
 
 function toAuthenticatedUserDto(user: {
@@ -26,27 +26,6 @@ function toAuthenticatedUserDto(user: {
     role: user.role.roleName,
     status: user.status,
   };
-}
-
-async function recordAudit(params: {
-  userId?: number;
-  action: string;
-  ipAddress?: string;
-  metadata?: Record<string, unknown>;
-}): Promise<void> {
-  try {
-    await prisma.auditLog.create({
-      data: {
-        userId: params.userId,
-        action: params.action,
-        ipAddress: params.ipAddress,
-        metadata: params.metadata,
-      },
-    });
-  } catch (err) {
-    // Audit logging must never break the primary flow (e.g. a successful login).
-    logger.error({ err }, 'Failed to write audit log');
-  }
 }
 
 export class AuthService {

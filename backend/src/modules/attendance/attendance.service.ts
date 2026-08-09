@@ -8,6 +8,7 @@ import { AuthenticatedUser } from '../../middlewares/authenticate.middleware';
 import {
   BulkMarkAttendanceInput,
   ClassroomAttendanceQuery,
+  ClassroomAttendanceRangeQuery,
   StudentAttendanceQuery,
   AttendanceSummaryQuery,
   UpdateAttendanceInput,
@@ -142,6 +143,36 @@ export class AttendanceService {
       where: { classroomId: query.classroomId, attendanceDate: query.attendanceDate },
       include: ATTENDANCE_INCLUDE,
       orderBy: { student: { firstName: 'asc' } },
+    });
+
+    return records.map(toAttendanceRecordDto);
+  }
+
+  /** Every attendance record for a classroom across a date range — the basis for the Excel export, same access rules as `getClassroomAttendance`. */
+  async exportClassroomAttendance(actor: AuthenticatedUser, query: ClassroomAttendanceRangeQuery): Promise<AttendanceRecordDto[]> {
+    const isOversight = [RoleName.ADMIN, RoleName.DIRECTOR, RoleName.VICE_DIRECTOR].includes(actor.role);
+
+    if (!isOversight) {
+      if (actor.role !== RoleName.TEACHER) {
+        throw new ForbiddenError();
+      }
+      const teacherId = await getTeacherIdForUser(actor.userId);
+      await teacherSubjectService.assertTeacherAssignedToClassroom({ teacherId, classroomId: query.classroomId });
+    }
+
+    const records = await prisma.attendance.findMany({
+      where: {
+        classroomId: query.classroomId,
+        ...((query.from || query.to) && {
+          attendanceDate: {
+            ...(query.from && { gte: query.from }),
+            ...(query.to && { lte: query.to }),
+          },
+        }),
+      },
+      include: ATTENDANCE_INCLUDE,
+      orderBy: [{ attendanceDate: 'asc' }, { student: { firstName: 'asc' } }],
+      take: 10000,
     });
 
     return records.map(toAttendanceRecordDto);

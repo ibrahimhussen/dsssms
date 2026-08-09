@@ -8,6 +8,7 @@ import {
   bulkMarkAttendanceSchema,
   updateAttendanceSchema,
   classroomAttendanceQuerySchema,
+  classroomAttendanceRangeQuerySchema,
   studentAttendanceQuerySchema,
   attendanceSummaryQuerySchema,
   attendanceIdParamSchema,
@@ -41,6 +42,13 @@ router.get(
   authorize(...OVERSIGHT_AND_TEACHER),
   validate(classroomAttendanceQuerySchema, 'query'),
   attendanceController.getClassroomAttendance
+);
+
+router.get(
+  '/export',
+  authorize(...OVERSIGHT_AND_TEACHER),
+  validate(classroomAttendanceRangeQuerySchema, 'query'),
+  attendanceController.export
 );
 
 router.patch(

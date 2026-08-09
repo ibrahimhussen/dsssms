@@ -1,7 +1,9 @@
 import { useAuth } from '../../context/AuthContext';
 import { getRoleLabel } from '../../lib/role-labels';
 import { LedgerRule } from '../../components/ui/LedgerRule';
-import { OversightDashboard } from './OversightDashboard';
+import { AdminDashboard } from './AdminDashboard';
+import { DirectorDashboard } from './DirectorDashboard';
+import { ViceDirectorDashboard } from './ViceDirectorDashboard';
 import { TeacherDashboard } from './TeacherDashboard';
 import { StudentDashboard } from './StudentDashboard';
 import { ParentDashboard } from './ParentDashboard';
@@ -18,7 +20,9 @@ export function DashboardPage() {
       </p>
       <LedgerRule />
 
-      {(user.role === 'ADMIN' || user.role === 'DIRECTOR' || user.role === 'VICE_DIRECTOR') && <OversightDashboard />}
+      {user.role === 'ADMIN' && <AdminDashboard />}
+      {user.role === 'DIRECTOR' && <DirectorDashboard />}
+      {user.role === 'VICE_DIRECTOR' && <ViceDirectorDashboard />}
       {user.role === 'TEACHER' && <TeacherDashboard />}
       {user.role === 'STUDENT' && <StudentDashboard />}
       {user.role === 'PARENT' && <ParentDashboard />}

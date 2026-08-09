@@ -14,6 +14,27 @@ export const sendToParentsSchema = z.object({
   message: z.string().trim().min(1, 'Message is required').max(2000),
 });
 
+const BROADCAST_AUDIENCES = [
+  'ALL_STAFF',
+  'ALL_TEACHERS',
+  'ALL_PARENTS',
+  'ALL_STUDENTS',
+  'CLASSROOM_STUDENTS',
+  'CLASSROOM_PARENTS',
+] as const;
+
+export const broadcastNotificationSchema = z
+  .object({
+    audience: z.enum(BROADCAST_AUDIENCES),
+    classroomId: z.coerce.number().int().positive().optional(),
+    title: z.string().trim().min(1, 'Title is required').max(150),
+    message: z.string().trim().min(1, 'Message is required').max(2000),
+  })
+  .refine(
+    (data) => !(data.audience === 'CLASSROOM_STUDENTS' || data.audience === 'CLASSROOM_PARENTS') || data.classroomId !== undefined,
+    { message: 'classroomId is required for this audience', path: ['classroomId'] }
+  );
+
 export const listNotificationsQuerySchema = paginationQuerySchema.extend({
   status: z.nativeEnum(NotificationStatus).optional(),
 });
@@ -33,6 +54,7 @@ export const studentIdParamSchema = z.object({
 
 export type CreateNotificationInput = z.infer<typeof createNotificationSchema>;
 export type SendToParentsInput = z.infer<typeof sendToParentsSchema>;
+export type BroadcastNotificationInput = z.infer<typeof broadcastNotificationSchema>;
 export type ListNotificationsQuery = z.infer<typeof listNotificationsQuerySchema>;
 export type ListAllNotificationsQuery = z.infer<typeof listAllNotificationsQuerySchema>;
 export type NotificationIdParam = z.infer<typeof notificationIdParamSchema>;

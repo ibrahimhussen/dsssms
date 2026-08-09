@@ -1,17 +1,34 @@
 import { Link } from 'react-router-dom';
 import { useMyClassrooms } from '../../hooks/useMyClassrooms';
-import { useTodaysAttendanceStatus } from '../../hooks/useDashboardData';
+import {
+  useMyTeachingAssignments,
+  useTeacherAttendanceSummary,
+  useTeacherGradeDistribution,
+  useTodaysAttendanceStatus,
+} from '../../hooks/useDashboardData';
 import { useMyInbox } from '../../hooks/useNotifications';
 import { Card, StatCard } from '../../components/ui/Card';
 import { Badge } from '../../components/ui/Badge';
 import { Button } from '../../components/ui/Button';
 import { EmptyState } from '../../components/ui/EmptyState';
+import { BarChart, DonutChart } from '../../components/ui/Charts';
+import { chartColors } from '../../components/ui/chart-colors';
+
+const STATUS_COLORS: Record<string, string> = {
+  PRESENT: chartColors.pine,
+  ABSENT: chartColors.danger,
+  LATE: chartColors.gold,
+  EXCUSED: chartColors.slate,
+};
 
 export function TeacherDashboard() {
   const { data: classrooms, isLoading: isClassroomsLoading } = useMyClassrooms();
   const classroomIds = classrooms?.map((c) => c.classroomId) ?? [];
   const { pendingCount, isLoading: isAttendanceStatusLoading } = useTodaysAttendanceStatus(classroomIds);
   const { data: inbox, isLoading: isInboxLoading } = useMyInbox({ page: 1, limit: 3 });
+  const { data: assignments } = useMyTeachingAssignments();
+  const { counts: attendanceCounts, isLoading: isAttendanceSummaryLoading } = useTeacherAttendanceSummary(classroomIds);
+  const { buckets: gradeBuckets, isLoading: isGradeDistributionLoading } = useTeacherGradeDistribution(assignments);
 
   const totalStudents = classrooms?.reduce((sum, c) => sum + c.studentCount, 0) ?? 0;
   const totalSubjectAssignments = classrooms?.reduce((sum, c) => sum + c.subjects.length, 0) ?? 0;
@@ -100,6 +117,34 @@ export function TeacherDashboard() {
                 </li>
               ))}
             </ul>
+          )}
+        </Card>
+      </div>
+
+      <div className="mt-5 grid grid-cols-2 gap-5 max-[900px]:grid-cols-1">
+        <Card>
+          <h2 className="mb-4 text-lg">Attendance summary (today)</h2>
+          {isAttendanceSummaryLoading ? (
+            <p className="text-sm text-slate-500">Loading…</p>
+          ) : (
+            <DonutChart
+              data={[
+                { label: 'Present', value: attendanceCounts.PRESENT, color: STATUS_COLORS.PRESENT },
+                { label: 'Absent', value: attendanceCounts.ABSENT, color: STATUS_COLORS.ABSENT },
+                { label: 'Late', value: attendanceCounts.LATE, color: STATUS_COLORS.LATE },
+                { label: 'Excused', value: attendanceCounts.EXCUSED, color: STATUS_COLORS.EXCUSED },
+              ]}
+              emptyLabel="No attendance taken today yet"
+            />
+          )}
+        </Card>
+
+        <Card>
+          <h2 className="mb-4 text-lg">Grade distribution</h2>
+          {isGradeDistributionLoading ? (
+            <p className="text-sm text-slate-500">Loading…</p>
+          ) : (
+            <BarChart data={gradeBuckets} color={chartColors.gold} emptyLabel="No grades entered yet" />
           )}
         </Card>
       </div>

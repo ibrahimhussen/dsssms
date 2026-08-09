@@ -3,8 +3,10 @@ import { prisma } from '../../database/prisma-client';
 import { NotFoundError } from '../../core/errors/app-error';
 import { assertCanAccessStudentRecords } from '../../core/authorization/student-access';
 import { AuthenticatedUser } from '../../middlewares/authenticate.middleware';
+import { studentService } from '../students/student.service';
+import { gradeService } from '../grades/grade.service';
 import { GenerateClassroomReportsInput } from './validation/academic-report.validation';
-import { AcademicReportDto } from './dto/academic-report.dto';
+import { AcademicReportDto, TranscriptDto, TranscriptPeriodDto } from './dto/academic-report.dto';
 
 type ReportWithStudent = Prisma.AcademicReportGetPayload<{ include: { student: true } }>;
 
@@ -166,6 +168,65 @@ export class AcademicReportService {
     });
 
     return reports.map(toAcademicReportDto);
+  }
+
+  /**
+   * The full, cumulative multi-year academic record — every semester the
+   * student has a generated report for, each broken down subject-by-subject,
+   * plus a cumulative average across all of them. Distinct from a single
+   * semester's report card: this is the "whole school career" document.
+   */
+  async getStudentTranscript(actor: AuthenticatedUser, studentId: number): Promise<TranscriptDto> {
+    await assertCanAccessStudentRecords(actor, studentId);
+
+    const [student, reports] = await Promise.all([
+      studentService.getStudentById(studentId),
+      this.listStudentReports(actor, studentId),
+    ]);
+
+    // Chronological order (oldest first) reads naturally as a school career.
+    const orderedReports = [...reports].sort(
+      (a, b) => a.academicYear.localeCompare(b.academicYear) || a.semester.localeCompare(b.semester)
+    );
+
+    const periods: TranscriptPeriodDto[] = [];
+    for (const report of orderedReports) {
+      const subjectBreakdown = await gradeService.getStudentGrades(actor, studentId, {
+        semester: report.semester,
+        academicYear: report.academicYear,
+      });
+
+      periods.push({
+        semester: report.semester,
+        academicYear: report.academicYear,
+        subjects: subjectBreakdown.map((s) => ({
+          subjectName: s.subject.subjectName,
+          totalScore: s.totalScore,
+          totalMaxMarks: s.totalMaxMarks,
+          percentage: s.totalMaxMarks > 0 ? Math.round((s.totalScore / s.totalMaxMarks) * 1000) / 10 : 0,
+        })),
+        periodAverage: report.averageMark,
+        rank: report.rank,
+      });
+    }
+
+    const cumulativeAverage =
+      periods.length === 0
+        ? null
+        : Math.round((periods.reduce((sum, p) => sum + p.periodAverage, 0) / periods.length) * 10) / 10;
+
+    return {
+      studentId: student.studentId,
+      studentName: `${student.firstName} ${student.lastName}`,
+      admissionNumber: student.admissionNumber,
+      gender: student.gender,
+      dateOfBirth: student.dateOfBirth.toISOString(),
+      classroomLabel: `${student.classroom.className} ${student.classroom.section}`,
+      enrolledAt: student.enrolledAt.toISOString(),
+      periods,
+      cumulativeAverage,
+      generatedDate: new Date().toISOString(),
+    };
   }
 }
 

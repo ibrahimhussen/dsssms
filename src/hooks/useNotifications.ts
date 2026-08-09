@@ -1,6 +1,6 @@
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { notificationsApi } from '../lib/notifications-api';
-import type { ListNotificationsParams, SendToParentsInput } from '../types/notification';
+import type { BroadcastNotificationInput, ListNotificationsParams, SendToParentsInput } from '../types/notification';
 
 export function useMyInbox(params: ListNotificationsParams) {
   return useQuery({
@@ -44,5 +44,11 @@ export function useSendToParents() {
   return useMutation({
     mutationFn: ({ studentId, input }: { studentId: number; input: SendToParentsInput }) =>
       notificationsApi.sendToParents(studentId, input),
+  });
+}
+
+export function useBroadcastNotification() {
+  return useMutation({
+    mutationFn: (input: BroadcastNotificationInput) => notificationsApi.broadcast(input),
   });
 }

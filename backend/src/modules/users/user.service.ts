@@ -4,8 +4,15 @@ import { ConflictError, NotFoundError, ValidationError } from '../../core/errors
 import { hashPassword } from '../../core/utils/password.util';
 import { buildBaseUsername, ensureUniqueUsername, generateTemporaryPassword } from '../../core/utils/code-generator.util';
 import { getPaginationParams, buildPaginationMeta, PaginationQuery } from '../../core/http/pagination';
+import { recordAudit } from '../../core/audit/audit-recorder';
 import { CreateStaffInput, ListUsersQuery } from './validation/user.validation';
 import { CreateStaffResultDto, UserSummaryDto } from './dto/user.dto';
+
+/** Who performed a mutating action, for the audit trail. */
+export interface ActorContext {
+  userId: number;
+  ipAddress?: string;
+}
 
 type UserWithRoleAndProfiles = Prisma.UserGetPayload<{
   include: {
@@ -59,7 +66,7 @@ export class UserService {
    * "Manage user accounts" (4.4). A random, policy-compliant temporary
    * password is generated and returned exactly once.
    */
-  async createStaff(input: CreateStaffInput): Promise<CreateStaffResultDto> {
+  async createStaff(input: CreateStaffInput, actor: ActorContext): Promise<CreateStaffResultDto> {
     const role = await prisma.role.findUnique({ where: { roleName: input.role } });
     if (!role) {
       throw new ValidationError(`Role ${input.role} is not configured in the system`);
@@ -106,6 +113,15 @@ export class UserService {
       include: PROFILE_INCLUDE,
     });
 
+    await recordAudit({
+      userId: actor.userId,
+      action: 'STAFF_ACCOUNT_CREATED',
+      entity: 'User',
+      entityId: String(created.userId),
+      ipAddress: actor.ipAddress,
+      metadata: { role: input.role, username },
+    });
+
     return {
       user: toUserSummaryDto(created),
       credentials: { username, temporaryPassword },
@@ -147,7 +163,7 @@ export class UserService {
     return toUserSummaryDto(user);
   }
 
-  async updateStatus(userId: number, status: UserStatus): Promise<UserSummaryDto> {
+  async updateStatus(userId: number, status: UserStatus, actor: ActorContext): Promise<UserSummaryDto> {
     await this.assertExists(userId);
 
     const updated = await prisma.user.update({
@@ -164,11 +180,20 @@ export class UserService {
       await prisma.refreshToken.updateMany({ where: { userId, revokedAt: null }, data: { revokedAt: new Date() } });
     }
 
+    await recordAudit({
+      userId: actor.userId,
+      action: 'USER_STATUS_UPDATED',
+      entity: 'User',
+      entityId: String(userId),
+      ipAddress: actor.ipAddress,
+      metadata: { status },
+    });
+
     return toUserSummaryDto(updated);
   }
 
   /** Admin-initiated password reset — returns a new temporary password once. */
-  async resetPassword(userId: number): Promise<{ username: string; temporaryPassword: string }> {
+  async resetPassword(userId: number, actor: ActorContext): Promise<{ username: string; temporaryPassword: string }> {
     const user = await this.assertExists(userId);
 
     const temporaryPassword = generateTemporaryPassword();
@@ -180,6 +205,14 @@ export class UserService {
     });
 
     await prisma.refreshToken.updateMany({ where: { userId, revokedAt: null }, data: { revokedAt: new Date() } });
+
+    await recordAudit({
+      userId: actor.userId,
+      action: 'USER_PASSWORD_RESET',
+      entity: 'User',
+      entityId: String(userId),
+      ipAddress: actor.ipAddress,
+    });
 
     return { username: user.username, temporaryPassword };
   }

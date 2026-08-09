@@ -1,8 +1,10 @@
 import { useState } from 'react';
 import { useMyGrades } from '../../hooks/useGrades';
 import { useMyAcademicReports } from '../../hooks/useAcademicReports';
+import { academicReportsApi } from '../../lib/academic-reports-api';
 import { Card } from '../../components/ui/Card';
 import { Badge } from '../../components/ui/Badge';
+import { Button } from '../../components/ui/Button';
 import { SelectField } from '../../components/ui/SelectField';
 import { LedgerRule } from '../../components/ui/LedgerRule';
 import { EmptyState } from '../../components/ui/EmptyState';
@@ -27,10 +29,20 @@ const [filters, setFilters] = useState<StudentGradesParams>({
 });
   const { data: gradesData, isLoading: isGradesLoading } = useMyGrades(filters);
   const { data: reports, isLoading: isReportsLoading } = useMyAcademicReports();
+  const [downloadingReportId, setDownloadingReportId] = useState<number | null>(null);
 
   const sortedReports = reports
     ? [...reports].sort((a, b) => b.academicYear.localeCompare(a.academicYear) || b.semester.localeCompare(a.semester))
     : [];
+
+  async function handleDownloadPdf(report: (typeof sortedReports)[number]) {
+    setDownloadingReportId(report.reportId);
+    try {
+      await academicReportsApi.downloadReportCardPdf(report.studentId, report.semester, report.academicYear);
+    } finally {
+      setDownloadingReportId(null);
+    }
+  }
 
 const columns: Column<SubjectGradeBreakdown>[] = [
     {
@@ -75,10 +87,13 @@ const columns: Column<SubjectGradeBreakdown>[] = [
               <p className="mb-1 text-[0.8125rem] text-slate-500">
                 {SEMESTER_LABELS[r.semester]} · {r.academicYear}
               </p>
-              <div className="flex items-baseline gap-2">
+              <div className="mb-3 flex items-baseline gap-2">
                 <span className="font-display text-2xl font-semibold text-pine-900">{r.averageMark}%</span>
                 {r.rank && <Badge tone="positive">Rank #{r.rank}</Badge>}
               </div>
+              <Button variant="ghost" onClick={() => void handleDownloadPdf(r)} isLoading={downloadingReportId === r.reportId}>
+                Download PDF
+              </Button>
             </Card>
           ))}
         </div>

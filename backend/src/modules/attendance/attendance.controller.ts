@@ -2,11 +2,13 @@ import { Request, Response } from 'express';
 import { asyncHandler } from '../../core/http/async-handler';
 import { ApiResponse } from '../../core/http/api-response';
 import { UnauthorizedError } from '../../core/errors/app-error';
+import { buildExcelWorkbook } from '../../core/export/excel-export.util';
 import { attendanceService } from './attendance.service';
 import {
   BulkMarkAttendanceInput,
   UpdateAttendanceInput,
   ClassroomAttendanceQuery,
+  ClassroomAttendanceRangeQuery,
   StudentAttendanceQuery,
   AttendanceSummaryQuery,
   AttendanceIdParam,
@@ -35,6 +37,34 @@ export class AttendanceController {
     const query = req.query as unknown as ClassroomAttendanceQuery;
     const records = await attendanceService.getClassroomAttendance(req.user, query);
     ApiResponse.success(res, { message: 'Classroom attendance retrieved', data: records });
+  });
+
+  export = asyncHandler(async (req: Request, res: Response) => {
+    if (!req.user) throw new UnauthorizedError();
+    const query = req.query as unknown as ClassroomAttendanceRangeQuery;
+    const records = await attendanceService.exportClassroomAttendance(req.user, query);
+
+    const buffer = await buildExcelWorkbook({
+      sheetName: 'Attendance',
+      columns: [
+        { header: 'Date', key: 'date', width: 14 },
+        { header: 'Student', key: 'student', width: 24 },
+        { header: 'Status', key: 'status', width: 12 },
+        { header: 'Remarks', key: 'remarks', width: 30 },
+        { header: 'Recorded by', key: 'recordedBy', width: 24 },
+      ],
+      rows: records.map((r) => ({
+        date: new Date(r.attendanceDate).toLocaleDateString(),
+        student: r.studentName,
+        status: r.status,
+        remarks: r.remarks ?? '',
+        recordedBy: `${r.recordedBy.firstName} ${r.recordedBy.lastName}`,
+      })),
+    });
+
+    res.setHeader('Content-Type', 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet');
+    res.setHeader('Content-Disposition', 'attachment; filename="attendance.xlsx"');
+    res.send(buffer);
   });
 
   getStudentHistory = asyncHandler(async (req: Request, res: Response) => {

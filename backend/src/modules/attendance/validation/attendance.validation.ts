@@ -41,6 +41,12 @@ export const classroomAttendanceQuerySchema = z.object({
   attendanceDate: attendanceDateField,
 });
 
+export const classroomAttendanceRangeQuerySchema = z.object({
+  classroomId: z.coerce.number().int().positive(),
+  from: z.coerce.date().optional(),
+  to: z.coerce.date().optional(),
+});
+
 export const studentAttendanceQuerySchema = paginationQuerySchema.extend({
   from: z.coerce.date().optional(),
   to: z.coerce.date().optional(),
@@ -62,6 +68,7 @@ export const studentIdParamSchema = z.object({
 export type BulkMarkAttendanceInput = z.infer<typeof bulkMarkAttendanceSchema>;
 export type UpdateAttendanceInput = z.infer<typeof updateAttendanceSchema>;
 export type ClassroomAttendanceQuery = z.infer<typeof classroomAttendanceQuerySchema>;
+export type ClassroomAttendanceRangeQuery = z.infer<typeof classroomAttendanceRangeQuerySchema>;
 export type StudentAttendanceQuery = z.infer<typeof studentAttendanceQuerySchema>;
 export type AttendanceSummaryQuery = z.infer<typeof attendanceSummaryQuerySchema>;
 export type AttendanceIdParam = z.infer<typeof attendanceIdParamSchema>;

@@ -2,6 +2,7 @@ import { useMemo, useState } from 'react';
 import { useMyTeachingAssignments } from '../../hooks/useDashboardData';
 import { useStudents } from '../../hooks/useStudents';
 import { useClassroomAttendance, useMarkBulkAttendance } from '../../hooks/useAttendance';
+import { attendanceApi } from '../../lib/attendance-api';
 import { SelectField } from '../../components/ui/SelectField';
 import { TextField } from '../../components/ui/TextField';
 import { Button } from '../../components/ui/Button';
@@ -20,6 +21,12 @@ function todayIsoDate(): string {
   return new Date().toISOString().slice(0, 10);
 }
 
+function thirtyDaysAgoIsoDate(): string {
+  const d = new Date();
+  d.setDate(d.getDate() - 30);
+  return d.toISOString().slice(0, 10);
+}
+
 export function AttendancePage() {
   const { data: assignments } = useMyTeachingAssignments();
   const [classroomId, setClassroomId] = useState<number | undefined>(undefined);
@@ -27,6 +34,17 @@ export function AttendancePage() {
   const [draftStatuses, setDraftStatuses] = useState<Record<number, AttendanceStatus>>({});
   const [draftRemarks, setDraftRemarks] = useState<Record<number, string>>({});
   const [feedback, setFeedback] = useState<{ type: 'success' | 'error'; message: string } | null>(null);
+  const [isExporting, setIsExporting] = useState(false);
+
+  async function handleExport() {
+    if (!classroomId) return;
+    setIsExporting(true);
+    try {
+      await attendanceApi.exportClassroomAttendance({ classroomId, from: thirtyDaysAgoIsoDate(), to: todayIsoDate() });
+    } finally {
+      setIsExporting(false);
+    }
+  }
 
   // A teacher may teach the same classroom for several subjects — de-duplicate to one entry per classroom.
   const classroomOptions = useMemo(() => {
@@ -130,7 +148,10 @@ export function AttendancePage() {
         <EmptyState title="No students enrolled" description="This classroom has no enrolled students yet." />
       ) : (
         <>
-          <div className="mb-3 flex justify-end">
+          <div className="mb-3 flex justify-end gap-3">
+            <Button variant="ghost" onClick={() => void handleExport()} isLoading={isExporting}>
+              Export last 30 days (Excel)
+            </Button>
             <Button variant="ghost" onClick={markAllPresent}>
               Mark all as present
             </Button>

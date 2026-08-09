@@ -192,8 +192,8 @@ async function main(): Promise<void> {
   // --- Students + Parents ------------------------------------------------------
   console.log('Seeding demo students and parents...');
   const studentSeed = [
-    { firstName: 'Chaltu', lastName: 'Tesfaye', gender: Gender.F, dob: '2010-03-14', guardianName: 'Tesfaye Alemu' },
-    { firstName: 'Dawit', lastName: 'Getachew', gender: Gender.M, dob: '2010-07-02', guardianName: 'Getachew Worku' },
+    { firstName: 'husen', lastName: 'Ahmed', gender: Gender.F, dob: '2010-03-14', guardianName: 'Tesfaye Alemu' },
+    { firstName: 'chaltu', lastName: 'sani', gender: Gender.M, dob: '2010-07-02', guardianName: 'Getachew Worku' },
     { firstName: 'Selam', lastName: 'Mulugeta', gender: Gender.F, dob: '2010-01-22', guardianName: 'Mulugeta Bekele' },
   ];
 

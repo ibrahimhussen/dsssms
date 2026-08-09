@@ -1,5 +1,6 @@
 import { apiClient, unwrap, unwrapPaginated } from './api-client';
 import { cleanParams } from './clean-params';
+import { triggerBlobDownload } from './download-file';
 import type { ApiResponse } from '../types/api';
 import type {
   AttendanceHistoryParams,
@@ -24,6 +25,11 @@ export const attendanceApi = {
     return unwrap(
       apiClient.get<ApiResponse<AttendanceRecord[]>>('/attendance', { params: { classroomId, attendanceDate } })
     );
+  },
+
+  async exportClassroomAttendance(params: { classroomId: number; from?: string; to?: string }): Promise<void> {
+    const response = await apiClient.get<Blob>('/attendance/export', { params: cleanParams(params), responseType: 'blob' });
+    triggerBlobDownload(response.data, 'attendance.xlsx');
   },
 
   markBulk(input: BulkMarkAttendanceInput) {

@@ -1,6 +1,7 @@
 import { Request, Response } from 'express';
 import { asyncHandler } from '../../core/http/async-handler';
 import { ApiResponse } from '../../core/http/api-response';
+import { buildExcelWorkbook } from '../../core/export/excel-export.util';
 import { studentService } from './student.service';
 import { UnauthorizedError } from '../../core/errors/app-error';
 import {
@@ -29,6 +30,37 @@ export class StudentController {
     const query: ListStudentsQuery = listStudentsQuerySchema.parse(req.query);
     const { items, meta } = await studentService.listStudents(query);
     ApiResponse.success(res, { message: 'Students retrieved', data: items, pagination: meta });
+  });
+
+  export = asyncHandler(async (req: Request, res: Response) => {
+    const query: ListStudentsQuery = listStudentsQuerySchema.parse(req.query);
+    const students = await studentService.exportStudents(query);
+
+    const buffer = await buildExcelWorkbook({
+      sheetName: 'Students',
+      columns: [
+        { header: 'Admission #', key: 'admissionNumber', width: 16 },
+        { header: 'First name', key: 'firstName' },
+        { header: 'Last name', key: 'lastName' },
+        { header: 'Gender', key: 'gender', width: 10 },
+        { header: 'Classroom', key: 'classroom', width: 18 },
+        { header: 'Academic year', key: 'academicYear', width: 14 },
+        { header: 'Enrolled', key: 'enrolledAt', width: 14 },
+      ],
+      rows: students.map((s) => ({
+        admissionNumber: s.admissionNumber,
+        firstName: s.firstName,
+        lastName: s.lastName,
+        gender: s.gender,
+        classroom: `${s.classroom.className} ${s.classroom.section}`,
+        academicYear: s.classroom.academicYear,
+        enrolledAt: new Date(s.enrolledAt).toLocaleDateString(),
+      })),
+    });
+
+    res.setHeader('Content-Type', 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet');
+    res.setHeader('Content-Disposition', 'attachment; filename="students.xlsx"');
+    res.send(buffer);
   });
 
   getById = asyncHandler(async (req: Request, res: Response) => {

@@ -55,9 +55,10 @@ model User {
   student       Student?
   parent        Parent?
 
-  refreshTokens RefreshToken[]
-  auditLogs     AuditLog[]
-  notifications Notification[]
+  refreshTokens        RefreshToken[]
+  auditLogs            AuditLog[]
+  notifications        Notification[]
+  systemSettingUpdates SystemSetting[]
 
   @@index([roleId])
   @@map("users")
@@ -483,4 +484,25 @@ model AssignmentSubmission {
   @@unique([assignmentId, studentId])
   @@index([studentId])
   @@map("assignment_submissions")
+}
+
+// -----------------------------------------------------------------------------
+// K. System Configuration
+// -----------------------------------------------------------------------------
+
+/// Singleton row (id is always 1) holding school-wide configuration editable
+/// from the admin System Settings page.
+model SystemSetting {
+  id                  Int      @id @default(1)
+  schoolName          String   @db.VarChar(150)
+  schoolAddress       String?  @db.VarChar(255)
+  contactEmail        String?  @db.VarChar(150)
+  contactPhone        String?  @db.VarChar(30)
+  currentAcademicYear String   @db.VarChar(10)
+  updatedAt           DateTime @updatedAt
+  updatedByUserId     Int?
+
+  updatedBy User? @relation(fields: [updatedByUserId], references: [userId], onDelete: SetNull)
+
+  @@map("system_settings")
 }

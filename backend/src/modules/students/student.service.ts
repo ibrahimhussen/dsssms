@@ -173,6 +173,29 @@ export class StudentService {
     };
   }
 
+  /** Same filters as `listStudents`, but returns every match (capped) for a full export rather than one page. */
+  async exportStudents(query: Pick<ListStudentsQuery, 'classroomId' | 'search'>): Promise<StudentSummaryDto[]> {
+    const where: Prisma.StudentWhereInput = {
+      ...(query.classroomId && { classroomId: query.classroomId }),
+      ...(query.search && {
+        OR: [
+          { firstName: { contains: query.search } },
+          { lastName: { contains: query.search } },
+          { admissionNumber: { contains: query.search } },
+        ],
+      }),
+    };
+
+    const items = await prisma.student.findMany({
+      where,
+      include: STUDENT_INCLUDE,
+      orderBy: { studentId: 'desc' },
+      take: 5000,
+    });
+
+    return items.map(toStudentSummaryDto);
+  }
+
   async getStudentById(studentId: number): Promise<StudentSummaryDto> {
     const student = await prisma.student.findUnique({ where: { studentId }, include: STUDENT_INCLUDE });
     if (!student) throw new NotFoundError('Student');

@@ -26,6 +26,7 @@ router.get('/me', authorize(RoleName.STUDENT), studentController.getMyProfile);
 
 router.post('/', authorize(...MANAGE_ROLES), validate(createStudentSchema), studentController.create);
 router.get('/', authorize(...READ_ROLES), validate(listStudentsQuerySchema, 'query'), studentController.list);
+router.get('/export', authorize(...READ_ROLES), validate(listStudentsQuerySchema, 'query'), studentController.export);
 router.get('/:id', authorize(...READ_ROLES), validate(studentIdParamSchema, 'params'), studentController.getById);
 
 router.patch(

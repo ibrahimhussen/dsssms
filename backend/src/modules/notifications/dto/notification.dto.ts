@@ -14,3 +14,8 @@ export interface SendToParentsResultDto {
   studentId: number;
   notificationsSent: number;
 }
+
+export interface BroadcastResultDto {
+  audience: string;
+  notificationsSent: number;
+}
