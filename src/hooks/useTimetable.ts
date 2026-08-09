@@ -1,11 +1,12 @@
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { timetableApi } from '../lib/timetable-api';
 import type { CreateTimetableEntryInput, ListTimetableParams } from '../types/timetable';
+import type { Semester } from '../types/grade';
 
-export function useMyTimetable() {
+export function useMyTimetable(semester?: Semester) {
   return useQuery({
-    queryKey: ['timetable', 'me'],
-    queryFn: () => timetableApi.getMyTimetable(),
+    queryKey: ['timetable', 'me', semester],
+    queryFn: () => timetableApi.getMyTimetable(semester),
   });
 }
 

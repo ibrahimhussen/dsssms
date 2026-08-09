@@ -1,7 +1,8 @@
-import { DayOfWeek } from '@prisma/client';
+import { DayOfWeek, Semester } from '@prisma/client';
 
 export interface TimetableEntryDto {
   timetableEntryId: number;
+  semester: Semester;
   dayOfWeek: DayOfWeek;
   startTime: string;
   endTime: string;

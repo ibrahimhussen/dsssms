@@ -1,5 +1,5 @@
 import { z } from 'zod';
-import { DayOfWeek } from '@prisma/client';
+import { DayOfWeek, Semester } from '@prisma/client';
 
 const timeField = z
   .string()
@@ -9,6 +9,7 @@ const timeField = z
 export const createTimetableEntrySchema = z
   .object({
     teacherSubjectId: z.coerce.number().int().positive(),
+    semester: z.nativeEnum(Semester).default(Semester.SEMESTER_1),
     dayOfWeek: z.nativeEnum(DayOfWeek),
     startTime: timeField,
     endTime: timeField,
@@ -22,6 +23,7 @@ export const createTimetableEntrySchema = z
 export const listTimetableQuerySchema = z.object({
   classroomId: z.coerce.number().int().positive().optional(),
   teacherSubjectId: z.coerce.number().int().positive().optional(),
+  semester: z.nativeEnum(Semester).optional(),
 });
 
 export const timetableEntryIdParamSchema = z.object({

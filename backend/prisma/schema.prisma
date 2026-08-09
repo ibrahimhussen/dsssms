@@ -172,12 +172,18 @@ enum Gender {
   F
 }
 
+enum ClassSession {
+  MORNING
+  AFTERNOON
+}
+
 /// Defines classrooms/sections (proposal - Table: Classrooms). Relationship: Classroom (1:M) Student.
 model Classroom {
-  classroomId       Int    @id @default(autoincrement())
-  className         String @db.VarChar(50)
-  section           String @db.VarChar(10)
-  academicYear      String @db.VarChar(10)
+  classroomId       Int          @id @default(autoincrement())
+  className         String       @db.VarChar(50)
+  section           String       @db.VarChar(10)
+  academicYear      String       @db.VarChar(10)
+  session           ClassSession @default(MORNING)
   homeroomTeacherId Int?
 
   homeroomTeacher Teacher? @relation("HomeroomTeacher", fields: [homeroomTeacherId], references: [teacherId], onDelete: SetNull)
@@ -428,6 +434,7 @@ enum DayOfWeek {
 model TimetableEntry {
   timetableEntryId Int       @id @default(autoincrement())
   teacherSubjectId Int
+  semester         Semester  @default(SEMESTER_1)
   dayOfWeek        DayOfWeek
   startTime        String    @db.VarChar(5) // "HH:MM", 24-hour
   endTime          String    @db.VarChar(5)
@@ -437,8 +444,8 @@ model TimetableEntry {
 
   teacherSubject TeacherSubject @relation(fields: [teacherSubjectId], references: [id], onDelete: Cascade)
 
-  @@unique([teacherSubjectId, dayOfWeek, startTime])
-  @@index([teacherSubjectId])
+  @@unique([teacherSubjectId, semester, dayOfWeek, startTime])
+  @@index([teacherSubjectId, semester])
   @@map("timetable_entries")
 }
 

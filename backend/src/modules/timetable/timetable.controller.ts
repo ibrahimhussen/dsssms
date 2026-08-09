@@ -1,5 +1,5 @@
 import { Request, Response } from 'express';
-import { RoleName } from '@prisma/client';
+import { RoleName, Semester } from '@prisma/client';
 import { asyncHandler } from '../../core/http/async-handler';
 import { ApiResponse } from '../../core/http/api-response';
 import { UnauthorizedError } from '../../core/errors/app-error';
@@ -28,10 +28,11 @@ export class TimetableController {
   /** Convenience endpoint: the logged-in teacher's or student's own schedule. */
   getMyTimetable = asyncHandler(async (req: Request, res: Response) => {
     if (!req.user) throw new UnauthorizedError();
+    const semester = req.query.semester ? (req.query.semester as Semester) : undefined;
     const entries =
       req.user.role === RoleName.TEACHER
-        ? await timetableService.listForTeacherUser(req.user.userId)
-        : await timetableService.listForStudentUser(req.user.userId);
+        ? await timetableService.listForTeacherUser(req.user.userId, semester)
+        : await timetableService.listForStudentUser(req.user.userId, semester);
     ApiResponse.success(res, { message: 'Your timetable', data: entries });
   });
 }

@@ -1,4 +1,4 @@
-import { Prisma } from '@prisma/client';
+import { Prisma, Semester } from '@prisma/client';
 import { prisma } from '../../database/prisma-client';
 import { ConflictError, ForbiddenError, NotFoundError } from '../../core/errors/app-error';
 import { CreateTimetableEntryInput, ListTimetableQuery } from './validation/timetable.validation';
@@ -15,6 +15,7 @@ type EntryWithRelations = Prisma.TimetableEntryGetPayload<{ include: typeof ENTR
 function toDto(e: EntryWithRelations): TimetableEntryDto {
   return {
     timetableEntryId: e.timetableEntryId,
+    semester: e.semester,
     dayOfWeek: e.dayOfWeek,
     startTime: e.startTime,
     endTime: e.endTime,
@@ -56,8 +57,8 @@ function sortByDayThenTime(entries: TimetableEntryDto[]): TimetableEntryDto[] {
 
 export class TimetableService {
   /**
-   * Adds one weekly slot to a teaching assignment's schedule. Rejects the
-   * slot if it would double-book the teacher or the classroom on that day.
+   * Adds one weekly slot to a teaching assignment's schedule for a semester. Rejects the
+   * slot if it would double-book the teacher or the classroom on that day and semester.
    */
   async createEntry(input: CreateTimetableEntryInput): Promise<TimetableEntryDto> {
     const teacherSubject = await prisma.teacherSubject.findUnique({ where: { id: input.teacherSubjectId } });
@@ -65,6 +66,7 @@ export class TimetableService {
 
     const sameDayEntries = await prisma.timetableEntry.findMany({
       where: {
+        semester: input.semester,
         dayOfWeek: input.dayOfWeek,
         teacherSubject: {
           OR: [{ teacherId: teacherSubject.teacherId }, { classroomId: teacherSubject.classroomId }],
@@ -77,14 +79,14 @@ export class TimetableService {
       (e) => e.teacherSubject.teacherId === teacherSubject.teacherId && timesOverlap(input.startTime, input.endTime, e.startTime, e.endTime)
     );
     if (teacherConflict) {
-      throw new ConflictError('This teacher already has a class scheduled that overlaps this time slot');
+      throw new ConflictError('This teacher already has a class scheduled that overlaps this time slot in this semester');
     }
 
     const classroomConflict = sameDayEntries.find(
       (e) => e.teacherSubject.classroomId === teacherSubject.classroomId && timesOverlap(input.startTime, input.endTime, e.startTime, e.endTime)
     );
     if (classroomConflict) {
-      throw new ConflictError('This classroom already has a class scheduled that overlaps this time slot');
+      throw new ConflictError('This classroom already has a class scheduled that overlaps this time slot in this semester');
     }
 
     const created = await prisma.timetableEntry.create({ data: input, include: ENTRY_INCLUDE });
@@ -97,11 +99,12 @@ export class TimetableService {
     await prisma.timetableEntry.delete({ where: { timetableEntryId: id } });
   }
 
-  /** Oversight view: entries for a given classroom or teaching assignment. */
+  /** Oversight view: entries for a given classroom, teaching assignment, or semester. */
   async listEntries(query: ListTimetableQuery): Promise<TimetableEntryDto[]> {
     const where: Prisma.TimetableEntryWhereInput = {
       ...(query.teacherSubjectId && { teacherSubjectId: query.teacherSubjectId }),
       ...(query.classroomId && { teacherSubject: { classroomId: query.classroomId } }),
+      ...(query.semester && { semester: query.semester }),
     };
 
     const entries = await prisma.timetableEntry.findMany({ where, include: ENTRY_INCLUDE });
@@ -109,24 +112,30 @@ export class TimetableService {
   }
 
   /** Convenience: the logged-in teacher's own weekly schedule, across all their classes. */
-  async listForTeacherUser(userId: number): Promise<TimetableEntryDto[]> {
+  async listForTeacherUser(userId: number, semester?: Semester): Promise<TimetableEntryDto[]> {
     const teacher = await prisma.teacher.findUnique({ where: { userId } });
     if (!teacher) throw new ForbiddenError();
 
     const entries = await prisma.timetableEntry.findMany({
-      where: { teacherSubject: { teacherId: teacher.teacherId } },
+      where: {
+        teacherSubject: { teacherId: teacher.teacherId },
+        ...(semester && { semester }),
+      },
       include: ENTRY_INCLUDE,
     });
     return sortByDayThenTime(entries.map(toDto));
   }
 
   /** Convenience: the logged-in student's own classroom schedule. */
-  async listForStudentUser(userId: number): Promise<TimetableEntryDto[]> {
+  async listForStudentUser(userId: number, semester?: Semester): Promise<TimetableEntryDto[]> {
     const student = await prisma.student.findUnique({ where: { userId } });
     if (!student) throw new ForbiddenError();
 
     const entries = await prisma.timetableEntry.findMany({
-      where: { teacherSubject: { classroomId: student.classroomId } },
+      where: {
+        teacherSubject: { classroomId: student.classroomId },
+        ...(semester && { semester }),
+      },
       include: ENTRY_INCLUDE,
     });
     return sortByDayThenTime(entries.map(toDto));

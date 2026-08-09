@@ -18,18 +18,25 @@ export function LoginPage() {
   const {
     register,
     handleSubmit,
+    setValue,
     formState: { errors, isSubmitting },
   } = useForm<LoginFormValues>({ resolver: zodResolver(loginFormSchema) });
 
   async function onSubmit(values: LoginFormValues) {
     setServerError(null);
     try {
-      await login(values.username, values.password);
+      await login(values.username.trim(), values.password);
       const redirectTo = (location.state as { from?: Location })?.from?.pathname ?? '/';
       navigate(redirectTo, { replace: true });
     } catch (err) {
       setServerError(err instanceof Error ? err.message : 'Sign in failed. Please try again.');
     }
+  }
+
+  function fillDemoAccount(username: string) {
+    setValue('username', username, { shouldValidate: true });
+    setValue('password', 'Demo@12345', { shouldValidate: true });
+    setServerError(null);
   }
 
   return (
@@ -96,6 +103,25 @@ export function LoginPage() {
               Sign in
             </Button>
           </form>
+
+          <div className="mt-8 rounded-xl border border-slate-200 bg-slate-50 p-4">
+            <p className="mb-2.5 text-xs font-semibold uppercase tracking-wider text-slate-500">Quick Demo Sign In</p>
+            <div className="grid grid-cols-2 gap-2">
+              <Button type="button" variant="outline" className="text-xs py-1.5" onClick={() => fillDemoAccount('admin')}>
+                Admin
+              </Button>
+              <Button type="button" variant="outline" className="text-xs py-1.5" onClick={() => fillDemoAccount('abebe.kebede')}>
+                Teacher
+              </Button>
+              <Button type="button" variant="outline" className="text-xs py-1.5" onClick={() => fillDemoAccount('husen.ahmed')}>
+                Student
+              </Button>
+              <Button type="button" variant="outline" className="text-xs py-1.5" onClick={() => fillDemoAccount('tesfaye.alemu')}>
+                Parent
+              </Button>
+            </div>
+            <p className="mt-2.5 text-[0.75rem] text-slate-500 text-center">Default Password: <code className="font-mono text-slate-700 font-semibold">Demo@12345</code></p>
+          </div>
         </div>
       </section>
     </div>

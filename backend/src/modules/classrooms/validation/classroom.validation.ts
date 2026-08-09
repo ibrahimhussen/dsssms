@@ -1,6 +1,8 @@
 import { z } from 'zod';
 import { paginationQuerySchema } from '../../../core/http/pagination';
 
+const classSessionSchema = z.enum(['MORNING', 'AFTERNOON']);
+
 export const createClassroomSchema = z.object({
   className: z.string().trim().min(1, 'Class name is required').max(50),
   section: z.string().trim().min(1, 'Section is required').max(10),
@@ -8,6 +10,7 @@ export const createClassroomSchema = z.object({
     .string()
     .trim()
     .regex(/^\d{4}(\/\d{2,4})?$/, 'Academic year must look like "2025" or "2025/26"'),
+  session: classSessionSchema.default('MORNING'),
   homeroomTeacherId: z.coerce.number().int().positive().optional(),
 });
 
@@ -19,6 +22,7 @@ export const updateClassroomSchema = z.object({
     .trim()
     .regex(/^\d{4}(\/\d{2,4})?$/, 'Academic year must look like "2025" or "2025/26"')
     .optional(),
+  session: classSessionSchema.optional(),
   homeroomTeacherId: z.coerce.number().int().positive().nullable().optional(),
 });
 

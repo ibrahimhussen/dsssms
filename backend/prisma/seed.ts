@@ -164,16 +164,17 @@ async function main(): Promise<void> {
   // --- Timetable ------------------------------------------------------------------
   console.log('Seeding a sample weekly timetable...');
   const timetableSeed = [
-    { teacherSubject: teacherSubjectAssignments[0], dayOfWeek: 'MONDAY' as const, startTime: '08:00', endTime: '08:45', roomNumber: 'Room 12' },
-    { teacherSubject: teacherSubjectAssignments[1], dayOfWeek: 'MONDAY' as const, startTime: '08:45', endTime: '09:30', roomNumber: 'Room 12' },
-    { teacherSubject: teacherSubjectAssignments[0], dayOfWeek: 'WEDNESDAY' as const, startTime: '09:30', endTime: '10:15', roomNumber: 'Room 12' },
-    { teacherSubject: teacherSubjectAssignments[1], dayOfWeek: 'FRIDAY' as const, startTime: '08:00', endTime: '08:45', roomNumber: 'Room 12' },
+    { teacherSubject: teacherSubjectAssignments[0], semester: Semester.SEMESTER_1, dayOfWeek: 'MONDAY' as const, startTime: '08:00', endTime: '08:45', roomNumber: 'Room 12' },
+    { teacherSubject: teacherSubjectAssignments[1], semester: Semester.SEMESTER_1, dayOfWeek: 'MONDAY' as const, startTime: '08:45', endTime: '09:30', roomNumber: 'Room 12' },
+    { teacherSubject: teacherSubjectAssignments[0], semester: Semester.SEMESTER_1, dayOfWeek: 'WEDNESDAY' as const, startTime: '09:30', endTime: '10:15', roomNumber: 'Room 12' },
+    { teacherSubject: teacherSubjectAssignments[1], semester: Semester.SEMESTER_1, dayOfWeek: 'FRIDAY' as const, startTime: '08:00', endTime: '08:45', roomNumber: 'Room 12' },
   ];
   for (const slot of timetableSeed) {
     await prisma.timetableEntry.upsert({
       where: {
-        teacherSubjectId_dayOfWeek_startTime: {
+        teacherSubjectId_semester_dayOfWeek_startTime: {
           teacherSubjectId: slot.teacherSubject.id,
+          semester: slot.semester,
           dayOfWeek: slot.dayOfWeek,
           startTime: slot.startTime,
         },
@@ -181,6 +182,7 @@ async function main(): Promise<void> {
       update: {},
       create: {
         teacherSubjectId: slot.teacherSubject.id,
+        semester: slot.semester,
         dayOfWeek: slot.dayOfWeek,
         startTime: slot.startTime,
         endTime: slot.endTime,

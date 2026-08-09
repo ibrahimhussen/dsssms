@@ -35,6 +35,7 @@ export function CreateClassroomModal({ isOpen, onClose, onCreated }: CreateClass
         className: values.className,
         section: values.section,
         academicYear: values.academicYear,
+        session: values.session,
         homeroomTeacherId: values.homeroomTeacherId || undefined,
       });
       reset();
@@ -64,6 +65,11 @@ export function CreateClassroomModal({ isOpen, onClose, onCreated }: CreateClass
           error={errors.academicYear?.message}
           {...register('academicYear')}
         />
+
+        <SelectField label="Class session" error={errors.session?.message} {...register('session')}>
+          <option value="MORNING">☀️ Morning Session (2:00 – 6:15 Local)</option>
+          <option value="AFTERNOON">🌤️ Afternoon Session (6:30 – 10:45 Local)</option>
+        </SelectField>
 
         <SelectField label="Homeroom teacher (optional)" error={errors.homeroomTeacherId?.message} {...register('homeroomTeacherId')}>
           <option value="">None assigned</option>

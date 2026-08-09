@@ -18,6 +18,7 @@ function toClassroomSummaryDto(classroom: ClassroomWithRelations): ClassroomSumm
     className: classroom.className,
     section: classroom.section,
     academicYear: classroom.academicYear,
+    session: classroom.session,
     homeroomTeacher: classroom.homeroomTeacher
       ? {
           teacherId: classroom.homeroomTeacher.teacherId,

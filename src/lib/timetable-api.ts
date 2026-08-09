@@ -2,10 +2,11 @@ import { apiClient, unwrap } from './api-client';
 import { cleanParams } from './clean-params';
 import type { ApiResponse } from '../types/api';
 import type { CreateTimetableEntryInput, ListTimetableParams, TimetableEntry } from '../types/timetable';
+import type { Semester } from '../types/grade';
 
 export const timetableApi = {
-  getMyTimetable() {
-    return unwrap(apiClient.get<ApiResponse<TimetableEntry[]>>('/timetable/me'));
+  getMyTimetable(semester?: Semester) {
+    return unwrap(apiClient.get<ApiResponse<TimetableEntry[]>>('/timetable/me', { params: cleanParams({ semester }) }));
   },
 
   list(params: ListTimetableParams) {

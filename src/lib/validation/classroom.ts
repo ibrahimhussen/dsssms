@@ -7,6 +7,7 @@ export const createClassroomFormSchema = z.object({
     .string()
     .trim()
     .regex(/^\d{4}(\/\d{2,4})?$/, 'Use a format like "2025" or "2025/26"'),
+  session: z.enum(['MORNING', 'AFTERNOON']).default('MORNING'),
   homeroomTeacherId: z.coerce.number().int().positive().optional(),
 });
 
