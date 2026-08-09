@@ -34,7 +34,7 @@ export const DEFAULT_PERIODS: StandardPeriod[] = [
   { id: 'a-p6', name: 'Period 6', localTime: '10:05 – 10:45', session: 'Afternoon', startTime: '16:05', endTime: '16:45' },
 ];
 
-const DAYS: DayOfWeek[] = ['MONDAY', 'TUESDAY', 'WEDNESDAY', 'THURSDAY', 'FRIDAY', 'SATURDAY'];
+const DAYS: DayOfWeek[] = ['MONDAY', 'TUESDAY', 'WEDNESDAY', 'THURSDAY', 'FRIDAY'];
 const DAY_LABELS: Record<DayOfWeek, string> = {
   MONDAY: 'Monday',
   TUESDAY: 'Tuesday',

@@ -10,7 +10,7 @@ import { TimetableMatrixTable } from '../timetable-admin/TimetableMatrixTable';
 import type { DayOfWeek, TimetableEntry } from '../../types/timetable';
 import type { Semester } from '../../types/grade';
 
-const DAYS: DayOfWeek[] = ['MONDAY', 'TUESDAY', 'WEDNESDAY', 'THURSDAY', 'FRIDAY', 'SATURDAY'];
+const DAYS: DayOfWeek[] = ['MONDAY', 'TUESDAY', 'WEDNESDAY', 'THURSDAY', 'FRIDAY'];
 const DAY_LABELS: Record<DayOfWeek, string> = {
   MONDAY: 'Monday',
   TUESDAY: 'Tuesday',

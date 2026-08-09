@@ -14,7 +14,7 @@ import type { DayOfWeek, TimetableEntry } from '../../types/timetable';
 import type { Semester } from '../../types/grade';
 import type { ClassSession } from '../../types/classroom';
 
-const DAYS: DayOfWeek[] = ['MONDAY', 'TUESDAY', 'WEDNESDAY', 'THURSDAY', 'FRIDAY', 'SATURDAY'];
+const DAYS: DayOfWeek[] = ['MONDAY', 'TUESDAY', 'WEDNESDAY', 'THURSDAY', 'FRIDAY'];
 const DAY_LABELS: Record<DayOfWeek, string> = {
   MONDAY: 'Monday',
   TUESDAY: 'Tuesday',
@@ -95,10 +95,10 @@ export function TimetableAdminPage() {
       return p.session === (classroomSession === 'MORNING' ? 'Morning' : 'Afternoon');
     });
 
-    const days: DayOfWeek[] = ['MONDAY', 'TUESDAY', 'WEDNESDAY', 'THURSDAY', 'FRIDAY', 'SATURDAY'];
+    const days: DayOfWeek[] = ['MONDAY', 'TUESDAY', 'WEDNESDAY', 'THURSDAY', 'FRIDAY'];
     const dayLabels: Record<string, string> = {
       MONDAY: 'Monday', TUESDAY: 'Tuesday', WEDNESDAY: 'Wednesday',
-      THURSDAY: 'Thursday', FRIDAY: 'Friday', SATURDAY: 'Saturday',
+      THURSDAY: 'Thursday', FRIDAY: 'Friday',
     };
 
     // Build entry lookup
