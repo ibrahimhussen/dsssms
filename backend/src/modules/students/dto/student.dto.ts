@@ -1,4 +1,4 @@
-import { Gender, ParentRelationship } from '@prisma/client';
+import { Gender, ParentRelationship, AdmissionType, StudentStatus } from '@prisma/client';
 
 export interface StudentParentSummary {
   parentId: number;
@@ -27,6 +27,21 @@ export interface StudentSummaryDto {
   enrolledAt: Date;
   classroom: StudentClassroomSummary;
   parents: StudentParentSummary[];
+
+  admissionType: AdmissionType;
+  studentStatus: StudentStatus;
+  previousSchoolName?: string | null;
+  previousSchoolType?: string | null;
+  previousSchoolLocation?: string | null;
+  lastGradeCompleted?: string | null;
+  completionYear?: string | null;
+  previousStudentId?: string | null;
+  transferReason?: string | null;
+  transferCertificateRef?: string | null;
+  previousAcademicSummary?: any;
+  transferredOutAt?: Date | null;
+  transferredOutDestination?: string | null;
+  transferredOutReason?: string | null;
 }
 
 export interface GuardianCredentialsIssuedDto {

@@ -2,7 +2,7 @@ import { Router } from 'express';
 import { RoleName } from '@prisma/client';
 import { studentController } from './student.controller';
 import { authenticate } from '../../middlewares/authenticate.middleware';
-import { authorize } from '../../middlewares/authorize.middleware';
+import { authorize, authorizeWithPermissions } from '../../middlewares/authorize.middleware';
 import { validate } from '../../middlewares/validate.middleware';
 import {
   createStudentSchema,
@@ -11,6 +11,8 @@ import {
   updateStudentSchema,
   transferClassroomSchema,
   removeParentLinkParamSchema,
+  bulkImportSchema,
+  transferOutSchema,
 } from './validation/student.validation';
 import { linkParentToStudentSchema } from '../parents/validation/parent.validation';
 
@@ -24,14 +26,17 @@ const READ_ROLES = [...MANAGE_ROLES, RoleName.TEACHER];
 // Student's own profile — must be declared before the generic '/:id' route.
 router.get('/me', authorize(RoleName.STUDENT), studentController.getMyProfile);
 
-router.post('/', authorize(...MANAGE_ROLES), validate(createStudentSchema), studentController.create);
-router.get('/', authorize(...READ_ROLES), validate(listStudentsQuerySchema, 'query'), studentController.list);
-router.get('/export', authorize(...READ_ROLES), validate(listStudentsQuerySchema, 'query'), studentController.export);
-router.get('/:id', authorize(...READ_ROLES), validate(studentIdParamSchema, 'params'), studentController.getById);
+router.post('/', authorizeWithPermissions(MANAGE_ROLES, ['students:create']), validate(createStudentSchema), studentController.create);
+router.post('/bulk', authorizeWithPermissions(MANAGE_ROLES, ['students:bulk_import']), validate(bulkImportSchema), studentController.bulkImport);
+router.post('/:id/transfer-out', authorizeWithPermissions(MANAGE_ROLES, ['students:transfer']), validate(studentIdParamSchema, 'params'), validate(transferOutSchema), studentController.transferOut);
+
+router.get('/', authorizeWithPermissions(READ_ROLES, ['students:view']), validate(listStudentsQuerySchema, 'query'), studentController.list);
+router.get('/export', authorizeWithPermissions(READ_ROLES, ['students:view']), validate(listStudentsQuerySchema, 'query'), studentController.export);
+router.get('/:id', authorizeWithPermissions(READ_ROLES, ['students:view']), validate(studentIdParamSchema, 'params'), studentController.getById);
 
 router.patch(
   '/:id',
-  authorize(...MANAGE_ROLES),
+  authorizeWithPermissions(MANAGE_ROLES, ['students:update']),
   validate(studentIdParamSchema, 'params'),
   validate(updateStudentSchema),
   studentController.update
@@ -39,7 +44,7 @@ router.patch(
 
 router.patch(
   '/:id/classroom',
-  authorize(...MANAGE_ROLES),
+  authorizeWithPermissions(MANAGE_ROLES, ['students:update']),
   validate(studentIdParamSchema, 'params'),
   validate(transferClassroomSchema),
   studentController.transferClassroom
@@ -47,7 +52,7 @@ router.patch(
 
 router.post(
   '/:id/parents',
-  authorize(...MANAGE_ROLES),
+  authorizeWithPermissions(MANAGE_ROLES, ['students:update']),
   validate(studentIdParamSchema, 'params'),
   validate(linkParentToStudentSchema),
   studentController.addParent
@@ -55,7 +60,7 @@ router.post(
 
 router.delete(
   '/:id/parents/:parentId',
-  authorize(...MANAGE_ROLES),
+  authorizeWithPermissions(MANAGE_ROLES, ['students:update']),
   validate(removeParentLinkParamSchema, 'params'),
   studentController.removeParent
 );

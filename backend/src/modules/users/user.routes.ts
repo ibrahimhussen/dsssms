@@ -10,6 +10,8 @@ import {
   userIdParamSchema,
   updateUserStatusSchema,
 } from './validation/user.validation';
+import { userPermissionController } from './user-permission.controller';
+import { grantPermissionSchema, removePermissionParamSchema } from './validation/user-permission.validation';
 
 const router = Router();
 
@@ -36,6 +38,28 @@ router.post(
   authorize(RoleName.ADMIN),
   validate(userIdParamSchema, 'params'),
   userController.resetPassword
+);
+
+router.get(
+  '/:id/permissions',
+  authorize(RoleName.ADMIN, RoleName.DIRECTOR),
+  validate(userIdParamSchema, 'params'),
+  userPermissionController.getPermissions
+);
+
+router.post(
+  '/:id/permissions',
+  authorize(RoleName.ADMIN, RoleName.DIRECTOR),
+  validate(userIdParamSchema, 'params'),
+  validate(grantPermissionSchema),
+  userPermissionController.grantPermission
+);
+
+router.delete(
+  '/:id/permissions/:permissionId',
+  authorize(RoleName.ADMIN, RoleName.DIRECTOR),
+  validate(removePermissionParamSchema, 'params'),
+  userPermissionController.revokePermission
 );
 
 export const userRoutes = router;

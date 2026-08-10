@@ -12,6 +12,8 @@ import {
   UpdateStudentInput,
   TransferClassroomInput,
   RemoveParentLinkParam,
+  BulkImportInput,
+  TransferOutInput,
 } from './validation/student.validation';
 import { LinkParentToStudentInput } from '../parents/validation/parent.validation';
 
@@ -22,6 +24,26 @@ export class StudentController {
     ApiResponse.success(res, {
       statusCode: 201,
       message: 'Student registered. Share the temporary credentials securely — they will not be shown again.',
+      data: result,
+    });
+  });
+
+  bulkImport = asyncHandler(async (req: Request, res: Response) => {
+    const input = req.body as BulkImportInput;
+    const result = await studentService.bulkImportStudents(input.students);
+    ApiResponse.success(res, {
+      statusCode: 201,
+      message: `Bulk import completed. Successfully imported ${result.successCount} students.`,
+      data: result,
+    });
+  });
+
+  transferOut = asyncHandler(async (req: Request, res: Response) => {
+    const { id } = req.params as unknown as StudentIdParam;
+    const input = req.body as TransferOutInput;
+    const result = await studentService.transferOutStudent(id, input);
+    ApiResponse.success(res, {
+      message: 'Student transferred out successfully',
       data: result,
     });
   });

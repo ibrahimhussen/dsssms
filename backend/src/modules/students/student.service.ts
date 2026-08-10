@@ -50,6 +50,20 @@ function toStudentSummaryDto(student: StudentWithRelations): StudentSummaryDto {
       phoneNumber: link.parent.phoneNumber,
       relationship: link.relationship,
     })),
+    admissionType: student.admissionType,
+    studentStatus: student.studentStatus,
+    previousSchoolName: student.previousSchoolName,
+    previousSchoolType: student.previousSchoolType,
+    previousSchoolLocation: student.previousSchoolLocation,
+    lastGradeCompleted: student.lastGradeCompleted,
+    completionYear: student.completionYear,
+    previousStudentId: student.previousStudentId,
+    transferReason: student.transferReason,
+    transferCertificateRef: student.transferCertificateRef,
+    previousAcademicSummary: student.previousAcademicSummary,
+    transferredOutAt: student.transferredOutAt,
+    transferredOutDestination: student.transferredOutDestination,
+    transferredOutReason: student.transferredOutReason,
   };
 }
 
@@ -103,6 +117,18 @@ export class StudentService {
                   dateOfBirth: input.dateOfBirth,
                   address: input.address,
                   classroomId: input.classroomId,
+                  
+                  // NEW FIELDS:
+                  admissionType: input.admissionType ?? 'NEW',
+                  previousSchoolName: input.previousSchoolName,
+                  previousSchoolType: input.previousSchoolType,
+                  previousSchoolLocation: input.previousSchoolLocation,
+                  lastGradeCompleted: input.lastGradeCompleted,
+                  completionYear: input.completionYear,
+                  previousStudentId: input.previousStudentId,
+                  transferReason: input.transferReason,
+                  transferCertificateRef: input.transferCertificateRef,
+                  previousAcademicSummary: input.previousAcademicSummary ?? Prisma.JsonNull,
                 },
               },
             },
@@ -144,6 +170,40 @@ export class StudentService {
     }
 
     throw lastError instanceof Error ? lastError : new ValidationError('Failed to generate a unique admission number');
+  }
+
+  async bulkImportStudents(studentsInput: CreateStudentInput[]) {
+    let successCount = 0;
+    const errors: any[] = [];
+    
+    for (const input of studentsInput) {
+      try {
+        await this.createStudent(input);
+        successCount++;
+      } catch (err: any) {
+        errors.push({ student: input.firstName + ' ' + input.lastName, error: err.message });
+      }
+    }
+    
+    return { successCount, errors };
+  }
+
+  async transferOutStudent(studentId: number, input: import('./validation/student.validation').TransferOutInput) {
+    const student = await prisma.student.findUnique({ where: { studentId } });
+    if (!student) throw new NotFoundError('Student');
+
+    const updated = await prisma.student.update({
+      where: { studentId },
+      data: {
+        studentStatus: 'TRANSFERRED_OUT',
+        transferredOutAt: new Date(),
+        transferredOutDestination: input.transferredOutDestination,
+        transferredOutReason: input.transferredOutReason,
+      },
+      include: STUDENT_INCLUDE,
+    });
+    
+    return toStudentSummaryDto(updated);
   }
 
   async listStudents(

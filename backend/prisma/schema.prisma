@@ -59,6 +59,7 @@ model User {
   auditLogs            AuditLog[]
   notifications        Notification[]
   systemSettingUpdates SystemSetting[]
+  permissions          UserPermission[]
 
   @@index([roleId])
   @@map("users")
@@ -106,6 +107,21 @@ model AuditLog {
   @@index([userId])
   @@index([action])
   @@map("audit_logs")
+}
+
+/// Explicit temporary or granular permissions assigned to user accounts.
+model UserPermission {
+  id         Int       @id @default(autoincrement())
+  userId     Int
+  permission String    @db.VarChar(100)
+  grantedAt  DateTime  @default(now())
+  expiresAt  DateTime?
+
+  user User @relation(fields: [userId], references: [userId], onDelete: Cascade)
+
+  @@unique([userId, permission])
+  @@index([userId])
+  @@map("user_permissions")
 }
 
 // -----------------------------------------------------------------------------
@@ -226,6 +242,18 @@ model TeacherSubject {
   @@map("teacher_subjects")
 }
 
+enum AdmissionType {
+  NEW_STUDENT
+  TRANSFER
+}
+
+enum StudentStatus {
+  ACTIVE
+  TRANSFERRED_OUT
+  GRADUATED
+  SUSPENDED
+}
+
 /// Contains all student-specific information (proposal - Table: Students). Relationship: Classroom (1:M) Student.
 model Student {
   studentId       Int      @id @default(autoincrement())
@@ -238,6 +266,21 @@ model Student {
   dateOfBirth     DateTime @db.Date
   address         String?  @db.VarChar(255)
   enrolledAt      DateTime @default(now())
+
+  admissionType             AdmissionType @default(NEW_STUDENT)
+  studentStatus             StudentStatus @default(ACTIVE)
+  previousSchoolName        String?       @db.VarChar(150)
+  previousSchoolType        String?       @db.VarChar(50)
+  previousSchoolLocation    String?       @db.VarChar(150)
+  lastGradeCompleted        String?       @db.VarChar(20)
+  completionYear            String?       @db.VarChar(10)
+  previousStudentId         String?       @db.VarChar(50)
+  transferReason            String?       @db.VarChar(255)
+  transferCertificateRef    String?       @db.VarChar(100)
+  previousAcademicSummary  Json?
+  transferredOutAt          DateTime?
+  transferredOutDestination String?       @db.VarChar(150)
+  transferredOutReason      String?       @db.VarChar(255)
 
   user      User      @relation(fields: [userId], references: [userId], onDelete: Cascade)
   classroom Classroom @relation(fields: [classroomId], references: [classroomId])

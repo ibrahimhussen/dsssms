@@ -26,20 +26,24 @@ export function AppLayout() {
         </div>
 
         <nav className="flex flex-col gap-0.5" aria-label="Primary">
-          {navItems.map((item) => (
-            <NavLink
-              key={item.path}
-              to={item.path}
-              end={item.path === '/'}
-              className={({ isActive }) =>
-                `rounded-lg px-3 py-2.5 text-[0.9375rem] font-medium transition-colors ${
-                  isActive ? 'bg-pine-700 font-semibold text-paper-50' : 'text-paper-100 hover:bg-white/10'
-                }`
-              }
-            >
-              {item.label}
-            </NavLink>
-          ))}
+          {navItems.map((item) => {
+            const Icon = item.icon;
+            return (
+              <NavLink
+                key={item.path}
+                to={item.path}
+                end={item.path === '/'}
+                className={({ isActive }) =>
+                  `flex items-center gap-3 rounded-lg px-3 py-2.5 text-[0.9375rem] font-medium transition-colors ${
+                    isActive ? 'bg-pine-700 font-semibold text-paper-50' : 'text-paper-100 hover:bg-white/10'
+                  }`
+                }
+              >
+                <Icon className="h-5 w-5 shrink-0" />
+                <span>{item.label}</span>
+              </NavLink>
+            );
+          })}
         </nav>
       </aside>
 
