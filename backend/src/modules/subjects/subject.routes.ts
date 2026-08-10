@@ -15,7 +15,7 @@ const router = Router();
 
 router.use(authenticate);
 
-const MANAGE_ROLES = [RoleName.ADMIN, RoleName.DIRECTOR, RoleName.VICE_DIRECTOR];
+const MANAGE_ROLES = [RoleName.DIRECTOR, RoleName.VICE_DIRECTOR];
 const READ_ROLES = [...MANAGE_ROLES, RoleName.TEACHER];
 
 router.post('/', authorize(...MANAGE_ROLES), validate(createSubjectSchema), subjectController.create);

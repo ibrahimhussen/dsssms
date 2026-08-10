@@ -14,7 +14,7 @@ const router = Router();
 
 router.use(authenticate);
 
-const OVERSIGHT_ROLES = [RoleName.ADMIN, RoleName.DIRECTOR, RoleName.VICE_DIRECTOR];
+const OVERSIGHT_ROLES = [RoleName.DIRECTOR, RoleName.VICE_DIRECTOR];
 
 router.get('/me', authorize(RoleName.STUDENT), academicReportController.getMyReports);
 router.get('/me/transcript', authorize(RoleName.STUDENT), academicReportController.getMyTranscript);

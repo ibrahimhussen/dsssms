@@ -14,7 +14,7 @@ const router = Router();
 
 router.use(authenticate);
 
-const MANAGE_ROLES = [RoleName.ADMIN, RoleName.DIRECTOR, RoleName.VICE_DIRECTOR];
+const MANAGE_ROLES = [RoleName.DIRECTOR, RoleName.VICE_DIRECTOR];
 
 router.get('/me', authorize(RoleName.TEACHER), teacherSubjectController.getMyAssignments);
 

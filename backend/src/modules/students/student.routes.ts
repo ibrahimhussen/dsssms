@@ -18,7 +18,7 @@ const router = Router();
 
 router.use(authenticate);
 
-const MANAGE_ROLES = [RoleName.ADMIN, RoleName.DIRECTOR, RoleName.VICE_DIRECTOR];
+const MANAGE_ROLES = [RoleName.DIRECTOR, RoleName.VICE_DIRECTOR];
 const READ_ROLES = [...MANAGE_ROLES, RoleName.TEACHER];
 
 // Student's own profile — must be declared before the generic '/:id' route.

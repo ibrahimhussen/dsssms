@@ -15,13 +15,13 @@ const router = Router();
 
 router.use(authenticate);
 
-const OVERSIGHT_ROLES = [RoleName.ADMIN, RoleName.DIRECTOR, RoleName.VICE_DIRECTOR];
+
 
 router.post('/staff', authorize(RoleName.ADMIN), validate(createStaffSchema), userController.createStaff);
 
-router.get('/', authorize(...OVERSIGHT_ROLES), validate(listUsersQuerySchema, 'query'), userController.list);
+router.get('/', authorize(RoleName.ADMIN), validate(listUsersQuerySchema, 'query'), userController.list);
 
-router.get('/:id', authorize(...OVERSIGHT_ROLES), validate(userIdParamSchema, 'params'), userController.getById);
+router.get('/:id', authorize(RoleName.ADMIN), validate(userIdParamSchema, 'params'), userController.getById);
 
 router.patch(
   '/:id/status',

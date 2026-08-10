@@ -10,7 +10,7 @@ const router = Router();
 
 router.use(authenticate);
 
-const STAFF_ROLES = [RoleName.ADMIN, RoleName.DIRECTOR, RoleName.VICE_DIRECTOR];
+const STAFF_ROLES = [RoleName.DIRECTOR];
 
 router.get('/me', authorize(RoleName.PARENT), parentController.getMyProfile);
 

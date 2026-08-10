@@ -7,9 +7,9 @@ import { disciplineController } from './discipline.controller';
 const router = Router();
 
 // Director, Vice Director, Admin, and Teacher can view discipline records
-const VIEW_ROLES = [RoleName.ADMIN, RoleName.DIRECTOR, RoleName.VICE_DIRECTOR, RoleName.TEACHER];
+const VIEW_ROLES = [RoleName.DIRECTOR, RoleName.VICE_DIRECTOR, RoleName.TEACHER];
 // Vice Director, Admin, and Teacher can log/update discipline records
-const MANAGE_ROLES = [RoleName.ADMIN, RoleName.VICE_DIRECTOR, RoleName.TEACHER];
+const MANAGE_ROLES = [RoleName.VICE_DIRECTOR, RoleName.TEACHER];
 
 router.use(authenticate);
 

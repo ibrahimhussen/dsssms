@@ -19,24 +19,20 @@ export function AdminDashboard() {
   return (
     <>
       <div className="mb-6 flex flex-wrap gap-3">
-        <Link to="/students">
-          <span className="text-sm font-semibold text-pine-700 hover:underline">Register student</span>
-        </Link>
-        <span className="text-slate-300">·</span>
         <Link to="/users">
-          <span className="text-sm font-semibold text-pine-700 hover:underline">Create staff account</span>
+          <span className="text-sm font-semibold text-pine-700 hover:underline">Manage staff accounts</span>
         </Link>
         <span className="text-slate-300">·</span>
-        <Link to="/classrooms">
-          <span className="text-sm font-semibold text-pine-700 hover:underline">Create classroom</span>
+        <Link to="/audit-logs">
+          <span className="text-sm font-semibold text-pine-700 hover:underline">View audit logs</span>
         </Link>
         <span className="text-slate-300">·</span>
-        <Link to="/subjects">
-          <span className="text-sm font-semibold text-pine-700 hover:underline">Add subject</span>
+        <Link to="/system-settings">
+          <span className="text-sm font-semibold text-pine-700 hover:underline">System settings</span>
         </Link>
         <span className="text-slate-300">·</span>
-        <Link to="/teaching-assignments">
-          <span className="text-sm font-semibold text-pine-700 hover:underline">Assign teacher</span>
+        <Link to="/backups">
+          <span className="text-sm font-semibold text-pine-700 hover:underline">Backup & restore</span>
         </Link>
       </div>
 

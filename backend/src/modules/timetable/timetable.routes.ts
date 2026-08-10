@@ -10,7 +10,7 @@ const router = Router();
 
 router.use(authenticate);
 
-const MANAGE_ROLES = [RoleName.ADMIN, RoleName.DIRECTOR, RoleName.VICE_DIRECTOR];
+const MANAGE_ROLES = [RoleName.DIRECTOR, RoleName.VICE_DIRECTOR];
 
 // A teacher's or student's own weekly schedule — declared before the generic '/' list.
 router.get('/me', authorize(RoleName.TEACHER, RoleName.STUDENT), timetableController.getMyTimetable);

@@ -6,38 +6,53 @@ export interface NavItem {
   allowedRoles?: RoleName[]; // omitted = visible to every authenticated role
 }
 
-const OVERSIGHT_ROLES: RoleName[] = ['ADMIN', 'DIRECTOR', 'VICE_DIRECTOR'];
+// School-management oversight roles (Director + Vice Director).
+// ADMIN is excluded — system admin handles technical concerns, not school ops.
+const SCHOOL_MGMT: RoleName[] = ['DIRECTOR', 'VICE_DIRECTOR'];
 
 export const NAV_ITEMS: NavItem[] = [
+  // ── Universal ──────────────────────────────────────────────────────────────
   { label: 'Dashboard', path: '/' },
-  { label: 'Staff accounts', path: '/users', allowedRoles: ['ADMIN'] },
-  { label: 'Teachers', path: '/teachers', allowedRoles: OVERSIGHT_ROLES },
-  { label: 'Students', path: '/students', allowedRoles: OVERSIGHT_ROLES },
-  { label: 'Parents', path: '/parents', allowedRoles: OVERSIGHT_ROLES },
-  { label: 'Classrooms', path: '/classrooms', allowedRoles: OVERSIGHT_ROLES },
-  { label: 'Subjects', path: '/subjects', allowedRoles: OVERSIGHT_ROLES },
-  { label: 'Teaching assignments', path: '/teaching-assignments', allowedRoles: OVERSIGHT_ROLES },
-  { label: 'Class timetable', path: '/timetable-admin', allowedRoles: OVERSIGHT_ROLES },
-  { label: 'Attendance reports', path: '/attendance-reports', allowedRoles: OVERSIGHT_ROLES },
-  { label: 'My classes', path: '/my-classes', allowedRoles: ['TEACHER'] },
-  { label: 'Class timetable', path: '/timetable', allowedRoles: ['TEACHER'] },
-  { label: 'Take attendance', path: '/attendance', allowedRoles: ['TEACHER'] },
-  { label: 'Enter grades', path: '/grades', allowedRoles: ['TEACHER'] },
-  { label: 'Assignments', path: '/homework', allowedRoles: ['TEACHER'] },
-  { label: 'My timetable', path: '/timetable', allowedRoles: ['STUDENT'] },
-  { label: 'My attendance', path: '/my-attendance', allowedRoles: ['STUDENT'] },
-  { label: 'My grades', path: '/my-grades', allowedRoles: ['STUDENT'] },
-  { label: 'Transcript', path: '/transcript', allowedRoles: ['STUDENT'] },
-  { label: 'Assignments', path: '/my-homework', allowedRoles: ['STUDENT'] },
-  { label: 'Academic reports', path: '/academic-reports', allowedRoles: OVERSIGHT_ROLES },
-  { label: 'School performance', path: '/school-performance', allowedRoles: OVERSIGHT_ROLES },
-  { label: 'Discipline records', path: '/discipline-records', allowedRoles: ['ADMIN', 'DIRECTOR', 'VICE_DIRECTOR', 'TEACHER'] },
-  { label: 'Announcements', path: '/announcements', allowedRoles: OVERSIGHT_ROLES },
-  { label: 'Audit logs', path: '/audit-logs', allowedRoles: ['ADMIN'] },
-  { label: 'System settings', path: '/system-settings', allowedRoles: ['ADMIN'] },
-  { label: 'Backup & restore', path: '/backups', allowedRoles: ['ADMIN'] },
+
+  // ── System Administrator only ───────────────────────────────────────────────
+  { label: 'Staff Accounts',       path: '/users',           allowedRoles: ['ADMIN'] },
+  { label: 'System Settings',      path: '/system-settings', allowedRoles: ['ADMIN'] },
+  { label: 'Audit Logs',           path: '/audit-logs',      allowedRoles: ['ADMIN'] },
+  { label: 'Backup & Restore',     path: '/backups',         allowedRoles: ['ADMIN'] },
+
+  // ── Director + Vice Director (school management) ────────────────────────────
+  { label: 'Students',             path: '/students',             allowedRoles: SCHOOL_MGMT },
+  { label: 'Teachers',             path: '/teachers',             allowedRoles: SCHOOL_MGMT },
+  // Parents: Director only (Vice Director does not manage parent accounts)
+  { label: 'Parents',              path: '/parents',              allowedRoles: ['DIRECTOR'] },
+  { label: 'Classrooms',           path: '/classrooms',           allowedRoles: SCHOOL_MGMT },
+  { label: 'Subjects',             path: '/subjects',             allowedRoles: SCHOOL_MGMT },
+  { label: 'Teaching Assignments', path: '/teaching-assignments', allowedRoles: SCHOOL_MGMT },
+  { label: 'Class Timetable',      path: '/timetable-admin',      allowedRoles: SCHOOL_MGMT },
+  { label: 'Attendance',           path: '/attendance',           allowedRoles: SCHOOL_MGMT },
+  { label: 'Attendance Reports',   path: '/attendance-reports',   allowedRoles: SCHOOL_MGMT },
+  { label: 'Academic Reports',     path: '/academic-reports',     allowedRoles: SCHOOL_MGMT },
+  { label: 'School Performance',   path: '/school-performance',   allowedRoles: SCHOOL_MGMT },
+  { label: 'Discipline Records',   path: '/discipline-records',   allowedRoles: [...SCHOOL_MGMT, 'TEACHER'] },
+  { label: 'Announcements',        path: '/announcements',        allowedRoles: SCHOOL_MGMT },
+
+  // ── Teacher ─────────────────────────────────────────────────────────────────
+  { label: 'My Classes',           path: '/my-classes',    allowedRoles: ['TEACHER'] },
+  { label: 'Class Timetable',      path: '/timetable',     allowedRoles: ['TEACHER'] },
+  { label: 'Take Attendance',      path: '/attendance',    allowedRoles: ['TEACHER'] },
+  { label: 'Enter Grades',         path: '/grades',        allowedRoles: ['TEACHER'] },
+  { label: 'Assignments',          path: '/homework',      allowedRoles: ['TEACHER'] },
+
+  // ── Student ──────────────────────────────────────────────────────────────────
+  { label: 'My Timetable',         path: '/timetable',     allowedRoles: ['STUDENT'] },
+  { label: 'My Attendance',        path: '/my-attendance', allowedRoles: ['STUDENT'] },
+  { label: 'My Grades',            path: '/my-grades',     allowedRoles: ['STUDENT'] },
+  { label: 'Transcript',           path: '/transcript',    allowedRoles: ['STUDENT'] },
+  { label: 'Assignments',          path: '/my-homework',   allowedRoles: ['STUDENT'] },
+
+  // ── Universal bottom items ───────────────────────────────────────────────────
   { label: 'Notifications', path: '/notifications' },
-  { label: 'My profile', path: '/profile' },
+  { label: 'My Profile',    path: '/profile' },
 ];
 
 export function getVisibleNavItems(role: RoleName): NavItem[] {
