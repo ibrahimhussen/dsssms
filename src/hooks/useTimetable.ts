@@ -37,3 +37,13 @@ export function useDeleteTimetableEntry() {
     },
   });
 }
+
+export function usePublishTimetableEntry() {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: (timetableEntryId: number) => timetableApi.publish(timetableEntryId),
+    onSuccess: () => {
+      void queryClient.invalidateQueries({ queryKey: ['timetable'] });
+    },
+  });
+}

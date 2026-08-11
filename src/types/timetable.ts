@@ -6,9 +6,11 @@ export interface TimetableEntry {
   timetableEntryId: number;
   semester: Semester;
   dayOfWeek: DayOfWeek;
+  period: number;
   startTime: string;
   endTime: string;
   roomNumber: string | null;
+  status: 'DRAFT' | 'PUBLISHED';
   teacherSubject: {
     id: number;
     teacher: { teacherId: number; firstName: string; lastName: string };

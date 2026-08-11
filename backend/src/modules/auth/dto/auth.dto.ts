@@ -6,6 +6,7 @@ export interface AuthenticatedUserDto {
   email: string | null;
   role: RoleName;
   status: string;
+  permissions: string[];
 }
 
 export interface LoginResponseDto {

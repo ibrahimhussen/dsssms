@@ -2,7 +2,14 @@ import { apiClient, unwrap, unwrapPaginated } from './api-client';
 import { cleanParams } from './clean-params';
 import { triggerBlobDownload } from './download-file';
 import type { ApiResponse } from '../types/api';
-import type { CreateStudentInput, CreateStudentResult, ListStudentsParams, StudentSummary } from '../types/student';
+import type {
+  CreateStudentInput,
+  CreateStudentResult,
+  ListStudentsParams,
+  StudentSummary,
+  TransferOutInput,
+  BulkImportResult,
+} from '../types/student';
 
 export const studentsApi = {
   list(params: ListStudentsParams) {
@@ -29,6 +36,18 @@ export const studentsApi = {
 
   create(input: CreateStudentInput) {
     return unwrap(apiClient.post<ApiResponse<CreateStudentResult>>('/students', input));
+  },
+
+  bulkImport(students: CreateStudentInput[]) {
+    return unwrap(
+      apiClient.post<ApiResponse<BulkImportResult>>('/students/bulk', { students })
+    );
+  },
+
+  transferOut(studentId: number, input: TransferOutInput) {
+    return unwrap(
+      apiClient.post<ApiResponse<StudentSummary>>(`/students/${studentId}/transfer-out`, input)
+    );
   },
 
   transferClassroom(studentId: number, classroomId: number) {

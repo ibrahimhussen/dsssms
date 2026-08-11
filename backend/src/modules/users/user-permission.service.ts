@@ -34,9 +34,9 @@ export class UserPermissionService {
         userId: actor.userId,
         ipAddress: actor.ipAddress,
         action: 'UPDATE',
-        resource: 'USER_PERMISSION',
-        resourceId: updated.id.toString(),
-        details: `Updated permission '${input.permission}' for user ${userId}`,
+        entity: 'USER_PERMISSION',
+        entityId: updated.id.toString(),
+        metadata: { details: `Updated permission '${input.permission}' for user ${userId}` },
       });
       return updated;
     }
@@ -53,9 +53,9 @@ export class UserPermissionService {
       userId: actor.userId,
       ipAddress: actor.ipAddress,
       action: 'CREATE',
-      resource: 'USER_PERMISSION',
-      resourceId: permission.id.toString(),
-      details: `Granted permission '${input.permission}' to user ${userId}`,
+      entity: 'USER_PERMISSION',
+      entityId: permission.id.toString(),
+      metadata: { details: `Granted permission '${input.permission}' to user ${userId}` },
     });
 
     return permission;
@@ -76,9 +76,9 @@ export class UserPermissionService {
       userId: actor.userId,
       ipAddress: actor.ipAddress,
       action: 'DELETE',
-      resource: 'USER_PERMISSION',
-      resourceId: permission.id.toString(),
-      details: `Revoked permission '${permission.permission}' from user ${userId}`,
+      entity: 'USER_PERMISSION',
+      entityId: permission.id.toString(),
+      metadata: { details: `Revoked permission '${permission.permission}' from user ${userId}` },
     });
   }
 }

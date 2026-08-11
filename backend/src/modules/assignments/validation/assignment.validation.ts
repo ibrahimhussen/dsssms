@@ -5,7 +5,7 @@ export const createAssignmentSchema = z.object({
   teacherSubjectId: z.coerce.number().int().positive(),
   title: z.string().trim().min(1, 'Title is required').max(150),
   description: z.string().trim().max(2000).optional(),
-  dueDate: z.coerce.date({ errorMap: () => ({ message: 'A valid due date is required' }) }),
+  dueDate: z.coerce.date({ required_error: 'A valid due date is required', invalid_type_error: 'A valid due date is required' }),
 });
 
 export const listAssignmentsQuerySchema = z.object({

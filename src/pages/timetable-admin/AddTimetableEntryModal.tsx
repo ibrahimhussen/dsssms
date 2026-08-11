@@ -25,24 +25,25 @@ interface AddTimetableEntryModalProps {
   initialDayOfWeek?: DayOfWeek;
   initialStartTime?: string;
   initialEndTime?: string;
+  initialPeriod?: number;
 }
 
 const PRESET_PERIODS = [
   // Morning Session (2:00 – 6:15 Local / Rest 4:00–4:15) — 3 before rest, 3 after rest
-  { label: 'M-P1 (2:00–2:40)', start: '08:00', end: '08:40', session: 'Morning' },
-  { label: 'M-P2 (2:40–3:20)', start: '08:40', end: '09:20', session: 'Morning' },
-  { label: 'M-P3 (3:20–4:00)', start: '09:20', end: '10:00', session: 'Morning' },
-  { label: 'M-P4 (4:15–4:55)', start: '10:15', end: '10:55', session: 'Morning' },
-  { label: 'M-P5 (4:55–5:35)', start: '10:55', end: '11:35', session: 'Morning' },
-  { label: 'M-P6 (5:35–6:15)', start: '11:35', end: '12:15', session: 'Morning' },
+  { label: 'M-P1 (2:00–2:40)', start: '08:00', end: '08:40', session: 'Morning', period: 1 },
+  { label: 'M-P2 (2:40–3:20)', start: '08:40', end: '09:20', session: 'Morning', period: 2 },
+  { label: 'M-P3 (3:20–4:00)', start: '09:20', end: '10:00', session: 'Morning', period: 3 },
+  { label: 'M-P4 (4:15–4:55)', start: '10:15', end: '10:55', session: 'Morning', period: 4 },
+  { label: 'M-P5 (4:55–5:35)', start: '10:55', end: '11:35', session: 'Morning', period: 5 },
+  { label: 'M-P6 (5:35–6:15)', start: '11:35', end: '12:15', session: 'Morning', period: 6 },
 
   // Afternoon Session (6:30 – 10:45 Local / Rest 8:30–8:45) — 3 before rest, 3 after rest
-  { label: 'A-P1 (6:30–7:10)', start: '12:30', end: '13:10', session: 'Afternoon' },
-  { label: 'A-P2 (7:10–7:50)', start: '13:10', end: '13:50', session: 'Afternoon' },
-  { label: 'A-P3 (7:50–8:30)', start: '13:50', end: '14:30', session: 'Afternoon' },
-  { label: 'A-P4 (8:45–9:25)', start: '14:45', end: '15:25', session: 'Afternoon' },
-  { label: 'A-P5 (9:25–10:05)', start: '15:25', end: '16:05', session: 'Afternoon' },
-  { label: 'A-P6 (10:05–10:45)', start: '16:05', end: '16:45', session: 'Afternoon' },
+  { label: 'A-P1 (6:30–7:10)', start: '12:30', end: '13:10', session: 'Afternoon', period: 7 },
+  { label: 'A-P2 (7:10–7:50)', start: '13:10', end: '13:50', session: 'Afternoon', period: 8 },
+  { label: 'A-P3 (7:50–8:30)', start: '13:50', end: '14:30', session: 'Afternoon', period: 9 },
+  { label: 'A-P4 (8:45–9:25)', start: '14:45', end: '15:25', session: 'Afternoon', period: 10 },
+  { label: 'A-P5 (9:25–10:05)', start: '15:25', end: '16:05', session: 'Afternoon', period: 11 },
+  { label: 'A-P6 (10:05–10:45)', start: '16:05', end: '16:45', session: 'Afternoon', period: 12 },
 ];
 
 export function AddTimetableEntryModal({
@@ -53,6 +54,7 @@ export function AddTimetableEntryModal({
   initialDayOfWeek = 'MONDAY',
   initialStartTime = '',
   initialEndTime = '',
+  initialPeriod = 1,
 }: AddTimetableEntryModalProps) {
   const createEntry = useCreateTimetableEntry();
 
@@ -61,6 +63,7 @@ export function AddTimetableEntryModal({
   const [dayOfWeek, setDayOfWeek] = useState<DayOfWeek>(initialDayOfWeek);
   const [startTime, setStartTime] = useState(initialStartTime);
   const [endTime, setEndTime] = useState(initialEndTime);
+  const [period, setPeriod] = useState(initialPeriod);
   const [roomNumber, setRoomNumber] = useState('');
   const [error, setError] = useState<string | null>(null);
 
@@ -70,8 +73,9 @@ export function AddTimetableEntryModal({
       setDayOfWeek(initialDayOfWeek);
       setStartTime(initialStartTime);
       setEndTime(initialEndTime);
+      setPeriod(initialPeriod);
     }
-  }, [isOpen, initialSemester, initialDayOfWeek, initialStartTime, initialEndTime]);
+  }, [isOpen, initialSemester, initialDayOfWeek, initialStartTime, initialEndTime, initialPeriod]);
 
   function reset() {
     setTeacherSubjectId('');
@@ -79,6 +83,7 @@ export function AddTimetableEntryModal({
     setDayOfWeek(initialDayOfWeek);
     setStartTime(initialStartTime);
     setEndTime(initialEndTime);
+    setPeriod(initialPeriod);
     setRoomNumber('');
     setError(null);
   }
@@ -102,6 +107,7 @@ export function AddTimetableEntryModal({
         teacherSubjectId: Number(teacherSubjectId),
         semester,
         dayOfWeek,
+        period,
         startTime,
         endTime,
         roomNumber: roomNumber.trim() || undefined,
@@ -150,6 +156,7 @@ export function AddTimetableEntryModal({
                   onClick={() => {
                     setStartTime(p.start);
                     setEndTime(p.end);
+                    setPeriod(p.period);
                   }}
                   className={`rounded-lg px-2.5 py-1 text-xs font-medium transition-colors border cursor-pointer ${
                     isSelected

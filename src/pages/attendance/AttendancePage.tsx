@@ -8,6 +8,7 @@ import { TextField } from '../../components/ui/TextField';
 import { Button } from '../../components/ui/Button';
 import { LedgerRule } from '../../components/ui/LedgerRule';
 import { EmptyState } from '../../components/ui/EmptyState';
+import { Badge } from '../../components/ui/Badge';
 import type { AttendanceStatus, BulkAttendanceRecordInput } from '../../types/attendance';
 
 const STATUS_OPTIONS: { value: AttendanceStatus; label: string }[] = [
@@ -31,6 +32,7 @@ export function AttendancePage() {
   const { data: assignments } = useMyTeachingAssignments();
   const [classroomId, setClassroomId] = useState<number | undefined>(undefined);
   const [attendanceDate, setAttendanceDate] = useState<string>(todayIsoDate());
+  const [period, setPeriod] = useState<number>(0);
   const [draftStatuses, setDraftStatuses] = useState<Record<number, AttendanceStatus>>({});
   const [draftRemarks, setDraftRemarks] = useState<Record<number, string>>({});
   const [feedback, setFeedback] = useState<{ type: 'success' | 'error'; message: string } | null>(null);
@@ -64,7 +66,7 @@ export function AttendancePage() {
     { classroomId, limit: 100 },
     { enabled: Boolean(classroomId) }
   );
-  const { data: existingRecords } = useClassroomAttendance(classroomId, attendanceDate);
+  const { data: existingRecords } = useClassroomAttendance(classroomId, attendanceDate, period);
   const markBulk = useMarkBulkAttendance();
 
   function statusFor(studentId: number): AttendanceStatus {
@@ -102,7 +104,7 @@ export function AttendancePage() {
     });
 
     try {
-      const result = await markBulk.mutateAsync({ classroomId, attendanceDate, records });
+      const result = await markBulk.mutateAsync({ classroomId, attendanceDate, period, records });
       setFeedback({ type: 'success', message: `Saved attendance for ${result.recordsSaved} student(s).` });
       setDraftStatuses({});
       setDraftRemarks({});
@@ -138,6 +140,18 @@ export function AttendancePage() {
           value={attendanceDate}
           onChange={(e) => setAttendanceDate(e.target.value)}
         />
+
+        <SelectField
+          label="Period"
+          className="min-w-[150px]"
+          value={period}
+          onChange={(e) => setPeriod(Number(e.target.value))}
+        >
+          <option value={0}>Daily Roll Call (0)</option>
+          {[1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12].map(p => (
+            <option key={p} value={p}>Period {p}</option>
+          ))}
+        </SelectField>
       </div>
 
       {!classroomId ? (
@@ -176,8 +190,13 @@ export function AttendancePage() {
                 {rosterData.items.map((s) => (
                   <tr key={s.studentId} className="border-b border-paper-100 last:border-b-0">
                     <td className="px-4 py-3">
-                      {s.firstName} {s.lastName}{' '}
-                      <span className="font-mono text-xs text-slate-500">({s.admissionNumber})</span>
+                      <div className="flex flex-col gap-0.5">
+                        <span className="font-medium text-ink-900">{s.firstName} {s.lastName}</span>
+                        <span className="font-mono text-xs text-slate-500">({s.admissionNumber})</span>
+                      </div>
+                      {existingRecords?.find((r) => r.studentId === s.studentId)?.isLocked && (
+                        <Badge className="mt-1" tone="warning">Locked</Badge>
+                      )}
                     </td>
                     <td className="px-4 py-3">
                       <div className="flex flex-wrap gap-1.5">

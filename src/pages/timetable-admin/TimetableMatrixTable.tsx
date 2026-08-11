@@ -7,30 +7,30 @@ export interface StandardPeriod {
   name: string;
   localTime: string;
   session: 'Morning' | 'Afternoon' | 'Break';
+  periodNumber?: number;
   startTime: string;
   endTime: string;
 }
 
-export const DEFAULT_PERIODS: StandardPeriod[] = [
   // Morning Session: 2:00 – 6:15 Local (08:00 – 12:15)
   // 3 Periods Before Rest + 15 min Rest Break (4:00-4:15 Local) + 3 Periods After Rest
-  { id: 'm-p1', name: 'Period 1', localTime: '2:00 – 2:40', session: 'Morning', startTime: '08:00', endTime: '08:40' },
-  { id: 'm-p2', name: 'Period 2', localTime: '2:40 – 3:20', session: 'Morning', startTime: '08:40', endTime: '09:20' },
-  { id: 'm-p3', name: 'Period 3', localTime: '3:20 – 4:00', session: 'Morning', startTime: '09:20', endTime: '10:00' },
+  { id: 'm-p1', name: 'Period 1', localTime: '2:00 – 2:40', session: 'Morning', periodNumber: 1, startTime: '08:00', endTime: '08:40' },
+  { id: 'm-p2', name: 'Period 2', localTime: '2:40 – 3:20', session: 'Morning', periodNumber: 2, startTime: '08:40', endTime: '09:20' },
+  { id: 'm-p3', name: 'Period 3', localTime: '3:20 – 4:00', session: 'Morning', periodNumber: 3, startTime: '09:20', endTime: '10:00' },
   { id: 'm-mb', name: '☕ Rest', localTime: '4:00 – 4:15', session: 'Break', startTime: '10:00', endTime: '10:15' },
-  { id: 'm-p4', name: 'Period 4', localTime: '4:15 – 4:55', session: 'Morning', startTime: '10:15', endTime: '10:55' },
-  { id: 'm-p5', name: 'Period 5', localTime: '4:55 – 5:35', session: 'Morning', startTime: '10:55', endTime: '11:35' },
-  { id: 'm-p6', name: 'Period 6', localTime: '5:35 – 6:15', session: 'Morning', startTime: '11:35', endTime: '12:15' },
+  { id: 'm-p4', name: 'Period 4', localTime: '4:15 – 4:55', session: 'Morning', periodNumber: 4, startTime: '10:15', endTime: '10:55' },
+  { id: 'm-p5', name: 'Period 5', localTime: '4:55 – 5:35', session: 'Morning', periodNumber: 5, startTime: '10:55', endTime: '11:35' },
+  { id: 'm-p6', name: 'Period 6', localTime: '5:35 – 6:15', session: 'Morning', periodNumber: 6, startTime: '11:35', endTime: '12:15' },
 
   // Afternoon Session: 6:30 – 10:45 Local (12:30 – 16:45)
   // 3 Periods Before Rest + 15 min Rest Break (8:30-8:45 Local) + 3 Periods After Rest
-  { id: 'a-p1', name: 'Period 1', localTime: '6:30 – 7:10', session: 'Afternoon', startTime: '12:30', endTime: '13:10' },
-  { id: 'a-p2', name: 'Period 2', localTime: '7:10 – 7:50', session: 'Afternoon', startTime: '13:10', endTime: '13:50' },
-  { id: 'a-p3', name: 'Period 3', localTime: '7:50 – 8:30', session: 'Afternoon', startTime: '13:50', endTime: '14:30' },
+  { id: 'a-p1', name: 'Period 1', localTime: '6:30 – 7:10', session: 'Afternoon', periodNumber: 7, startTime: '12:30', endTime: '13:10' },
+  { id: 'a-p2', name: 'Period 2', localTime: '7:10 – 7:50', session: 'Afternoon', periodNumber: 8, startTime: '13:10', endTime: '13:50' },
+  { id: 'a-p3', name: 'Period 3', localTime: '7:50 – 8:30', session: 'Afternoon', periodNumber: 9, startTime: '13:50', endTime: '14:30' },
   { id: 'a-ab', name: '☕ Rest', localTime: '8:30 – 8:45', session: 'Break', startTime: '14:30', endTime: '14:45' },
-  { id: 'a-p4', name: 'Period 4', localTime: '8:45 – 9:25', session: 'Afternoon', startTime: '14:45', endTime: '15:25' },
-  { id: 'a-p5', name: 'Period 5', localTime: '9:25 – 10:05', session: 'Afternoon', startTime: '15:25', endTime: '16:05' },
-  { id: 'a-p6', name: 'Period 6', localTime: '10:05 – 10:45', session: 'Afternoon', startTime: '16:05', endTime: '16:45' },
+  { id: 'a-p4', name: 'Period 4', localTime: '8:45 – 9:25', session: 'Afternoon', periodNumber: 10, startTime: '14:45', endTime: '15:25' },
+  { id: 'a-p5', name: 'Period 5', localTime: '9:25 – 10:05', session: 'Afternoon', periodNumber: 11, startTime: '15:25', endTime: '16:05' },
+  { id: 'a-p6', name: 'Period 6', localTime: '10:05 – 10:45', session: 'Afternoon', periodNumber: 12, startTime: '16:05', endTime: '16:45' },
 ];
 
 const DAYS: DayOfWeek[] = ['MONDAY', 'TUESDAY', 'WEDNESDAY', 'THURSDAY', 'FRIDAY'];
@@ -47,7 +47,7 @@ interface TimetableMatrixTableProps {
   entries: TimetableEntry[];
   sessionFilter?: 'MORNING' | 'AFTERNOON';
   isEditable?: boolean;
-  onFillSlot?: (day: DayOfWeek, startTime: string, endTime: string) => void;
+  onFillSlot?: (day: DayOfWeek, startTime: string, endTime: string, periodNumber: number) => void;
   onDeleteSlot?: (entry: TimetableEntry) => void;
   isTeacherView?: boolean;
 }
@@ -87,6 +87,7 @@ export function TimetableMatrixTable({
             name: `${e.startTime} - ${e.endTime}`,
             localTime: `${e.startTime} – ${e.endTime}`,
             session: entrySession as 'Morning' | 'Afternoon',
+            periodNumber: e.period,
             startTime: e.startTime,
             endTime: e.endTime,
           });
@@ -173,6 +174,11 @@ export function TimetableMatrixTable({
                                 {entry.roomNumber}
                               </Badge>
                             )}
+                            {entry.status === 'DRAFT' && (
+                              <Badge className="text-[0.6rem] px-1 bg-amber-100 text-amber-800 ml-1 border border-amber-200">
+                                DRAFT
+                              </Badge>
+                            )}
                           </div>
                           <p className="text-[0.75rem] text-emerald-800/80 leading-snug">
                             {isTeacherView
@@ -201,7 +207,7 @@ export function TimetableMatrixTable({
                     ) : isEditable ? (
                       <button
                         type="button"
-                        onClick={() => onFillSlot?.(day, p.startTime, p.endTime)}
+                        onClick={() => onFillSlot?.(day, p.startTime, p.endTime, p.periodNumber!)}
                         className="group flex h-full min-h-[64px] w-full flex-col items-center justify-center rounded-xl border border-dashed border-slate-200 bg-slate-50/40 p-2 text-slate-400 transition-all hover:border-emerald-400 hover:bg-emerald-50/30 hover:text-emerald-600 cursor-pointer"
                         title={`Fill timetable slot for ${DAY_LABELS[day]} (${p.name}: ${p.localTime})`}
                       >

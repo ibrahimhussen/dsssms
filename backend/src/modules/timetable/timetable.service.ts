@@ -17,9 +17,11 @@ function toDto(e: EntryWithRelations): TimetableEntryDto {
     timetableEntryId: e.timetableEntryId,
     semester: e.semester,
     dayOfWeek: e.dayOfWeek,
+    period: e.period,
     startTime: e.startTime,
     endTime: e.endTime,
     roomNumber: e.roomNumber,
+    status: e.status,
     teacherSubject: {
       id: e.teacherSubject.id,
       teacher: {
@@ -42,8 +44,9 @@ function toDto(e: EntryWithRelations): TimetableEntryDto {
   };
 }
 
-function timesOverlap(aStart: string, aEnd: string, bStart: string, bEnd: string): boolean {
-  return aStart < bEnd && bStart < aEnd;
+// We now use `period` instead of `startTime/endTime` for conflict overlap.
+function periodsOverlap(aPeriod: number, bPeriod: number): boolean {
+  return aPeriod === bPeriod;
 }
 
 const DAY_ORDER = ['MONDAY', 'TUESDAY', 'WEDNESDAY', 'THURSDAY', 'FRIDAY', 'SATURDAY'];
@@ -51,7 +54,7 @@ const DAY_ORDER = ['MONDAY', 'TUESDAY', 'WEDNESDAY', 'THURSDAY', 'FRIDAY', 'SATU
 function sortByDayThenTime(entries: TimetableEntryDto[]): TimetableEntryDto[] {
   return [...entries].sort((a, b) => {
     const dayDiff = DAY_ORDER.indexOf(a.dayOfWeek) - DAY_ORDER.indexOf(b.dayOfWeek);
-    return dayDiff !== 0 ? dayDiff : a.startTime.localeCompare(b.startTime);
+    return dayDiff !== 0 ? dayDiff : a.period - b.period;
   });
 }
 
@@ -76,17 +79,17 @@ export class TimetableService {
     });
 
     const teacherConflict = sameDayEntries.find(
-      (e) => e.teacherSubject.teacherId === teacherSubject.teacherId && timesOverlap(input.startTime, input.endTime, e.startTime, e.endTime)
+      (e) => e.teacherSubject.teacherId === teacherSubject.teacherId && periodsOverlap(input.period, e.period)
     );
     if (teacherConflict) {
-      throw new ConflictError('This teacher already has a class scheduled that overlaps this time slot in this semester');
+      throw new ConflictError('This teacher already has a class scheduled for this period on this day');
     }
 
     const classroomConflict = sameDayEntries.find(
-      (e) => e.teacherSubject.classroomId === teacherSubject.classroomId && timesOverlap(input.startTime, input.endTime, e.startTime, e.endTime)
+      (e) => e.teacherSubject.classroomId === teacherSubject.classroomId && periodsOverlap(input.period, e.period)
     );
     if (classroomConflict) {
-      throw new ConflictError('This classroom already has a class scheduled that overlaps this time slot in this semester');
+      throw new ConflictError('This classroom already has a class scheduled for this period on this day');
     }
 
     const created = await prisma.timetableEntry.create({ data: input, include: ENTRY_INCLUDE });
@@ -97,6 +100,18 @@ export class TimetableService {
     const entry = await prisma.timetableEntry.findUnique({ where: { timetableEntryId: id } });
     if (!entry) throw new NotFoundError('Timetable entry');
     await prisma.timetableEntry.delete({ where: { timetableEntryId: id } });
+  }
+
+  async publishEntry(id: number): Promise<TimetableEntryDto> {
+    const entry = await prisma.timetableEntry.findUnique({ where: { timetableEntryId: id } });
+    if (!entry) throw new NotFoundError('Timetable entry');
+    
+    const updated = await prisma.timetableEntry.update({
+      where: { timetableEntryId: id },
+      data: { status: 'PUBLISHED' },
+      include: ENTRY_INCLUDE
+    });
+    return toDto(updated);
   }
 
   /** Oversight view: entries for a given classroom, teaching assignment, or semester. */

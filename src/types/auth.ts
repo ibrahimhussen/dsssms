@@ -12,6 +12,7 @@ export interface AuthenticatedUser {
   email: string | null;
   role: RoleName;
   status: UserStatus;
+  permissions: string[];
 }
 
 export interface LoginResponse {

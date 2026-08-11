@@ -8,6 +8,7 @@ import type {
   AttendanceSummary,
   AttendanceSummaryParams,
   BulkMarkAttendanceInput,
+  AttendanceStatus,
 } from '../types/attendance';
 
 export const attendanceApi = {
@@ -21,9 +22,9 @@ export const attendanceApi = {
     return unwrapPaginated(apiClient.get<ApiResponse<AttendanceRecord[]>>('/attendance/me', { params: cleanParams(params) }));
   },
 
-  getClassroomAttendance(classroomId: number, attendanceDate: string) {
+  getClassroomAttendance(classroomId: number, attendanceDate: string, period?: number) {
     return unwrap(
-      apiClient.get<ApiResponse<AttendanceRecord[]>>('/attendance', { params: { classroomId, attendanceDate } })
+      apiClient.get<ApiResponse<AttendanceRecord[]>>('/attendance', { params: cleanParams({ classroomId, attendanceDate, period }) })
     );
   },
 
@@ -33,7 +34,11 @@ export const attendanceApi = {
   },
 
   markBulk(input: BulkMarkAttendanceInput) {
-    return unwrap(apiClient.post<ApiResponse<{ classroomId: number; attendanceDate: string; recordsSaved: number }>>('/attendance', input));
+    return unwrap(apiClient.post<ApiResponse<{ classroomId: number; attendanceDate: string; period: number; recordsSaved: number }>>('/attendance', input));
+  },
+
+  update(attendanceId: number, input: { status?: AttendanceStatus; remarks?: string }) {
+    return unwrap(apiClient.patch<ApiResponse<AttendanceRecord>>(`/attendance/${attendanceId}`, input));
   },
 
   getStudentSummary(studentId: number, params: AttendanceSummaryParams = {}) {

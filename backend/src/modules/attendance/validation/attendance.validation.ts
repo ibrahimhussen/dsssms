@@ -9,11 +9,12 @@ function isNotFutureDate(date: Date): boolean {
 }
 
 const attendanceDateField = z.coerce
-  .date({ errorMap: () => ({ message: 'A valid attendance date is required' }) })
+  .date({ required_error: 'A valid attendance date is required', invalid_type_error: 'A valid attendance date is required' })
   .refine(isNotFutureDate, { message: 'Attendance date cannot be in the future' });
 
 export const bulkMarkAttendanceSchema = z.object({
   classroomId: z.coerce.number().int().positive(),
+  period: z.coerce.number().int().nonnegative().default(0),
   attendanceDate: attendanceDateField,
   records: z
     .array(
@@ -38,6 +39,7 @@ export const updateAttendanceSchema = z
 
 export const classroomAttendanceQuerySchema = z.object({
   classroomId: z.coerce.number().int().positive(),
+  period: z.coerce.number().int().nonnegative().default(0),
   attendanceDate: attendanceDateField,
 });
 

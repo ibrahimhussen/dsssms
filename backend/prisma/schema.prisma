@@ -348,8 +348,10 @@ model Attendance {
   teacherId      Int
   classroomId    Int
   attendanceDate DateTime         @db.Date
+  period         Int              @default(0) // 0 = Daily Roll Call, 1+ = Subject Periods
   status         AttendanceStatus
   remarks        String?          @db.VarChar(255)
+  isLocked       Boolean          @default(false)
   createdAt      DateTime         @default(now())
   updatedAt      DateTime         @updatedAt
 
@@ -357,8 +359,8 @@ model Attendance {
   teacher   Teacher   @relation(fields: [teacherId], references: [teacherId])
   classroom Classroom @relation(fields: [classroomId], references: [classroomId])
 
-  @@unique([studentId, attendanceDate])
-  @@index([classroomId, attendanceDate])
+  @@unique([studentId, attendanceDate, period])
+  @@index([classroomId, attendanceDate, period])
   @@map("attendance")
 }
 
@@ -470,24 +472,31 @@ enum DayOfWeek {
   SATURDAY
 }
 
+enum TimetableStatus {
+  DRAFT
+  PUBLISHED
+}
+
 /// One weekly period slot for a teaching assignment (Teacher+Subject+Classroom).
 /// Powers the Teacher Portal's "Class Timetable" and the Student Portal's
 /// "My Timetable" views. Managed by oversight roles (Admin/Director/Vice
 /// Director); teachers and students only ever read their own slice of it.
 model TimetableEntry {
-  timetableEntryId Int       @id @default(autoincrement())
+  timetableEntryId Int             @id @default(autoincrement())
   teacherSubjectId Int
-  semester         Semester  @default(SEMESTER_1)
+  semester         Semester        @default(SEMESTER_1)
   dayOfWeek        DayOfWeek
-  startTime        String    @db.VarChar(5) // "HH:MM", 24-hour
-  endTime          String    @db.VarChar(5)
-  roomNumber       String?   @db.VarChar(50)
-  createdAt        DateTime  @default(now())
-  updatedAt        DateTime  @updatedAt
+  period           Int             @default(1) // 1, 2, 3...
+  startTime        String          @db.VarChar(5) // "HH:MM", 24-hour
+  endTime          String          @db.VarChar(5)
+  roomNumber       String?         @db.VarChar(50)
+  status           TimetableStatus @default(DRAFT)
+  createdAt        DateTime        @default(now())
+  updatedAt        DateTime        @updatedAt
 
   teacherSubject TeacherSubject @relation(fields: [teacherSubjectId], references: [id], onDelete: Cascade)
 
-  @@unique([teacherSubjectId, semester, dayOfWeek, startTime])
+  @@unique([teacherSubjectId, semester, dayOfWeek, period])
   @@index([teacherSubjectId, semester])
   @@map("timetable_entries")
 }

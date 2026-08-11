@@ -8,16 +8,41 @@ import { Pagination } from '../../components/ui/Pagination';
 import { Button } from '../../components/ui/Button';
 import { SelectField } from '../../components/ui/SelectField';
 import { TextField } from '../../components/ui/TextField';
+import { Badge } from '../../components/ui/Badge';
 import { LedgerRule } from '../../components/ui/LedgerRule';
 import { CredentialsDialog } from '../../components/ui/CredentialsDialog';
 import type { CredentialsItem } from '../../components/ui/CredentialsDialog';
-import { CreateStudentModal } from './CreateStudentModal';
 import { MessageParentsModal } from './MessageParentsModal';
+import { NewAdmissionModal } from './NewAdmissionModal';
+import { TransferAdmissionModal } from './TransferAdmissionModal';
+import { TransferOutModal } from './TransferOutModal';
+import { BulkImportModal } from './BulkImportModal';
 import type { StudentSummary, CreateStudentResult, ListStudentsParams } from '../../types/student';
+
+function admissionBadge(type: StudentSummary['admissionType']) {
+  return type === 'TRANSFER' ? (
+    <Badge tone="warning">Transfer</Badge>
+  ) : (
+    <Badge tone="positive">New</Badge>
+  );
+}
+
+function statusBadge(status: StudentSummary['studentStatus']) {
+  switch (status) {
+    case 'ACTIVE':       return <Badge tone="positive">Active</Badge>;
+    case 'GRADUATED':    return <Badge tone="warning">Graduated</Badge>;
+    case 'SUSPENDED':    return <Badge tone="danger">Suspended</Badge>;
+    case 'TRANSFERRED_OUT': return <Badge tone="danger">Transferred Out</Badge>;
+    default:             return null;
+  }
+}
 
 export function StudentsPage() {
   const [filters, setFilters] = useState<ListStudentsParams>({ page: 1, limit: 20 });
-  const [isCreateOpen, setCreateOpen] = useState(false);
+  const [isNewOpen, setNewOpen] = useState(false);
+  const [isTransferAdmissionOpen, setTransferAdmissionOpen] = useState(false);
+  const [isBulkOpen, setBulkOpen] = useState(false);
+  const [transferOutTarget, setTransferOutTarget] = useState<StudentSummary | null>(null);
   const [issuedCredentials, setIssuedCredentials] = useState<CredentialsItem[]>([]);
   const [isExporting, setIsExporting] = useState(false);
   const [messageTarget, setMessageTarget] = useState<StudentSummary | null>(null);
@@ -39,7 +64,8 @@ export function StudentsPage() {
   }
 
   function handleCreated(result: CreateStudentResult) {
-    setCreateOpen(false);
+    setNewOpen(false);
+    setTransferAdmissionOpen(false);
     const items: CredentialsItem[] = [
       {
         label: `Student — ${result.student.firstName} ${result.student.lastName}`,
@@ -63,18 +89,28 @@ export function StudentsPage() {
       render: (s) => `${s.classroom.className} ${s.classroom.section} (${s.classroom.academicYear})`,
     },
     { header: 'Gender', render: (s) => (s.gender === 'M' ? 'Male' : 'Female') },
+    { header: 'Type', render: (s) => admissionBadge(s.admissionType) },
+    { header: 'Status', render: (s) => statusBadge(s.studentStatus) },
     {
       header: 'Guardians',
       render: (s) => (s.parents.length > 0 ? s.parents.map((p) => p.fullName).join(', ') : '—'),
     },
     {
-      header: '',
-      render: (s) =>
-        s.parents.length > 0 ? (
-          <Button variant="ghost" onClick={() => setMessageTarget(s)}>
-            Message parents
-          </Button>
-        ) : null,
+      header: 'Actions',
+      render: (s) => (
+        <div className="flex flex-wrap gap-1">
+          {s.parents.length > 0 && (
+            <Button variant="ghost" onClick={() => setMessageTarget(s)}>
+              Message parents
+            </Button>
+          )}
+          {s.studentStatus === 'ACTIVE' && (
+            <Button variant="ghost" onClick={() => setTransferOutTarget(s)}>
+              Transfer out
+            </Button>
+          )}
+        </div>
+      ),
     },
   ];
 
@@ -108,11 +144,19 @@ export function StudentsPage() {
           />
         </div>
 
-        <div className="flex gap-3">
+        <div className="flex flex-wrap gap-2">
           <Button variant="secondary" onClick={() => void handleExport()} isLoading={isExporting}>
             Export to Excel
           </Button>
-          <Button onClick={() => setCreateOpen(true)}>Register student</Button>
+          <Button variant="secondary" onClick={() => setBulkOpen(true)}>
+            Bulk Import
+          </Button>
+          <Button variant="secondary" onClick={() => setTransferAdmissionOpen(true)}>
+            Transfer Student Admission
+          </Button>
+          <Button onClick={() => setNewOpen(true)}>
+            New Student Admission
+          </Button>
         </div>
       </div>
 
@@ -126,10 +170,12 @@ export function StudentsPage() {
 
       {data && <Pagination meta={data.meta} onPageChange={(page) => setFilters((prev) => ({ ...prev, page }))} />}
 
-      <CreateStudentModal isOpen={isCreateOpen} onClose={() => setCreateOpen(false)} onCreated={handleCreated} />
+      <NewAdmissionModal isOpen={isNewOpen} onClose={() => setNewOpen(false)} onCreated={handleCreated} />
+      <TransferAdmissionModal isOpen={isTransferAdmissionOpen} onClose={() => setTransferAdmissionOpen(false)} onCreated={handleCreated} />
+      <BulkImportModal isOpen={isBulkOpen} onClose={() => setBulkOpen(false)} />
+      <TransferOutModal student={transferOutTarget} onClose={() => setTransferOutTarget(null)} />
 
       <CredentialsDialog isOpen={issuedCredentials.length > 0} onClose={() => setIssuedCredentials([])} items={issuedCredentials} />
-
       <MessageParentsModal student={messageTarget} onClose={() => setMessageTarget(null)} />
     </div>
   );

@@ -11,6 +11,7 @@ export const createTimetableEntrySchema = z
     teacherSubjectId: z.coerce.number().int().positive(),
     semester: z.nativeEnum(Semester).default(Semester.SEMESTER_1),
     dayOfWeek: z.nativeEnum(DayOfWeek),
+    period: z.coerce.number().int().positive(),
     startTime: timeField,
     endTime: timeField,
     roomNumber: z.string().trim().max(50).optional(),

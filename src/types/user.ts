@@ -38,3 +38,18 @@ export interface ListUsersParams extends PaginationParams {
   status?: UserStatus;
   search?: string;
 }
+
+/** A granular/temporary permission assigned to a user account */
+export interface UserPermission {
+  id: number;
+  userId: number;
+  permission: string;
+  grantedAt: string;
+  expiresAt: string | null;
+}
+
+/** Payload to grant a permission to a user */
+export interface GrantPermissionInput {
+  permission: string;
+  expiresAt?: string; // ISO datetime string, optional — null means permanent
+}

@@ -6,8 +6,10 @@ export interface AttendanceRecordDto {
   studentName: string;
   classroomId: number;
   attendanceDate: Date;
+  period: number;
   status: AttendanceStatus;
   remarks: string | null;
+  isLocked: boolean;
   recordedBy: { teacherId: number; firstName: string; lastName: string };
   createdAt: Date;
   updatedAt: Date;
@@ -26,5 +28,6 @@ export interface AttendanceSummaryDto {
 export interface BulkAttendanceResultDto {
   classroomId: number;
   attendanceDate: Date;
+  period: number;
   recordsSaved: number;
 }

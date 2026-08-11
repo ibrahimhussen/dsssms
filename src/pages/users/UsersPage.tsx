@@ -10,6 +10,7 @@ import { TextField } from '../../components/ui/TextField';
 import { LedgerRule } from '../../components/ui/LedgerRule';
 import { CredentialsDialog } from '../../components/ui/CredentialsDialog';
 import { CreateStaffModal } from './CreateStaffModal';
+import { UserPermissionsModal } from './UserPermissionsModal';
 import { getRoleLabel } from '../../lib/role-labels';
 import type { UserSummary, CreateStaffResult, ListUsersParams } from '../../types/user';
 import type { RoleName, UserStatus } from '../../types/auth';
@@ -25,6 +26,7 @@ function statusTone(status: UserStatus): 'positive' | 'warning' | 'danger' {
 export function UsersPage() {
   const [filters, setFilters] = useState<ListUsersParams>({ page: 1, limit: 20 });
   const [isCreateOpen, setCreateOpen] = useState(false);
+  const [permissionsUser, setPermissionsUser] = useState<UserSummary | null>(null);
   const [issuedCredentials, setIssuedCredentials] = useState<CreateStaffResult | null>(null);
   const [resetResult, setResetResult] = useState<{ username: string; temporaryPassword: string } | null>(null);
 
@@ -59,6 +61,9 @@ export function UsersPage() {
       header: 'Actions',
       render: (u) => (
         <div className="flex flex-wrap gap-2">
+          <Button variant="ghost" onClick={() => setPermissionsUser(u)}>
+            Permissions
+          </Button>
           <Button variant="ghost" onClick={() => void handleToggleStatus(u)} disabled={updateStatus.isPending}>
             {u.status === 'ACTIVE' ? 'Deactivate' : 'Activate'}
           </Button>
@@ -72,7 +77,7 @@ export function UsersPage() {
 
   return (
     <div className="max-w-full">
-      <h1 className="text-2xl">Staff accounts</h1>
+      <h1 className="text-2xl">Staff Accounts</h1>
       <LedgerRule />
 
       <div className="mb-5 flex flex-wrap items-center justify-between gap-4">
@@ -132,6 +137,11 @@ export function UsersPage() {
           setCreateOpen(false);
           setIssuedCredentials(result);
         }}
+      />
+
+      <UserPermissionsModal
+        user={permissionsUser}
+        onClose={() => setPermissionsUser(null)}
       />
 
       <CredentialsDialog

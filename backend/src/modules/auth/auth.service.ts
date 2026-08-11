@@ -18,13 +18,19 @@ function toAuthenticatedUserDto(user: {
   email: string | null;
   status: UserStatus;
   role: { roleName: RoleName };
+  permissions?: { permission: string; expiresAt: Date | null }[];
 }): AuthenticatedUserDto {
+  const activePermissions = (user.permissions || [])
+    .filter(p => !p.expiresAt || p.expiresAt > new Date())
+    .map(p => p.permission);
+
   return {
     userId: user.userId,
     username: user.username,
     email: user.email,
     role: user.role.roleName,
     status: user.status,
+    permissions: activePermissions,
   };
 }
 
@@ -37,7 +43,7 @@ export class AuthService {
   async login(input: { username: string; password: string; ipAddress?: string }): Promise<LoginResponseDto> {
     const user = await prisma.user.findUnique({
       where: { username: input.username },
-      include: { role: true },
+      include: { role: true, permissions: true },
     });
 
     // Deliberately identical error message whether the username doesn't
@@ -131,7 +137,7 @@ export class AuthService {
       throw new UnauthorizedError('Refresh token could not be verified');
     }
 
-    const user = await prisma.user.findUnique({ where: { userId: stored.userId }, include: { role: true } });
+    const user = await prisma.user.findUnique({ where: { userId: stored.userId }, include: { role: true, permissions: true } });
 
     if (!user || user.status !== UserStatus.ACTIVE) {
       throw new UnauthorizedError('Account is no longer active');
@@ -198,9 +204,8 @@ export class AuthService {
 
     await recordAudit({ userId: user.userId, action: 'PASSWORD_CHANGED' });
   }
-
   async getCurrentUser(userId: number): Promise<AuthenticatedUserDto> {
-    const user = await prisma.user.findUnique({ where: { userId }, include: { role: true } });
+    const user = await prisma.user.findUnique({ where: { userId }, include: { role: true, permissions: true } });
     if (!user) {
       throw new UnauthorizedError();
     }

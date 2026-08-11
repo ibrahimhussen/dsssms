@@ -16,7 +16,7 @@ export async function recordAudit(params: {
   entity?: string;
   entityId?: string;
   ipAddress?: string;
-  metadata?: Record<string, unknown>;
+  metadata?: any;
 }): Promise<void> {
   try {
     await prisma.auditLog.create({

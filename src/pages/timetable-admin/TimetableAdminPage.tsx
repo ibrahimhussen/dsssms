@@ -1,7 +1,8 @@
 import { useState, useMemo } from 'react';
 import { useClassroomOptions } from '../../hooks/useClassrooms';
 import { useAssignments } from '../../hooks/useTeacherSubjects';
-import { useTimetable, useDeleteTimetableEntry } from '../../hooks/useTimetable';
+import { useAuth } from '../../context/AuthContext';
+import { useTimetable, useDeleteTimetableEntry, usePublishTimetableEntry } from '../../hooks/useTimetable';
 import { SelectField } from '../../components/ui/SelectField';
 import { Button } from '../../components/ui/Button';
 import { Badge } from '../../components/ui/Badge';
@@ -37,8 +38,10 @@ export function TimetableAdminPage() {
   const [classroomId, setClassroomId] = useState<number | undefined>(undefined);
   const [viewMode, setViewMode] = useState<'grid' | 'cards'>('grid');
   const [isAddOpen, setIsAddOpen] = useState(false);
-  const [fillSlot, setFillSlot] = useState<{ day: DayOfWeek; startTime: string; endTime: string } | null>(null);
+  const [fillSlot, setFillSlot] = useState<{ day: DayOfWeek; startTime: string; endTime: string; period: number } | null>(null);
   const [pendingDelete, setPendingDelete] = useState<TimetableEntry | null>(null);
+  const [isPublishing, setIsPublishing] = useState(false);
+  const { user } = useAuth();
 
   // Available academic years from current system classroom information
   const availableYears = useMemo(() => {
@@ -69,6 +72,9 @@ export function TimetableAdminPage() {
   const { data: teachingAssignments } = useAssignments({ classroomId, limit: 100 });
   const { data: entries, isLoading } = useTimetable({ classroomId, semester });
   const deleteEntry = useDeleteTimetableEntry();
+  const publishEntry = usePublishTimetableEntry();
+
+  const draftEntries = useMemo(() => entries?.filter(e => e.status === 'DRAFT') ?? [], [entries]);
 
   // Identify selected classroom's session (MORNING or AFTERNOON)
   const selectedClassroom = useMemo(
@@ -439,8 +445,18 @@ export function TimetableAdminPage() {
     setPendingDelete(null);
   }
 
-  function handleFillSlot(day: DayOfWeek, startTime: string, endTime: string) {
-    setFillSlot({ day, startTime, endTime });
+  async function handlePublishDrafts() {
+    if (draftEntries.length === 0) return;
+    setIsPublishing(true);
+    try {
+      await Promise.all(draftEntries.map(e => publishEntry.mutateAsync(e.timetableEntryId)));
+    } finally {
+      setIsPublishing(false);
+    }
+  }
+
+  function handleFillSlot(day: DayOfWeek, startTime: string, endTime: string, periodNumber: number) {
+    setFillSlot({ day, startTime, endTime, period: periodNumber });
     setIsAddOpen(true);
   }
 
@@ -570,6 +586,15 @@ export function TimetableAdminPage() {
             >
               Add timetable slot
             </Button>
+            {user?.role === 'DIRECTOR' && (
+              <Button
+                variant="primary"
+                disabled={draftEntries.length === 0 || isPublishing}
+                onClick={() => void handlePublishDrafts()}
+              >
+                {isPublishing ? 'Publishing...' : `Publish ${draftEntries.length} Draft(s)`}
+              </Button>
+            )}
           </div>
         )}
       </div>

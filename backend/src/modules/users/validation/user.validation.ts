@@ -5,7 +5,7 @@ import { paginationQuerySchema } from '../../../core/http/pagination';
 const STAFF_ROLES = [RoleName.ADMIN, RoleName.DIRECTOR, RoleName.VICE_DIRECTOR, RoleName.TEACHER] as const;
 
 export const createStaffSchema = z.object({
-  role: z.enum(STAFF_ROLES, { errorMap: () => ({ message: 'Role must be one of ADMIN, DIRECTOR, VICE_DIRECTOR, TEACHER' }) }),
+  role: z.enum(['ADMIN', 'DIRECTOR', 'VICE_DIRECTOR', 'TEACHER'], { required_error: 'Role must be one of ADMIN, DIRECTOR, VICE_DIRECTOR, TEACHER', invalid_type_error: 'Role must be one of ADMIN, DIRECTOR, VICE_DIRECTOR, TEACHER' }),
   firstName: z.string().trim().min(1, 'First name is required').max(100),
   lastName: z.string().trim().min(1, 'Last name is required').max(100),
   email: z.string().trim().email('Invalid email address').optional(),

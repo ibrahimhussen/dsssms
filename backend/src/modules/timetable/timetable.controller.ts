@@ -25,6 +25,12 @@ export class TimetableController {
     ApiResponse.success(res, { message: 'Timetable entries retrieved', data: entries });
   });
 
+  publish = asyncHandler(async (req: Request, res: Response) => {
+    const { id } = req.params as unknown as TimetableEntryIdParam;
+    const entry = await timetableService.publishEntry(id);
+    ApiResponse.success(res, { message: 'Timetable entry published', data: entry });
+  });
+
   /** Convenience endpoint: the logged-in teacher's or student's own schedule. */
   getMyTimetable = asyncHandler(async (req: Request, res: Response) => {
     if (!req.user) throw new UnauthorizedError();

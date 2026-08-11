@@ -29,8 +29,10 @@ function toAttendanceRecordDto(a: AttendanceWithRelations): AttendanceRecordDto 
     studentName: `${a.student.firstName} ${a.student.lastName}`,
     classroomId: a.classroomId,
     attendanceDate: a.attendanceDate,
+    period: a.period,
     status: a.status,
     remarks: a.remarks,
+    isLocked: a.isLocked,
     recordedBy: { teacherId: a.teacher.teacherId, firstName: a.teacher.firstName, lastName: a.teacher.lastName },
     createdAt: a.createdAt,
     updatedAt: a.updatedAt,
@@ -79,12 +81,13 @@ export class AttendanceService {
     await prisma.$transaction(
       input.records.map((record) =>
         prisma.attendance.upsert({
-          where: { studentId_attendanceDate: { studentId: record.studentId, attendanceDate: input.attendanceDate } },
+          where: { studentId_attendanceDate_period: { studentId: record.studentId, attendanceDate: input.attendanceDate, period: input.period } },
           create: {
             studentId: record.studentId,
             teacherId,
             classroomId: input.classroomId,
             attendanceDate: input.attendanceDate,
+            period: input.period,
             status: record.status,
             remarks: record.remarks,
           },
@@ -97,14 +100,18 @@ export class AttendanceService {
       )
     );
 
-    return { classroomId: input.classroomId, attendanceDate: input.attendanceDate, recordsSaved: input.records.length };
+    return { classroomId: input.classroomId, attendanceDate: input.attendanceDate, period: input.period, recordsSaved: input.records.length };
   }
 
   async updateAttendance(actor: AuthenticatedUser, attendanceId: number, input: UpdateAttendanceInput): Promise<AttendanceRecordDto> {
     const record = await prisma.attendance.findUnique({ where: { attendanceId }, include: ATTENDANCE_INCLUDE });
     if (!record) throw new NotFoundError('Attendance record');
 
-    const isOversight = [RoleName.ADMIN, RoleName.DIRECTOR, RoleName.VICE_DIRECTOR].includes(actor.role);
+    const isOversight = ([RoleName.ADMIN, RoleName.DIRECTOR, RoleName.VICE_DIRECTOR] as string[]).includes(actor.role);
+
+    if (record.isLocked && !isOversight) {
+      throw new ForbiddenError('This attendance record is locked and can only be updated by an administrator');
+    }
 
     if (!isOversight) {
       const teacherId = await getTeacherIdForUser(actor.userId);
@@ -129,7 +136,7 @@ export class AttendanceService {
   }
 
   async getClassroomAttendance(actor: AuthenticatedUser, query: ClassroomAttendanceQuery): Promise<AttendanceRecordDto[]> {
-    const isOversight = [RoleName.ADMIN, RoleName.DIRECTOR, RoleName.VICE_DIRECTOR].includes(actor.role);
+    const isOversight = ([RoleName.ADMIN, RoleName.DIRECTOR, RoleName.VICE_DIRECTOR] as string[]).includes(actor.role);
 
     if (!isOversight) {
       if (actor.role !== RoleName.TEACHER) {
@@ -140,7 +147,7 @@ export class AttendanceService {
     }
 
     const records = await prisma.attendance.findMany({
-      where: { classroomId: query.classroomId, attendanceDate: query.attendanceDate },
+      where: { classroomId: query.classroomId, attendanceDate: query.attendanceDate, period: query.period },
       include: ATTENDANCE_INCLUDE,
       orderBy: { student: { firstName: 'asc' } },
     });
@@ -150,7 +157,7 @@ export class AttendanceService {
 
   /** Every attendance record for a classroom across a date range — the basis for the Excel export, same access rules as `getClassroomAttendance`. */
   async exportClassroomAttendance(actor: AuthenticatedUser, query: ClassroomAttendanceRangeQuery): Promise<AttendanceRecordDto[]> {
-    const isOversight = [RoleName.ADMIN, RoleName.DIRECTOR, RoleName.VICE_DIRECTOR].includes(actor.role);
+    const isOversight = ([RoleName.ADMIN, RoleName.DIRECTOR, RoleName.VICE_DIRECTOR] as string[]).includes(actor.role);
 
     if (!isOversight) {
       if (actor.role !== RoleName.TEACHER) {

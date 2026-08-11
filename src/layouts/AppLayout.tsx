@@ -10,7 +10,7 @@ export function AppLayout() {
 
   if (!user) return null; // ProtectedRoute guarantees this, guarded again for type-safety
 
-  const navItems = getVisibleNavItems(user.role);
+  const navItems = getVisibleNavItems(user.role, user.permissions);
 
   async function handleLogout() {
     await logout();
@@ -28,6 +28,20 @@ export function AppLayout() {
         <nav className="flex flex-col gap-0.5" aria-label="Primary">
           {navItems.map((item) => {
             const Icon = item.icon;
+            
+            if (item.isLogout) {
+              return (
+                <button
+                  key={item.path}
+                  onClick={() => void handleLogout()}
+                  className="mt-4 flex items-center gap-3 rounded-lg px-3 py-2.5 text-[0.9375rem] font-medium text-paper-100 transition-colors hover:bg-white/10"
+                >
+                  <Icon className="h-5 w-5 shrink-0" />
+                  <span>{item.label}</span>
+                </button>
+              );
+            }
+
             return (
               <NavLink
                 key={item.path}

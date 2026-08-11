@@ -20,4 +20,8 @@ export const timetableApi = {
   delete(timetableEntryId: number) {
     return unwrap(apiClient.delete<ApiResponse<null>>(`/timetable/${timetableEntryId}`));
   },
+
+  publish(timetableEntryId: number) {
+    return unwrap(apiClient.patch<ApiResponse<TimetableEntry>>(`/timetable/${timetableEntryId}/publish`));
+  },
 };

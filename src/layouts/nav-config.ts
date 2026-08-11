@@ -1,11 +1,11 @@
 import type { RoleName } from '../types/auth';
 import type { IconType } from 'react-icons';
-import { 
-  MdDashboard, MdPeople, MdSettings, MdHistory, 
-  MdBackup, MdMeetingRoom, MdMenuBook, MdAssignment, 
-  MdSchedule, MdFactCheck, MdAssessment, MdDescription, 
-  MdTrendingUp, MdGavel, MdCampaign, MdNotifications, 
-  MdAccountCircle 
+import {
+  MdDashboard, MdPeople, MdAdminPanelSettings, MdSettings, MdHistory,
+  MdBackup, MdMeetingRoom, MdMenuBook, MdAssignment,
+  MdSchedule, MdFactCheck, MdAssessment, MdDescription,
+  MdTrendingUp, MdGavel, MdCampaign, MdNotifications,
+  MdAccountCircle, MdLogout,
 } from 'react-icons/md';
 import { FaUserGraduate, FaChalkboardTeacher, FaUsers } from 'react-icons/fa';
 
@@ -13,7 +13,9 @@ export interface NavItem {
   label: string;
   path: string;
   allowedRoles?: RoleName[]; // omitted = visible to every authenticated role
+  requiredPermission?: string; // if user has this permission, they bypass allowedRoles
   icon: IconType;
+  isLogout?: boolean;         // rendered as a button instead of a link
 }
 
 // School-management oversight roles (Director + Vice Director).
@@ -25,13 +27,14 @@ export const NAV_ITEMS: NavItem[] = [
   { label: 'Dashboard', path: '/', icon: MdDashboard },
 
   // ── System Administrator only ───────────────────────────────────────────────
-  { label: 'Staff Accounts',       path: '/users',           allowedRoles: ['ADMIN'], icon: MdPeople },
-  { label: 'System Settings',      path: '/system-settings', allowedRoles: ['ADMIN'], icon: MdSettings },
-  { label: 'Audit Logs',           path: '/audit-logs',      allowedRoles: ['ADMIN'], icon: MdHistory },
-  { label: 'Backup & Restore',     path: '/backups',         allowedRoles: ['ADMIN'], icon: MdBackup },
+  { label: 'Staff Accounts',            path: '/users',           allowedRoles: ['ADMIN'], icon: MdPeople },
+  { label: 'User Roles & Permissions',  path: '/users',           allowedRoles: ['ADMIN'], icon: MdAdminPanelSettings },
+  { label: 'System Settings',           path: '/system-settings', allowedRoles: ['ADMIN'], icon: MdSettings },
+  { label: 'Audit Logs',                path: '/audit-logs',      allowedRoles: ['ADMIN'], icon: MdHistory },
+  { label: 'Backup & Restore',          path: '/backups',         allowedRoles: ['ADMIN'], icon: MdBackup },
 
   // ── Director + Vice Director (school management) ────────────────────────────
-  { label: 'Students',             path: '/students',             allowedRoles: SCHOOL_MGMT, icon: FaUserGraduate },
+  { label: 'Students',             path: '/students',             allowedRoles: SCHOOL_MGMT, requiredPermission: 'students:view', icon: FaUserGraduate },
   { label: 'Teachers',             path: '/teachers',             allowedRoles: SCHOOL_MGMT, icon: FaChalkboardTeacher },
   // Parents: Director only (Vice Director does not manage parent accounts)
   { label: 'Parents',              path: '/parents',              allowedRoles: ['DIRECTOR'], icon: FaUsers },
@@ -62,9 +65,15 @@ export const NAV_ITEMS: NavItem[] = [
 
   // ── Universal bottom items ───────────────────────────────────────────────────
   { label: 'Notifications', path: '/notifications', icon: MdNotifications },
-  { label: 'My Profile',    path: '/profile', icon: MdAccountCircle },
+  { label: 'My Profile',    path: '/profile',       icon: MdAccountCircle },
+  { label: 'Logout',        path: '#logout',        icon: MdLogout, isLogout: true },
 ];
 
-export function getVisibleNavItems(role: RoleName): NavItem[] {
-  return NAV_ITEMS.filter((item) => !item.allowedRoles || item.allowedRoles.includes(role));
+export function getVisibleNavItems(role: RoleName, userPermissions: string[] = []): NavItem[] {
+  return NAV_ITEMS.filter((item) => {
+    if (!item.allowedRoles) return true;
+    if (item.allowedRoles.includes(role)) return true;
+    if (item.requiredPermission && userPermissions.includes(item.requiredPermission)) return true;
+    return false;
+  });
 }

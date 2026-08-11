@@ -31,7 +31,7 @@ export class UserPermissionController {
       userId: req.user!.userId,
       ipAddress: req.ip,
     });
-    ApiResponse.success(res, { message: 'Permission revoked' });
+    ApiResponse.success(res, { message: 'Permission revoked', data: null });
   });
 }
 

@@ -1,7 +1,7 @@
 import { NextFunction, Request, Response } from 'express';
 import { RoleName } from '@prisma/client';
 import { ForbiddenError, UnauthorizedError } from '../core/errors/app-error';
-import prisma from '../core/config/prisma';
+import { prisma } from '../database/prisma-client';
 
 /**
  * Restricts a route to the given set of roles. Must run after `authenticate`.

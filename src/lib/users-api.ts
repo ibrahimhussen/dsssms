@@ -1,7 +1,7 @@
 import { apiClient, unwrap, unwrapPaginated } from './api-client';
 import { cleanParams } from './clean-params';
 import type { ApiResponse } from '../types/api';
-import type { CreateStaffInput, CreateStaffResult, ListUsersParams, UserSummary } from '../types/user';
+import type { CreateStaffInput, CreateStaffResult, ListUsersParams, UserSummary, UserPermission, GrantPermissionInput } from '../types/user';
 import type { UserStatus } from '../types/auth';
 
 export const usersApi = {
@@ -26,6 +26,21 @@ export const usersApi = {
   resetPassword(userId: number) {
     return unwrap(
       apiClient.post<ApiResponse<{ username: string; temporaryPassword: string }>>(`/users/${userId}/reset-password`)
+    );
+  },
+
+  // Permission management
+  getPermissions(userId: number) {
+    return unwrap(apiClient.get<ApiResponse<UserPermission[]>>(`/users/${userId}/permissions`));
+  },
+
+  grantPermission(userId: number, input: GrantPermissionInput) {
+    return unwrap(apiClient.post<ApiResponse<UserPermission>>(`/users/${userId}/permissions`, input));
+  },
+
+  revokePermission(userId: number, permissionId: number) {
+    return unwrap(
+      apiClient.delete<ApiResponse<null>>(`/users/${userId}/permissions/${permissionId}`)
     );
   },
 };

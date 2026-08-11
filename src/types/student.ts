@@ -2,6 +2,8 @@ import type { PaginationParams } from './pagination';
 
 export type Gender = 'M' | 'F';
 export type ParentRelationship = 'FATHER' | 'MOTHER' | 'GUARDIAN' | 'OTHER';
+export type AdmissionType = 'NEW_STUDENT' | 'TRANSFER';
+export type StudentStatus = 'ACTIVE' | 'TRANSFERRED_OUT' | 'GRADUATED' | 'SUSPENDED';
 
 export interface StudentClassroomSummary {
   classroomId: number;
@@ -30,6 +32,30 @@ export interface StudentSummary {
   enrolledAt: string;
   classroom: StudentClassroomSummary;
   parents: StudentParentSummary[];
+
+  // Admission fields (already returned by the backend)
+  admissionType: AdmissionType;
+  studentStatus: StudentStatus;
+
+  // Previous education (for NEW_STUDENT or TRANSFER)
+  previousSchoolName?: string | null;
+  previousSchoolType?: string | null;
+  previousSchoolLocation?: string | null;
+  lastGradeCompleted?: string | null;
+  completionYear?: string | null;
+  previousStudentId?: string | null;
+
+  // Transfer-specific fields
+  transferReason?: string | null;
+  transferCertificateRef?: string | null;
+
+  // Free-form JSON summary of previous academic records
+  previousAcademicSummary?: unknown;
+
+  // Transfer-out tracking (when this student leaves)
+  transferredOutAt?: string | null;
+  transferredOutDestination?: string | null;
+  transferredOutReason?: string | null;
 }
 
 export interface IssuedCredentials {
@@ -61,6 +87,7 @@ export interface LinkParentInput {
   relationship: ParentRelationship;
 }
 
+/** Payload sent to POST /students — matches backend createStudentSchema */
 export interface CreateStudentInput {
   firstName: string;
   lastName: string;
@@ -69,9 +96,41 @@ export interface CreateStudentInput {
   address?: string;
   classroomId: number;
   parents?: LinkParentInput[];
+
+  // Admission type (defaults to NEW_STUDENT on the backend)
+  admissionType?: AdmissionType;
+
+  // Previous education (used for both types)
+  previousSchoolName?: string;
+  previousSchoolType?: string;
+  previousSchoolLocation?: string;
+  lastGradeCompleted?: string;
+  completionYear?: string;
+  previousStudentId?: string;
+
+  // Transfer-specific
+  transferReason?: string;
+  transferCertificateRef?: string;
+
+  // Free-form JSON summary of previous academic performance
+  previousAcademicSummary?: unknown;
+}
+
+/** Payload sent to POST /students/:id/transfer-out */
+export interface TransferOutInput {
+  transferredOutDestination?: string;
+  transferredOutReason?: string;
+}
+
+/** Result from POST /students/bulk */
+export interface BulkImportResult {
+  successCount: number;
+  errors: Array<{ student: string; error: string }>;
 }
 
 export interface ListStudentsParams extends PaginationParams {
   classroomId?: number;
   search?: string;
+  admissionType?: AdmissionType;
+  studentStatus?: StudentStatus;
 }

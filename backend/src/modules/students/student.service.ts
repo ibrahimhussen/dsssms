@@ -15,6 +15,7 @@ import {
   CreateStudentInput,
   ListStudentsQuery,
   UpdateStudentInput,
+  TransferOutInput,
 } from './validation/student.validation';
 import { CreateStudentResultDto, StudentSummaryDto } from './dto/student.dto';
 
@@ -108,34 +109,35 @@ export class StudentService {
               username,
               passwordHash,
               roleId: role.roleId,
-              student: {
-                create: {
-                  admissionNumber,
-                  firstName: input.firstName,
-                  lastName: input.lastName,
-                  gender: input.gender,
-                  dateOfBirth: input.dateOfBirth,
-                  address: input.address,
-                  classroomId: input.classroomId,
-                  
-                  // NEW FIELDS:
-                  admissionType: input.admissionType ?? 'NEW',
-                  previousSchoolName: input.previousSchoolName,
-                  previousSchoolType: input.previousSchoolType,
-                  previousSchoolLocation: input.previousSchoolLocation,
-                  lastGradeCompleted: input.lastGradeCompleted,
-                  completionYear: input.completionYear,
-                  previousStudentId: input.previousStudentId,
-                  transferReason: input.transferReason,
-                  transferCertificateRef: input.transferCertificateRef,
-                  previousAcademicSummary: input.previousAcademicSummary ?? Prisma.JsonNull,
-                },
-              },
             },
-            include: { student: true },
           });
 
-          const studentId = createdUser.student!.studentId;
+          const createdStudent = await tx.student.create({
+            data: {
+              userId: createdUser.userId,
+              admissionNumber,
+              firstName: input.firstName,
+              lastName: input.lastName,
+              gender: input.gender,
+              dateOfBirth: input.dateOfBirth,
+              address: input.address,
+              classroomId: input.classroomId,
+              
+              // NEW FIELDS:
+              admissionType: input.admissionType ?? 'NEW_STUDENT',
+              previousSchoolName: input.previousSchoolName,
+              previousSchoolType: input.previousSchoolType,
+              previousSchoolLocation: input.previousSchoolLocation,
+              lastGradeCompleted: input.lastGradeCompleted,
+              completionYear: input.completionYear,
+              previousStudentId: input.previousStudentId,
+              transferReason: input.transferReason,
+              transferCertificateRef: input.transferCertificateRef,
+              previousAcademicSummary: input.previousAcademicSummary ?? Prisma.JsonNull,
+            },
+          });
+
+          const studentId = createdStudent.studentId;
 
           if (input.parents?.length) {
             const newlyCreated = await this.linkParentsWithinTransaction(tx, studentId, input.parents);
@@ -188,7 +190,7 @@ export class StudentService {
     return { successCount, errors };
   }
 
-  async transferOutStudent(studentId: number, input: import('./validation/student.validation').TransferOutInput) {
+  async transferOutStudent(studentId: number, input: TransferOutInput) {
     const student = await prisma.student.findUnique({ where: { studentId } });
     if (!student) throw new NotFoundError('Student');
 

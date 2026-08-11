@@ -26,4 +26,11 @@ router.delete(
   timetableController.delete
 );
 
+router.patch(
+  '/:id/publish',
+  authorize(RoleName.DIRECTOR),
+  validate(timetableEntryIdParamSchema, 'params'),
+  timetableController.publish
+);
+
 export const timetableRoutes = router;

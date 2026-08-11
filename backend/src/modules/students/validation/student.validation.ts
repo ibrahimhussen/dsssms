@@ -7,7 +7,7 @@ export const createStudentSchema = z.object({
   firstName: z.string().trim().min(1, 'First name is required').max(100),
   lastName: z.string().trim().min(1, 'Last name is required').max(100),
   gender: z.nativeEnum(Gender),
-  dateOfBirth: z.coerce.date({ errorMap: () => ({ message: 'A valid date of birth is required' }) }),
+  dateOfBirth: z.coerce.date({ required_error: 'A valid date of birth is required', invalid_type_error: 'A valid date of birth is required' }),
   address: z.string().trim().max(255).optional(),
   classroomId: z.coerce.number().int().positive('classroomId is required'),
   // Optional guardians to link at the moment of registration.
