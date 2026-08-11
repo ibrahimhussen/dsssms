@@ -2,10 +2,10 @@ import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { attendanceApi } from '../lib/attendance-api';
 import type { AttendanceHistoryParams, AttendanceSummaryParams, BulkMarkAttendanceInput } from '../types/attendance';
 
-export function useClassroomAttendance(classroomId: number | undefined, attendanceDate: string | undefined) {
+export function useClassroomAttendance(classroomId: number | undefined, attendanceDate: string | undefined, period?: number) {
   return useQuery({
-    queryKey: ['attendance', 'classroom', classroomId, attendanceDate],
-    queryFn: () => attendanceApi.getClassroomAttendance(classroomId!, attendanceDate!),
+    queryKey: ['attendance', 'classroom', classroomId, attendanceDate, period],
+    queryFn: () => attendanceApi.getClassroomAttendance(classroomId!, attendanceDate!, period),
     enabled: Boolean(classroomId && attendanceDate),
   });
 }
