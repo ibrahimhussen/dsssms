@@ -11,7 +11,7 @@ export interface StandardPeriod {
   startTime: string;
   endTime: string;
 }
-
+export const DEFAULT_PERIODS: StandardPeriod[] = [
   // Morning Session: 2:00 – 6:15 Local (08:00 – 12:15)
   // 3 Periods Before Rest + 15 min Rest Break (4:00-4:15 Local) + 3 Periods After Rest
   { id: 'm-p1', name: 'Period 1', localTime: '2:00 – 2:40', session: 'Morning', periodNumber: 1, startTime: '08:00', endTime: '08:40' },
@@ -67,11 +67,11 @@ export function TimetableMatrixTable({
     // Start from the session-filtered default periods
     const basePeriods = normalizedSessionFilter
       ? DEFAULT_PERIODS.filter((p) => {
-          if (p.session === 'Break') {
-            return p.id.startsWith(normalizedSessionFilter === 'MORNING' ? 'm-' : 'a-');
-          }
-          return p.session.toUpperCase() === normalizedSessionFilter;
-        })
+        if (p.session === 'Break') {
+          return p.id.startsWith(normalizedSessionFilter === 'MORNING' ? 'm-' : 'a-');
+        }
+        return p.session.toUpperCase() === normalizedSessionFilter;
+      })
       : DEFAULT_PERIODS;
 
     const periodList = [...basePeriods];
@@ -132,9 +132,8 @@ export function TimetableMatrixTable({
             {periods.map((p) => (
               <th
                 key={p.id}
-                className={`border-r border-slate-200 p-2.5 text-center last:border-r-0 ${
-                  p.session === 'Break' ? 'bg-amber-100/50 min-w-[90px]' : ''
-                }`}
+                className={`border-r border-slate-200 p-2.5 text-center last:border-r-0 ${p.session === 'Break' ? 'bg-amber-100/50 min-w-[90px]' : ''
+                  }`}
               >
                 <div className="font-semibold text-ink-900">{p.name}</div>
                 <div className="text-[0.75rem] font-medium text-emerald-800">{p.localTime}</div>
