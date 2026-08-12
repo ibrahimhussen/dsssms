@@ -61,6 +61,10 @@ model User {
   systemSettingUpdates SystemSetting[]
   permissions          UserPermission[]
 
+  preparedBatches PromotionBatch[] @relation("BatchPreparer")
+  approvedBatches PromotionBatch[] @relation("BatchApprover")
+  rejectedBatches PromotionBatch[] @relation("BatchRejecter")
+
   @@index([roleId])
   @@map("users")
 }
@@ -207,6 +211,9 @@ model Classroom {
   students           Student[]
   subjectAssignments TeacherSubject[]
   attendanceRecords  Attendance[]
+  promotionBatches   PromotionBatch[]
+  enrollments        StudentEnrollment[]
+  promotionTargets   PromotionEntry[]    @relation("PromotionTarget")
 
   @@unique([className, section, academicYear])
   @@map("classrooms")
@@ -291,6 +298,8 @@ model Student {
   academicReports       AcademicReport[]
   notifications         Notification[]
   assignmentSubmissions AssignmentSubmission[]
+  enrollments           StudentEnrollment[]
+  promotionEntries      PromotionEntry[]
 
   @@index([classroomId])
   @@map("students")
@@ -546,6 +555,121 @@ model AssignmentSubmission {
 }
 
 // -----------------------------------------------------------------------------
+// F. Student Promotion
+// -----------------------------------------------------------------------------
+
+enum EnrollmentDecision {
+  ACTIVE       // currently enrolled — set on admission and on promotion execution
+  PROMOTED     // end-of-year: moved to the next grade
+  REPEATED     // end-of-year: stayed in the same grade
+  GRADUATED    // completed Grade 12
+  TRANSFERRED_OUT
+  CORRECTED    // this row was superseded by a correction
+  REVERSED     // this row was fully reversed
+}
+
+enum EligibilityStatus {
+  ELIGIBLE
+  PENDING_REVIEW
+  NOT_ELIGIBLE
+}
+
+enum PromotionDecision {
+  PROMOTED
+  REPEATED
+  GRADUATED   // only valid for Grade 12 students
+}
+
+enum BatchStatus {
+  DRAFT
+  SUBMITTED
+  APPROVED
+  REJECTED
+  COMPLETED
+}
+
+/// One row per student per academic year — the authoritative enrollment history.
+/// Student.classroomId is kept as a convenience pointer to the current row's
+/// classroom; StudentEnrollment is the record of truth for all past placements.
+model StudentEnrollment {
+  id            Int                @id @default(autoincrement())
+  studentId     Int
+  classroomId   Int
+  academicYear  String             @db.VarChar(10)
+  decision      EnrollmentDecision @default(ACTIVE)
+  promotedFromId Int?              // FK to the previous enrollment row
+  batchId       Int?               // FK to PromotionBatch (null for first admission)
+  notes         String?            @db.VarChar(500)
+  createdAt     DateTime           @default(now())
+  updatedAt     DateTime           @updatedAt
+
+  student    Student            @relation(fields: [studentId], references: [studentId], onDelete: Cascade)
+  classroom  Classroom          @relation(fields: [classroomId], references: [classroomId])
+  promotedFrom StudentEnrollment? @relation("EnrollmentHistory", fields: [promotedFromId], references: [id])
+  successors   StudentEnrollment[] @relation("EnrollmentHistory")
+  batch        PromotionBatch?   @relation(fields: [batchId], references: [id])
+
+  @@unique([studentId, academicYear])
+  @@index([classroomId])
+  @@index([batchId])
+  @@map("student_enrollments")
+}
+
+/// Tracks one promotion batch through its lifecycle: DRAFT → SUBMITTED →
+/// APPROVED/REJECTED → COMPLETED. A batch covers one source classroom moving
+/// to one target academic year (students may be assigned different target
+/// classrooms individually).
+model PromotionBatch {
+  id                 Int         @id @default(autoincrement())
+  sourceAcademicYear String      @db.VarChar(10)
+  targetAcademicYear String      @db.VarChar(10)
+  sourceClassroomId  Int
+  status             BatchStatus @default(DRAFT)
+  preparedById       Int         // Vice Director (or Director) who prepared
+  approvedById       Int?        // Director who approved
+  rejectedById       Int?
+  rejectionReason    String?     @db.VarChar(500)
+  submittedAt        DateTime?
+  approvedAt         DateTime?
+  completedAt        DateTime?
+  createdAt          DateTime    @default(now())
+  updatedAt          DateTime    @updatedAt
+
+  sourceClassroom Classroom          @relation(fields: [sourceClassroomId], references: [classroomId])
+  preparedBy      User               @relation("BatchPreparer", fields: [preparedById], references: [userId])
+  approvedBy      User?              @relation("BatchApprover", fields: [approvedById], references: [userId])
+  rejectedBy      User?              @relation("BatchRejecter", fields: [rejectedById], references: [userId])
+  entries         PromotionEntry[]
+  enrollments     StudentEnrollment[]
+
+  @@map("promotion_batches")
+}
+
+/// One student's record inside a PromotionBatch — captures the decision,
+/// eligibility assessment, target classroom, and any override notes.
+model PromotionEntry {
+  id                  Int               @id @default(autoincrement())
+  batchId             Int
+  studentId           Int
+  eligibilityStatus   EligibilityStatus @default(PENDING_REVIEW)
+  decision            PromotionDecision @default(PROMOTED)
+  targetClassroomId   Int?              // null until the Vice Director assigns a classroom
+  averageMark         Decimal?          @db.Decimal(5, 2)
+  attendancePercent   Decimal?          @db.Decimal(5, 2)
+  overrideReason      String?           @db.VarChar(500)
+  createdAt           DateTime          @default(now())
+  updatedAt           DateTime          @updatedAt
+
+  batch           PromotionBatch @relation(fields: [batchId], references: [id], onDelete: Cascade)
+  student         Student        @relation(fields: [studentId], references: [studentId])
+  targetClassroom Classroom?     @relation("PromotionTarget", fields: [targetClassroomId], references: [classroomId])
+
+  @@unique([batchId, studentId])
+  @@index([batchId])
+  @@map("promotion_entries")
+}
+
+// -----------------------------------------------------------------------------
 // K. System Configuration
 // -----------------------------------------------------------------------------
 
@@ -558,6 +682,7 @@ model SystemSetting {
   contactEmail        String?  @db.VarChar(150)
   contactPhone        String?  @db.VarChar(30)
   currentAcademicYear String   @db.VarChar(10)
+  promotionPassMark   Decimal  @default(50) @db.Decimal(5, 2)
   updatedAt           DateTime @updatedAt
   updatedByUserId     Int?
 
