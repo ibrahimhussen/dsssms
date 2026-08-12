@@ -15,7 +15,6 @@ export const linkParentToStudentSchema = z.object({
   relationship: z.nativeEnum(ParentRelationship),
 }).refine((data) => (data.parentId !== undefined) !== (data.newParent !== undefined), {
   message: 'Provide exactly one of parentId (existing parent) or newParent (new parent details)',
-  path: ['parentId'],
 });
 
 export const listParentsQuerySchema = paginationQuerySchema.extend({

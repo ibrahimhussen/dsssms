@@ -15,6 +15,8 @@ function toDto(row: SettingWithUpdatedBy): SystemSettingDto {
     contactEmail: row.contactEmail,
     contactPhone: row.contactPhone,
     currentAcademicYear: row.currentAcademicYear,
+    promotionPassMark: Number(row.promotionPassMark),
+    minimumSubjectPassMark: Number(row.minimumSubjectPassMark),
     updatedAt: row.updatedAt.toISOString(),
     updatedByUsername: row.updatedBy?.username ?? null,
   };

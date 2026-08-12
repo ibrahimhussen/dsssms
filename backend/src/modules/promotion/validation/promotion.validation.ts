@@ -20,7 +20,8 @@ export const createBatchSchema = z.object({
   targetAcademicYear: z
     .string()
     .trim()
-    .regex(/^\d{4}\/\d{2}$/, 'Academic year must be in the format YYYY/YY (e.g. 2026/27)'),
+    .min(1, 'Target academic year is required')
+    .max(20),
 });
 
 // ── Update a single entry (Vice Director sets decision / target classroom) ────
@@ -64,7 +65,7 @@ export const correctEntrySchema = z.object({
 // ── List batches ──────────────────────────────────────────────────────────────
 
 export const listBatchesQuerySchema = paginationQuerySchema.extend({
-  status: z.nativeEnum({ DRAFT: 'DRAFT', SUBMITTED: 'SUBMITTED', APPROVED: 'APPROVED', REJECTED: 'REJECTED', COMPLETED: 'COMPLETED' } as const).optional(),
+  status: z.enum(['DRAFT', 'SUBMITTED', 'APPROVED', 'REJECTED', 'COMPLETED']).optional(),
   sourceClassroomId: z.coerce.number().int().positive().optional(),
 });
 

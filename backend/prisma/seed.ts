@@ -59,6 +59,8 @@ async function resetPasswordIfEnabled(username: string, label: string): Promise<
 }
 
 async function main(): Promise<void> {
+  console.log('Seeding system settings...');
+  await seedSystemSettings();
   console.log('Seeding roles...');
   for (const roleName of Object.values(RoleName)) {
     await prisma.role.upsert({ where: { roleName }, update: {}, create: { roleName } });
@@ -349,6 +351,22 @@ async function main(): Promise<void> {
   }
 
   console.log('\nSeeding complete. All demo accounts use the password: ' + DEFAULT_PASSWORD);
+}
+
+async function seedSystemSettings(): Promise<void> {
+  await prisma.systemSetting.upsert({
+    where: { id: 1 },
+    update: {},
+    create: {
+      id: 1,
+      schoolName: 'Dinsho Secondary School',
+      schoolAddress: 'Dinsho, Bale Zone, Oromia, Ethiopia',
+      contactEmail: 'info@dinsho-secondary.edu.et',
+      currentAcademicYear: CURRENT_ACADEMIC_YEAR,
+      promotionPassMark: 50,
+    },
+  });
+  console.log('  SystemSetting seeded.');
 }
 
 main()

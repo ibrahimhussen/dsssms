@@ -9,17 +9,6 @@ const guardianSection = z.object({
   guardianRelationship: z.enum(['FATHER', 'MOTHER', 'GUARDIAN', 'OTHER']).optional(),
 });
 
-const guardianRefinements = <T extends z.ZodTypeAny>(schema: T) =>
-  (schema as unknown as z.ZodObject<ReturnType<typeof guardianSection.shape.constructor>>)
-    .refine((data: { addGuardian?: boolean; guardianFullName?: string }) => !data.addGuardian || Boolean(data.guardianFullName), {
-      message: "Guardian's full name is required",
-      path: ['guardianFullName'],
-    })
-    .refine((data: { addGuardian?: boolean; guardianRelationship?: string }) => !data.addGuardian || Boolean(data.guardianRelationship), {
-      message: 'Select the relationship to the student',
-      path: ['guardianRelationship'],
-    });
-
 // ── New Student Admission ─────────────────────────────────────────────────────
 
 export const newAdmissionFormSchema = z
@@ -27,7 +16,7 @@ export const newAdmissionFormSchema = z
     // Core student info
     firstName: z.string().trim().min(1, 'First name is required').max(100),
     lastName: z.string().trim().min(1, 'Last name is required').max(100),
-    gender: z.enum(['M', 'F'], { required_error: 'Gender is required' }),
+    gender: z.enum(['M', 'F'], { message: 'Gender is required' }),
     dateOfBirth: z.string().min(1, 'Date of birth is required'),
     address: z.string().trim().max(255).optional(),
     classroomId: z.coerce.number().int().positive('Select a classroom'),
@@ -61,7 +50,7 @@ export const transferAdmissionFormSchema = z
     // Core student info
     firstName: z.string().trim().min(1, 'First name is required').max(100),
     lastName: z.string().trim().min(1, 'Last name is required').max(100),
-    gender: z.enum(['M', 'F'], { required_error: 'Gender is required' }),
+    gender: z.enum(['M', 'F'], { message: 'Gender is required' }),
     dateOfBirth: z.string().min(1, 'Date of birth is required'),
     address: z.string().trim().max(255).optional(),
     classroomId: z.coerce.number().int().positive('Select a classroom'),

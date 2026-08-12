@@ -5,7 +5,7 @@ import {
   MdBackup, MdMeetingRoom, MdMenuBook, MdAssignment,
   MdSchedule, MdFactCheck, MdAssessment, MdDescription,
   MdTrendingUp, MdGavel, MdCampaign, MdNotifications,
-  MdAccountCircle, MdLogout,
+  MdAccountCircle, MdLogout, MdUpgrade,
 } from 'react-icons/md';
 import { FaUserGraduate, FaChalkboardTeacher, FaUsers } from 'react-icons/fa';
 
@@ -45,9 +45,13 @@ export const NAV_ITEMS: NavItem[] = [
   { label: 'Attendance',           path: '/attendance',           allowedRoles: SCHOOL_MGMT, icon: MdFactCheck },
   { label: 'Attendance Reports',   path: '/attendance-reports',   allowedRoles: SCHOOL_MGMT, icon: MdAssessment },
   { label: 'Academic Reports',     path: '/academic-reports',     allowedRoles: SCHOOL_MGMT, icon: MdDescription },
+  { label: 'Academic Register',   path: '/academic-register',   allowedRoles: [...SCHOOL_MGMT, 'ADMIN'], icon: MdMenuBook },
+  { label: 'Results Finalization', path: '/finalization',         allowedRoles: [...SCHOOL_MGMT, 'TEACHER', 'ADMIN'], icon: MdFactCheck },
+  { label: 'Student Conduct',     path: '/conduct',             allowedRoles: SCHOOL_MGMT, icon: MdGavel },
   { label: 'School Performance',   path: '/school-performance',   allowedRoles: SCHOOL_MGMT, icon: MdTrendingUp },
   { label: 'Discipline Records',   path: '/discipline-records',   allowedRoles: [...SCHOOL_MGMT, 'TEACHER'], icon: MdGavel },
   { label: 'Announcements',        path: '/announcements',        allowedRoles: SCHOOL_MGMT, icon: MdCampaign },
+  { label: 'Student Promotion',    path: '/promotion',            allowedRoles: SCHOOL_MGMT, icon: MdUpgrade },
 
   // ── Teacher ─────────────────────────────────────────────────────────────────
   { label: 'My Classes',           path: '/my-classes',    allowedRoles: ['TEACHER'], icon: MdMeetingRoom },

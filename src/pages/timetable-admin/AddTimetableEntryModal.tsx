@@ -25,7 +25,6 @@ interface AddTimetableEntryModalProps {
   initialDayOfWeek?: DayOfWeek;
   initialStartTime?: string;
   initialEndTime?: string;
-  initialPeriod?: number;
 }
 
 const PRESET_PERIODS = [
@@ -54,7 +53,6 @@ export function AddTimetableEntryModal({
   initialDayOfWeek = 'MONDAY',
   initialStartTime = '',
   initialEndTime = '',
-  initialPeriod = 1,
 }: AddTimetableEntryModalProps) {
   const createEntry = useCreateTimetableEntry();
 
@@ -63,7 +61,6 @@ export function AddTimetableEntryModal({
   const [dayOfWeek, setDayOfWeek] = useState<DayOfWeek>(initialDayOfWeek);
   const [startTime, setStartTime] = useState(initialStartTime);
   const [endTime, setEndTime] = useState(initialEndTime);
-  const [period, setPeriod] = useState(initialPeriod);
   const [roomNumber, setRoomNumber] = useState('');
   const [error, setError] = useState<string | null>(null);
 
@@ -73,9 +70,8 @@ export function AddTimetableEntryModal({
       setDayOfWeek(initialDayOfWeek);
       setStartTime(initialStartTime);
       setEndTime(initialEndTime);
-      setPeriod(initialPeriod);
     }
-  }, [isOpen, initialSemester, initialDayOfWeek, initialStartTime, initialEndTime, initialPeriod]);
+  }, [isOpen, initialSemester, initialDayOfWeek, initialStartTime, initialEndTime]);
 
   function reset() {
     setTeacherSubjectId('');
@@ -83,7 +79,6 @@ export function AddTimetableEntryModal({
     setDayOfWeek(initialDayOfWeek);
     setStartTime(initialStartTime);
     setEndTime(initialEndTime);
-    setPeriod(initialPeriod);
     setRoomNumber('');
     setError(null);
   }
@@ -107,7 +102,6 @@ export function AddTimetableEntryModal({
         teacherSubjectId: Number(teacherSubjectId),
         semester,
         dayOfWeek,
-        period,
         startTime,
         endTime,
         roomNumber: roomNumber.trim() || undefined,
@@ -156,7 +150,6 @@ export function AddTimetableEntryModal({
                   onClick={() => {
                     setStartTime(p.start);
                     setEndTime(p.end);
-                    setPeriod(p.period);
                   }}
                   className={`rounded-lg px-2.5 py-1 text-xs font-medium transition-colors border cursor-pointer ${
                     isSelected

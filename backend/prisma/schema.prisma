@@ -65,6 +65,11 @@ model User {
   approvedBatches PromotionBatch[] @relation("BatchApprover")
   rejectedBatches PromotionBatch[] @relation("BatchRejecter")
 
+  assignedConducts     StudentConduct[] @relation("ConductAssigner")
+  reviewedSubjects     SubjectFinalization[] @relation("SubjectReviewer")
+  finalizedSubjects    SubjectFinalization[] @relation("SubjectFinalizer")
+  finalizedClassrooms  ClassroomFinalization[] @relation("ClassroomFinalizer")
+
   @@index([roleId])
   @@map("users")
 }
@@ -214,6 +219,8 @@ model Classroom {
   promotionBatches   PromotionBatch[]
   enrollments        StudentEnrollment[]
   promotionTargets   PromotionEntry[]    @relation("PromotionTarget")
+  conductRecords     StudentConduct[]
+  finalizations      ClassroomFinalization[]
 
   @@unique([className, section, academicYear])
   @@map("classrooms")
@@ -244,6 +251,7 @@ model TeacherSubject {
   timetableEntries TimetableEntry[]
   assignments      Assignment[]
   gradeComponents  GradeComponent[]
+  finalizations    SubjectFinalization[]
 
   @@unique([teacherId, subjectId, classroomId])
   @@map("teacher_subjects")
@@ -300,6 +308,7 @@ model Student {
   assignmentSubmissions AssignmentSubmission[]
   enrollments           StudentEnrollment[]
   promotionEntries      PromotionEntry[]
+  conductRecords        StudentConduct[]
 
   @@index([classroomId])
   @@map("students")
@@ -444,6 +453,97 @@ model AcademicReport {
 
   @@unique([studentId, semester, academicYear])
   @@map("academic_reports")
+}
+
+enum ConductRating {
+  EXCELLENT
+  VERY_GOOD
+  GOOD
+  SATISFACTORY
+  NEEDS_IMPROVEMENT
+}
+
+/// Official conduct rating assigned by authorized academic staff for a student
+/// for a specific academic period. This is separate from discipline incidents and
+/// represents the professional academic judgment of the student's general behavior.
+model StudentConduct {
+  id            Int           @id @default(autoincrement())
+  studentId     Int
+  classroomId   Int
+  academicYear  String        @db.VarChar(10)
+  semester      Semester
+  rating        ConductRating
+  assignedBy    Int           // User ID of Vice Director or Director who assigned
+  assignedAt    DateTime      @default(now())
+  notes         String?       @db.VarChar(500)
+  updatedAt     DateTime      @updatedAt
+
+  student   Student   @relation(fields: [studentId], references: [studentId], onDelete: Cascade)
+  classroom Classroom @relation(fields: [classroomId], references: [classroomId])
+  assignedByUser User @relation("ConductAssigner", fields: [assignedBy], references: [userId], onDelete: Cascade)
+
+  @@unique([studentId, classroomId, academicYear, semester])
+  @@index([classroomId, academicYear, semester])
+  @@index([studentId, academicYear, semester])
+  @@map("student_conduct")
+}
+
+enum FinalizationStatus {
+  DRAFT
+  UNDER_REVIEW
+  APPROVED
+  FINALIZED
+}
+
+/// Tracks the finalization status of subject results for a specific teaching assignment
+/// and academic period. This enables the two-stage finalization workflow.
+model SubjectFinalization {
+  id                  Int               @id @default(autoincrement())
+  teacherSubjectId    Int
+  semester            Semester
+  academicYear        String            @db.VarChar(10)
+  status              FinalizationStatus @default(DRAFT)
+  reviewedBy          Int?              // User ID of Vice Director who reviewed
+  reviewedAt          DateTime?
+  finalizedBy         Int?              // User ID of Vice Director/Director who finalized
+  finalizedAt         DateTime?
+  correctionReason    String?           @db.VarChar(500) // For post-finalization corrections
+  lastCorrectionAt    DateTime?
+  createdAt           DateTime          @default(now())
+  updatedAt           DateTime          @updatedAt
+
+  teacherSubject TeacherSubject @relation(fields: [teacherSubjectId], references: [id], onDelete: Cascade)
+  reviewedByUser   User? @relation("SubjectReviewer", fields: [reviewedBy], references: [userId], onDelete: SetNull)
+  finalizedByUser  User? @relation("SubjectFinalizer", fields: [finalizedBy], references: [userId], onDelete: SetNull)
+
+  @@unique([teacherSubjectId, semester, academicYear])
+  @@index([teacherSubjectId, status])
+  @@index([semester, academicYear, status])
+  @@map("subject_finalizations")
+}
+
+/// Tracks the finalization status of an entire classroom for an academic period.
+/// All subjects must be APPROVED before a classroom can be FINALIZED.
+model ClassroomFinalization {
+  id                  Int               @id @default(autoincrement())
+  classroomId         Int
+  semester            Semester
+  academicYear        String            @db.VarChar(10)
+  status              FinalizationStatus @default(DRAFT)
+  finalizedBy         Int?              // User ID of Vice Director/Director who finalized
+  finalizedAt         DateTime?
+  correctionReason    String?           @db.VarChar(500) // For post-finalization corrections
+  lastCorrectionAt    DateTime?
+  createdAt           DateTime          @default(now())
+  updatedAt           DateTime          @updatedAt
+
+  classroom       Classroom @relation(fields: [classroomId], references: [classroomId], onDelete: Cascade)
+  finalizedByUser User?     @relation("ClassroomFinalizer", fields: [finalizedBy], references: [userId], onDelete: SetNull)
+
+  @@unique([classroomId, semester, academicYear])
+  @@index([classroomId, status])
+  @@index([semester, academicYear, status])
+  @@map("classroom_finalizations")
 }
 
 enum NotificationStatus {
@@ -676,15 +776,16 @@ model PromotionEntry {
 /// Singleton row (id is always 1) holding school-wide configuration editable
 /// from the admin System Settings page.
 model SystemSetting {
-  id                  Int      @id @default(1)
-  schoolName          String   @db.VarChar(150)
-  schoolAddress       String?  @db.VarChar(255)
-  contactEmail        String?  @db.VarChar(150)
-  contactPhone        String?  @db.VarChar(30)
-  currentAcademicYear String   @db.VarChar(10)
-  promotionPassMark   Decimal  @default(50) @db.Decimal(5, 2)
-  updatedAt           DateTime @updatedAt
-  updatedByUserId     Int?
+  id                    Int      @id @default(1)
+  schoolName            String   @db.VarChar(150)
+  schoolAddress         String?  @db.VarChar(255)
+  contactEmail          String?  @db.VarChar(150)
+  contactPhone          String?  @db.VarChar(30)
+  currentAcademicYear   String   @db.VarChar(10)
+  promotionPassMark     Decimal  @default(50) @db.Decimal(5, 2)
+  minimumSubjectPassMark Decimal @default(40) @db.Decimal(5, 2)
+  updatedAt             DateTime @updatedAt
+  updatedByUserId       Int?
 
   updatedBy User? @relation(fields: [updatedByUserId], references: [userId], onDelete: SetNull)
 

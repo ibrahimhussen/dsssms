@@ -18,6 +18,10 @@ import { systemSettingRoutes } from '../modules/system-settings/system-setting.r
 import { backupRoutes } from '../modules/backups/backup.routes';
 import { disciplineRoutes } from '../modules/discipline/discipline.routes';
 import { promotionRoutes } from '../modules/promotion/promotion.routes';
+import finalizationRoutes from '../modules/finalization/finalization.routes';
+import conductRoutes from '../modules/conduct/conduct.routes';
+import academicRegisterRoutes from '../modules/academic-register/academic-register.routes';
+import academicRegisterExportRoutes from '../modules/academic-register/export/academic-register-export.routes';
 
 const router = Router();
 
@@ -40,6 +44,10 @@ router.use('/system-settings', systemSettingRoutes);
 router.use('/backups', backupRoutes);
 router.use('/discipline-records', disciplineRoutes);
 router.use('/promotion', promotionRoutes);
+router.use('/finalization', finalizationRoutes);
+router.use('/conduct', conductRoutes);
+router.use('/academic-register', academicRegisterRoutes);
+router.use('/academic-register/export', academicRegisterExportRoutes);
 
 // Backend API surface complete. Stage 7+ builds the frontend against these routes.
 

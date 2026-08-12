@@ -6,7 +6,7 @@ const academicYearField = z
   .trim()
   .regex(/^\d{4}(\/\d{2,4})?$/, 'Academic year must look like "2025" or "2025/26"');
 
-const maxMarksField = z.coerce.number().positive('Max marks must be greater than 0').max(100);
+const maxMarksField = z.coerce.number().positive({ message: 'Max marks must be greater than 0' }).max(100);
 
 export const createGradeComponentSchema = z
   .object({
@@ -37,7 +37,7 @@ export const recordComponentEntriesSchema = z.object({
     .array(
       z.object({
         studentId: z.coerce.number().int().positive(),
-        score: z.coerce.number().min(0, 'Score cannot be negative'),
+        score: z.coerce.number().min(0, { message: 'Score cannot be negative' }),
       })
     )
     .min(1, 'At least one score is required')

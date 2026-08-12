@@ -16,6 +16,9 @@ import { AttendancePage } from '../pages/attendance/AttendancePage';
 import { GradesPage } from '../pages/grades/GradesPage';
 import { MyClassesPage } from '../pages/my-classes/MyClassesPage';
 import { AcademicReportsPage } from '../pages/academic-reports/AcademicReportsPage';
+import { AcademicRegisterPage } from '../pages/academic-register/AcademicRegisterPage';
+import { FinalizationPage } from '../pages/finalization/FinalizationPage';
+import { ConductPage } from '../pages/conduct/ConductPage';
 import { NotificationsPage } from '../pages/notifications/NotificationsPage';
 import { MyAttendancePage } from '../pages/my-attendance/MyAttendancePage';
 import { MyGradesPage } from '../pages/my-grades/MyGradesPage';
@@ -33,6 +36,9 @@ import { DisciplineRecordsPage } from '../pages/discipline/DisciplineRecordsPage
 import { AttendanceReportsPage } from '../pages/attendance/AttendanceReportsPage';
 import { AnnouncementsPage } from '../pages/announcements/AnnouncementsPage';
 import { ProfilePage } from '../pages/profile/ProfilePage';
+import { PromotionPage } from '../pages/promotion/PromotionPage';
+import { PromotionBatchPage } from '../pages/promotion/PromotionBatchPage';
+import { PromotionApprovePage } from '../pages/promotion/PromotionApprovePage';
 
 export const router = createBrowserRouter([
   {
@@ -61,9 +67,16 @@ export const router = createBrowserRouter([
           { path: '/timetable-admin', element: <ProtectedRoute allowedRoles={['DIRECTOR', 'VICE_DIRECTOR']}><TimetableAdminPage /></ProtectedRoute> },
           { path: '/attendance-reports', element: <ProtectedRoute allowedRoles={['DIRECTOR', 'VICE_DIRECTOR']}><AttendanceReportsPage /></ProtectedRoute> },
           { path: '/academic-reports', element: <ProtectedRoute allowedRoles={['DIRECTOR', 'VICE_DIRECTOR']}><AcademicReportsPage /></ProtectedRoute> },
+          { path: '/academic-register', element: <ProtectedRoute allowedRoles={['DIRECTOR', 'VICE_DIRECTOR', 'ADMIN']}><AcademicRegisterPage /></ProtectedRoute> },
+          { path: '/finalization', element: <ProtectedRoute allowedRoles={['TEACHER', 'DIRECTOR', 'VICE_DIRECTOR', 'ADMIN']}><FinalizationPage /></ProtectedRoute> },
+          { path: '/conduct', element: <ProtectedRoute allowedRoles={['DIRECTOR', 'VICE_DIRECTOR']}><ConductPage /></ProtectedRoute> },
           { path: '/school-performance', element: <ProtectedRoute allowedRoles={['DIRECTOR', 'VICE_DIRECTOR']}><SchoolPerformancePage /></ProtectedRoute> },
           { path: '/discipline-records', element: <ProtectedRoute allowedRoles={['DIRECTOR', 'VICE_DIRECTOR', 'TEACHER']}><DisciplineRecordsPage /></ProtectedRoute> },
           { path: '/announcements', element: <ProtectedRoute allowedRoles={['DIRECTOR', 'VICE_DIRECTOR']}><AnnouncementsPage /></ProtectedRoute> },
+
+          { path: '/promotion', element: <ProtectedRoute allowedRoles={['DIRECTOR', 'VICE_DIRECTOR']}><PromotionPage /></ProtectedRoute> },
+          { path: '/promotion/:id', element: <ProtectedRoute allowedRoles={['DIRECTOR', 'VICE_DIRECTOR']}><PromotionBatchPage /></ProtectedRoute> },
+          { path: '/promotion/:id/approve', element: <ProtectedRoute allowedRoles={['DIRECTOR']}><PromotionApprovePage /></ProtectedRoute> },
 
           { path: '/my-classes', element: <ProtectedRoute allowedRoles={['TEACHER']}><MyClassesPage /></ProtectedRoute> },
           { path: '/attendance', element: <ProtectedRoute allowedRoles={['DIRECTOR', 'VICE_DIRECTOR', 'TEACHER']}><AttendancePage /></ProtectedRoute> },
