@@ -7,6 +7,7 @@ import { Button } from '../../components/ui/Button';
 import { TextField } from '../../components/ui/TextField';
 import { LedgerRule } from '../../components/ui/LedgerRule';
 import { ConfirmDialog } from '../../components/ui/ConfirmDialog';
+import { ErrorMessage } from '../../components/ui/ErrorMessage';
 import { CreateClassroomModal } from './CreateClassroomModal';
 import type { ClassroomSummary, ListClassroomsParams } from '../../types/classroom';
 
@@ -16,7 +17,7 @@ export function ClassroomsPage() {
   const [pendingDelete, setPendingDelete] = useState<ClassroomSummary | null>(null);
   const [deleteError, setDeleteError] = useState<string | null>(null);
 
-  const { data, isLoading } = useClassrooms(filters);
+  const { data, isLoading, error, refetch } = useClassrooms(filters);
   const deleteClassroom = useDeleteClassroom();
 
   function updateFilter<K extends keyof ListClassroomsParams>(key: K, value: ListClassroomsParams[K]) {
@@ -74,6 +75,8 @@ export function ClassroomsPage() {
         rows={data?.items ?? []}
         getRowKey={(c) => c.classroomId}
         isLoading={isLoading}
+        error={error}
+        onRetry={() => void refetch()}
         emptyMessage="No classrooms match this search."
       />
 

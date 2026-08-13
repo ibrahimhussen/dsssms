@@ -22,6 +22,7 @@ import finalizationRoutes from '../modules/finalization/finalization.routes';
 import conductRoutes from '../modules/conduct/conduct.routes';
 import academicRegisterRoutes from '../modules/academic-register/academic-register.routes';
 import academicRegisterExportRoutes from '../modules/academic-register/export/academic-register-export.routes';
+import { gradeSubjectConfigRoutes } from '../modules/grade-subject-config/grade-subject-config.routes';
 
 const router = Router();
 
@@ -48,6 +49,7 @@ router.use('/finalization', finalizationRoutes);
 router.use('/conduct', conductRoutes);
 router.use('/academic-register', academicRegisterRoutes);
 router.use('/academic-register/export', academicRegisterExportRoutes);
+router.use('/grade-subject-config', gradeSubjectConfigRoutes);
 
 // Backend API surface complete. Stage 7+ builds the frontend against these routes.
 

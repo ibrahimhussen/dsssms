@@ -40,34 +40,30 @@ export function ConductPage() {
   const updateConduct = useUpdateConduct();
   const deleteConduct = useDeleteConduct();
 
-  const handleSaveConduct = async (rating: string, notes?: string) => {
-    if (!classroomId) return;
+  const [saveError, setSaveError] = useState<string | null>(null);
+  const [deleteError, setDeleteError] = useState<string | null>(null);
 
+  const handleSaveConduct = async (rating: string, notes?: string) => {
+    setSaveError(null);
+    if (!classroomId) return;
     try {
       if (selectedStudent) {
-        // Update existing
-        await updateConduct.mutateAsync({
-          id: selectedStudent.id,
-          input: { rating: rating as any, notes },
-        });
-      } else {
-        // Create new - need student ID
-        // This would require selecting a student first
-        console.log('Need to select a student first');
+        await updateConduct.mutateAsync({ id: selectedStudent.id, input: { rating: rating as any, notes } });
       }
       setShowEditModal(false);
       setSelectedStudent(null);
     } catch (err) {
-      console.error('Save failed:', err);
+      setSaveError(err instanceof Error ? err.message : 'Could not save conduct record.');
     }
   };
 
   const handleDelete = async (id: number) => {
     if (!confirm('Are you sure you want to delete this conduct record?')) return;
+    setDeleteError(null);
     try {
       await deleteConduct.mutateAsync(id);
     } catch (err) {
-      console.error('Delete failed:', err);
+      setDeleteError(err instanceof Error ? err.message : 'Could not delete this conduct record.');
     }
   };
 
@@ -100,10 +96,7 @@ export function ConductPage() {
         <div className="flex gap-2">
           <Button
             variant="secondary"
-            onClick={() => {
-              setSelectedStudent(c);
-              setShowEditModal(true);
-            }}
+            onClick={() => { setSaveError(null); setSelectedStudent(c); setShowEditModal(true); }}
           >
             Edit
           </Button>
@@ -150,6 +143,12 @@ export function ConductPage() {
       {error && (
         <p className="mb-4 rounded-lg bg-danger-100 px-3 py-2.5 text-sm text-danger-600" role="alert">
           {error instanceof Error ? error.message : 'Failed to load conduct data.'}
+        </p>
+      )}
+
+      {deleteError && (
+        <p className="mb-4 rounded-lg bg-danger-100 px-3 py-2.5 text-sm text-danger-600" role="alert">
+          {deleteError}
         </p>
       )}
 

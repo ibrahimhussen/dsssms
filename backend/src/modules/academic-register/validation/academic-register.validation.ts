@@ -1,32 +1,34 @@
 import { z } from 'zod';
-import { Semester } from '@prisma/client';
 
 const academicYearField = z
   .string()
   .trim()
-  .regex(/^\d{4}\/\d{2}$/, 'Academic year must be in format YYYY/YY');
+  .regex(/^\d{4}\/\d{2}$/, 'Academic year must be in format YYYY/YY (e.g. 2026/27)');
 
+const viewModeField = z.enum(['SEMESTER_1', 'SEMESTER_2', 'FULL_YEAR']);
+
+// GET /academic-register?classroomId=1&academicYear=2026/27&viewMode=SEMESTER_1
 export const classroomRegisterSchema = z.object({
-  classroomId: z.coerce.number().int().positive().optional(),
+  classroomId:  z.coerce.number().int().positive(),
   academicYear: academicYearField,
-  semester: z.nativeEnum(Semester),
-  grade: z.string().optional(),
-  section: z.string().optional(),
-  gradeWide: z.boolean().optional(),
-  page: z.coerce.number().int().positive().optional(),
-  limit: z.coerce.number().int().positive().max(100).optional(),
+  viewMode:     viewModeField,
 });
 
-export const gradeSummarySchema = z.object({
-  grade: z.string(),
+// GET /academic-register/grade  ?grade=Grade+11&academicYear=2026/27&viewMode=FULL_YEAR
+export const gradeRegisterSchema = z.object({
+  grade:        z.string().trim().min(1),
   academicYear: academicYearField,
-  semester: z.nativeEnum(Semester),
+  viewMode:     viewModeField,
 });
 
-export const historicalRegisterSchema = z.object({
-  studentId: z.coerce.number().int().positive(),
+// GET /academic-register/export?classroomId=1&academicYear=2026/27&viewMode=SEMESTER_1&format=excel|csv
+export const exportRegisterSchema = z.object({
+  classroomId:  z.coerce.number().int().positive(),
   academicYear: academicYearField,
-  semester: z.nativeEnum(Semester),
+  viewMode:     viewModeField,
+  format:       z.enum(['excel', 'csv']).default('csv'),
 });
 
-export type AcademicRegisterQuery = z.infer<typeof classroomRegisterSchema>;
+export type ClassroomRegisterQuery = z.infer<typeof classroomRegisterSchema>;
+export type GradeRegisterQuery     = z.infer<typeof gradeRegisterSchema>;
+export type ExportRegisterQuery    = z.infer<typeof exportRegisterSchema>;

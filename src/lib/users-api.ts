@@ -11,6 +11,11 @@ export const usersApi = {
     );
   },
 
+  /** Scoped teacher listing — accessible to DIRECTOR and VICE_DIRECTOR, not just ADMIN. */
+  listTeachers() {
+    return unwrap(apiClient.get<ApiResponse<UserSummary[]>>('/users/teachers'));
+  },
+
   getById(userId: number) {
     return unwrap(apiClient.get<ApiResponse<UserSummary>>(`/users/${userId}`));
   },

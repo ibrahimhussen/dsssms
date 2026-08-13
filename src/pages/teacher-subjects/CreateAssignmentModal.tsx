@@ -53,8 +53,8 @@ export function CreateAssignmentModal({ isOpen, onClose, onCreated }: CreateAssi
       <form onSubmit={(e) => void handleSubmit(onSubmit)(e)} noValidate>
         <SelectField label="Teacher" error={errors.teacherId?.message} {...register('teacherId')}>
           <option value="">Select a teacher…</option>
-          {teachersData?.items.map((t) => (
-            <option key={t.userId} value={t.teacherId ?? undefined}>
+          {teachersData?.items.filter(t => t.teacherId).map((t) => (
+            <option key={t.teacherId} value={t.teacherId}>
               {t.fullName}
             </option>
           ))}

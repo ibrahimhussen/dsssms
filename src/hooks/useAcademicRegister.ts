@@ -1,26 +1,29 @@
 import { useQuery } from '@tanstack/react-query';
-import { academicRegisterApi, type AcademicRegisterQuery } from '../lib/academic-register-api';
+import { academicRegisterApi } from '../lib/academic-register-api';
+import type { AcademicRegisterQuery, GradeRegisterQuery } from '../types/academic-register';
 
-export function useAcademicRegister(query: AcademicRegisterQuery) {
+export function useAcademicRegister(query: AcademicRegisterQuery | null) {
   return useQuery({
     queryKey: ['academic-register', query],
-    queryFn: () => academicRegisterApi.getRegister(query),
-    enabled: !!query.academicYear && !!query.semester,
+    queryFn: () => academicRegisterApi.getRegister(query!),
+    enabled:
+      query !== null &&
+      query.classroomId > 0 &&
+      Boolean(query.academicYear) &&
+      Boolean(query.viewMode),
+    staleTime: 30_000,
   });
 }
 
-export function useGradeSummary(grade: string, academicYear: string, semester: string) {
+export function useGradeRegister(query: GradeRegisterQuery | null) {
   return useQuery({
-    queryKey: ['academic-register', 'grade-summary', grade, academicYear, semester],
-    queryFn: () => academicRegisterApi.getGradeSummary(grade, academicYear, semester),
-    enabled: !!grade && !!academicYear && !!semester,
-  });
-}
-
-export function useHistoricalRegister(studentId: number, academicYear: string, semester: string) {
-  return useQuery({
-    queryKey: ['academic-register', 'historical', studentId, academicYear, semester],
-    queryFn: () => academicRegisterApi.getHistoricalRegister(studentId, academicYear, semester),
-    enabled: !!studentId && !!academicYear && !!semester,
+    queryKey: ['academic-register', 'grade', query],
+    queryFn: () => academicRegisterApi.getGradeRegister(query!),
+    enabled:
+      query !== null &&
+      Boolean(query.grade) &&
+      Boolean(query.academicYear) &&
+      Boolean(query.viewMode),
+    staleTime: 30_000,
   });
 }

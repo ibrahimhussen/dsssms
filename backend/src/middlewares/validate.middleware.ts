@@ -23,9 +23,13 @@ export function validate(schema: ZodType, part: RequestPart = 'body') {
       next();
     } catch (err) {
       if (err instanceof ZodError) {
-        throw new ValidationError('Validation failed', err.flatten().fieldErrors);
+        // Forward to the global error handler via next() — do not throw synchronously.
+        // Express 5 catches sync throws too, but next() is the correct pattern and
+        // ensures consistent behaviour with async middlewares.
+        next(new ValidationError('Validation failed', err.flatten().fieldErrors));
+        return;
       }
-      throw err;
+      next(err);
     }
   };
 }

@@ -19,7 +19,7 @@ export function TeacherAssignmentsPage() {
   const [pendingDelete, setPendingDelete] = useState<TeacherSubjectAssignment | null>(null);
   const [deleteError, setDeleteError] = useState<string | null>(null);
 
-  const { data, isLoading } = useAssignments(filters);
+  const { data, isLoading, error, refetch } = useAssignments(filters);
   const { data: teachersData } = useTeacherOptions();
   const { data: classroomsData } = useClassroomOptions();
   const deleteAssignment = useDeleteAssignment();
@@ -104,6 +104,8 @@ export function TeacherAssignmentsPage() {
         rows={data?.items ?? []}
         getRowKey={(a) => a.id}
         isLoading={isLoading}
+        error={error}
+        onRetry={() => void refetch()}
         emptyMessage="No teaching assignments match these filters."
       />
 

@@ -30,7 +30,14 @@ function resolveFullName(user: UserWithRoleAndProfiles): string {
   const profile =
     user.administrator ?? user.director ?? user.viceDirector ?? user.teacher ?? user.student ?? null;
 
-  if (profile) return `${profile.firstName} ${profile.lastName}`;
+  if (profile) {
+    if ('firstName' in profile && 'lastName' in profile) {
+      return `${profile.firstName} ${profile.lastName}`;
+    }
+    if ('fullName' in profile) {
+      return (profile as { fullName: string }).fullName;
+    }
+  }
   if (user.parent) return user.parent.fullName;
   return user.username;
 }
@@ -128,8 +135,21 @@ export class UserService {
     };
   }
 
-  async listUsers(query: ListUsersQuery): Promise<{ items: UserSummaryDto[]; meta: ReturnType<typeof buildPaginationMeta> }> {
-    const { skip, take } = getPaginationParams(query as PaginationQuery);
+  /** Scoped listing for DIRECTOR/VICE_DIRECTOR — returns only active teachers. */
+  async listTeachers(): Promise<UserSummaryDto[]> {
+    const teacherRole = await prisma.role.findUnique({ where: { roleName: RoleName.TEACHER } });
+    if (!teacherRole) return [];
+
+    const users = await prisma.user.findMany({
+      where: { roleId: teacherRole.roleId, status: 'ACTIVE' },
+      include: PROFILE_INCLUDE,
+      orderBy: [{ teacher: { lastName: 'asc' } }],
+    });
+
+    return users.map(toUserSummaryDto);
+  }
+
+  async listUsers(query: ListUsersQuery): Promise<{ items: UserSummaryDto[]; meta: ReturnType<typeof buildPaginationMeta> }> {    const { skip, take } = getPaginationParams(query as PaginationQuery);
 
     const where: Prisma.UserWhereInput = {
       ...(query.role && { role: { roleName: query.role } }),

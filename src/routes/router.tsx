@@ -39,6 +39,7 @@ import { ProfilePage } from '../pages/profile/ProfilePage';
 import { PromotionPage } from '../pages/promotion/PromotionPage';
 import { PromotionBatchPage } from '../pages/promotion/PromotionBatchPage';
 import { PromotionApprovePage } from '../pages/promotion/PromotionApprovePage';
+import { GradeSubjectConfigPage } from '../pages/grade-subject-config/GradeSubjectConfigPage';
 
 export const router = createBrowserRouter([
   {
@@ -77,6 +78,8 @@ export const router = createBrowserRouter([
           { path: '/promotion', element: <ProtectedRoute allowedRoles={['DIRECTOR', 'VICE_DIRECTOR']}><PromotionPage /></ProtectedRoute> },
           { path: '/promotion/:id', element: <ProtectedRoute allowedRoles={['DIRECTOR', 'VICE_DIRECTOR']}><PromotionBatchPage /></ProtectedRoute> },
           { path: '/promotion/:id/approve', element: <ProtectedRoute allowedRoles={['DIRECTOR']}><PromotionApprovePage /></ProtectedRoute> },
+
+          { path: '/grade-subject-config', element: <ProtectedRoute allowedRoles={['ADMIN', 'DIRECTOR', 'VICE_DIRECTOR']}><GradeSubjectConfigPage /></ProtectedRoute> },
 
           { path: '/my-classes', element: <ProtectedRoute allowedRoles={['TEACHER']}><MyClassesPage /></ProtectedRoute> },
           { path: '/attendance', element: <ProtectedRoute allowedRoles={['DIRECTOR', 'VICE_DIRECTOR', 'TEACHER']}><AttendancePage /></ProtectedRoute> },

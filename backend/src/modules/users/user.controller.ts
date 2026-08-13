@@ -27,6 +27,11 @@ export class UserController {
     ApiResponse.success(res, { message: 'Users retrieved', data: items, pagination: meta });
   });
 
+  listTeachers = asyncHandler(async (_req: Request, res: Response) => {
+    const items = await userService.listTeachers();
+    ApiResponse.success(res, { message: 'Teachers retrieved', data: items });
+  });
+
   getById = asyncHandler(async (req: Request, res: Response) => {
     const { id } = req.params as unknown as UserIdParam;
     const user = await userService.getUserById(id);

@@ -59,8 +59,11 @@ export function AttendancePage() {
   async function handleExport() {
     if (!classroomId) return;
     setIsExporting(true);
+    setFeedback(null);
     try {
       await attendanceApi.exportClassroomAttendance({ classroomId, from: thirtyDaysAgoIsoDate(), to: todayIsoDate() });
+    } catch (err) {
+      setFeedback({ type: 'error', message: err instanceof Error ? err.message : 'Export failed. Please try again.' });
     } finally {
       setIsExporting(false);
     }

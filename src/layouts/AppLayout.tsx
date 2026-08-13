@@ -3,6 +3,7 @@ import { useAuth } from '../context/AuthContext';
 import { getVisibleNavItems } from './nav-config';
 import { getRoleLabel } from '../lib/role-labels';
 import { Button } from '../components/ui/Button';
+import { ErrorBoundary } from '../components/ErrorBoundary';
 
 export function AppLayout() {
   const { user, logout } = useAuth();
@@ -73,7 +74,9 @@ export function AppLayout() {
         </header>
 
         <main className="flex-1 p-8">
-          <Outlet />
+          <ErrorBoundary>
+            <Outlet />
+          </ErrorBoundary>
         </main>
       </div>
     </div>

@@ -17,7 +17,7 @@ function actionTone(action: string): 'neutral' | 'positive' | 'warning' | 'dange
 
 export function AuditLogsPage() {
   const [filters, setFilters] = useState<ListAuditLogsParams>({ page: 1, limit: 20 });
-  const { data, isLoading } = useAuditLogs(filters);
+  const { data, isLoading, error, refetch } = useAuditLogs(filters);
 
   function updateFilter<K extends keyof ListAuditLogsParams>(key: K, value: ListAuditLogsParams[K]) {
     setFilters((prev) => ({ ...prev, [key]: value, page: 1 }));
@@ -76,6 +76,8 @@ export function AuditLogsPage() {
         rows={data?.items ?? []}
         getRowKey={(log) => log.id}
         isLoading={isLoading}
+        error={error}
+        onRetry={() => void refetch()}
         emptyMessage="No audit log entries match these filters."
       />
 

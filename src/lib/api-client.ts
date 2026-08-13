@@ -1,5 +1,6 @@
 import axios, { AxiosError, type AxiosRequestConfig, type InternalAxiosRequestConfig } from 'axios';
 import { tokenStorage } from './token-storage';
+import { ApiError } from './api-error';
 import type { ApiResponse } from '../types/api';
 import type { RefreshResponse } from '../types/auth';
 
@@ -79,22 +80,95 @@ apiClient.interceptors.response.use(
   }
 );
 
-/** Same as `unwrap`, but also returns the pagination metadata for list endpoints. */
+/**
+ * Extracts the HTTP status code from an Axios response error.
+ * Falls back to 0 when the request never reached the server (network error).
+ */
+function extractStatusCode(error: unknown): number {
+  if (error instanceof AxiosError) return error.response?.status ?? 0;
+  return 0;
+}
+
+/**
+ * Unwraps the ApiResponse envelope for list endpoints.
+ * Throws ApiError (not plain Error) on failure so callers get errorCode + field details.
+ */
 export async function unwrapPaginated<T>(
   promise: Promise<{ data: ApiResponse<T[]> }>
 ): Promise<{ items: T[]; meta: import('../types/api').PaginationMeta }> {
-  const { data } = await promise;
-  if (!data.success) {
-    throw new Error(data.message);
+  let response: { data: ApiResponse<T[]> };
+  try {
+    response = await promise;
+  } catch (err) {
+    if (err instanceof AxiosError && err.response?.data) {
+      const body = err.response.data as Record<string, unknown>;
+      throw new ApiError({
+        message: String(body.message ?? 'Request failed'),
+        errorCode: String(body.errorCode ?? 'UNKNOWN_ERROR'),
+        statusCode: err.response.status,
+        details: body.details,
+      });
+    }
+    throw new ApiError({
+      message: err instanceof Error ? err.message : 'Network error — check your connection',
+      errorCode: 'NETWORK_ERROR',
+      statusCode: extractStatusCode(err),
+    });
   }
-  return { items: data.data, meta: data.pagination ?? { page: 1, limit: data.data.length, totalItems: data.data.length, totalPages: 1 } };
+
+  const { data } = response;
+  if (!data.success) {
+    throw new ApiError({
+      message: data.message,
+      errorCode: data.errorCode,
+      statusCode: 200, // server returned 200 but success:false — treat as app-level error
+      details: data.details,
+    });
+  }
+  return {
+    items: data.data,
+    meta: data.pagination ?? {
+      page: 1,
+      limit: data.data.length,
+      totalItems: data.data.length,
+      totalPages: 1,
+    },
+  };
 }
 
-/** Unwraps the ApiResponse envelope, throwing a plain Error with the server's message on failure. */
+/**
+ * Unwraps the ApiResponse envelope for single-resource endpoints.
+ * Throws ApiError (not plain Error) on failure so callers get errorCode + field details.
+ */
 export async function unwrap<T>(promise: Promise<{ data: ApiResponse<T> }>): Promise<T> {
-  const { data } = await promise;
+  let response: { data: ApiResponse<T> };
+  try {
+    response = await promise;
+  } catch (err) {
+    if (err instanceof AxiosError && err.response?.data) {
+      const body = err.response.data as Record<string, unknown>;
+      throw new ApiError({
+        message: String(body.message ?? 'Request failed'),
+        errorCode: String(body.errorCode ?? 'UNKNOWN_ERROR'),
+        statusCode: err.response.status,
+        details: body.details,
+      });
+    }
+    throw new ApiError({
+      message: err instanceof Error ? err.message : 'Network error — check your connection',
+      errorCode: 'NETWORK_ERROR',
+      statusCode: extractStatusCode(err),
+    });
+  }
+
+  const { data } = response;
   if (!data.success) {
-    throw new Error(data.message);
+    throw new ApiError({
+      message: data.message,
+      errorCode: data.errorCode,
+      statusCode: 200,
+      details: data.details,
+    });
   }
   return data.data;
 }

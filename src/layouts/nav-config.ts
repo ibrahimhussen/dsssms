@@ -35,11 +35,12 @@ export const NAV_ITEMS: NavItem[] = [
 
   // ── Director + Vice Director (school management) ────────────────────────────
   { label: 'Students',             path: '/students',             allowedRoles: SCHOOL_MGMT, requiredPermission: 'students:view', icon: FaUserGraduate },
-  { label: 'Teachers',             path: '/teachers',             allowedRoles: SCHOOL_MGMT, icon: FaChalkboardTeacher },
+  { label: 'Teachers',             path: '/teachers',             allowedRoles: [...SCHOOL_MGMT, 'ADMIN'], icon: FaChalkboardTeacher },
   // Parents: Director only (Vice Director does not manage parent accounts)
   { label: 'Parents',              path: '/parents',              allowedRoles: ['DIRECTOR'], icon: FaUsers },
   { label: 'Classrooms',           path: '/classrooms',           allowedRoles: SCHOOL_MGMT, icon: MdMeetingRoom },
   { label: 'Subjects',             path: '/subjects',             allowedRoles: SCHOOL_MGMT, icon: MdMenuBook },
+  { label: 'Grade Subject Config', path: '/grade-subject-config', allowedRoles: [...SCHOOL_MGMT, 'ADMIN'], icon: MdAssignment },
   { label: 'Teaching Assignments', path: '/teaching-assignments', allowedRoles: SCHOOL_MGMT, icon: MdAssignment },
   { label: 'Class Timetable',      path: '/timetable-admin',      allowedRoles: SCHOOL_MGMT, icon: MdSchedule },
   { label: 'Attendance',           path: '/attendance',           allowedRoles: SCHOOL_MGMT, icon: MdFactCheck },

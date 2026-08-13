@@ -27,6 +27,28 @@ export function NotificationsPage() {
   const markRead = useMarkNotificationRead();
   const markAllRead = useMarkAllNotificationsRead();
   const deleteNotification = useDeleteNotification();
+  const [notifError, setNotifError] = useState<string | null>(null);
+
+  function handleMarkRead(id: number) {
+    setNotifError(null);
+    markRead.mutate(id, {
+      onError: (err) => setNotifError(err instanceof Error ? err.message : 'Could not mark as read.'),
+    });
+  }
+
+  function handleMarkAllRead() {
+    setNotifError(null);
+    markAllRead.mutate(undefined, {
+      onError: (err) => setNotifError(err instanceof Error ? err.message : 'Could not mark all as read.'),
+    });
+  }
+
+  function handleDelete(id: number) {
+    setNotifError(null);
+    deleteNotification.mutate(id, {
+      onError: (err) => setNotifError(err instanceof Error ? err.message : 'Could not delete notification.'),
+    });
+  }
 
   return (
     <div className="max-w-[720px]">
@@ -61,10 +83,16 @@ export function NotificationsPage() {
           <option value="READ">Read</option>
         </SelectField>
 
-        <Button variant="ghost" onClick={() => markAllRead.mutate()} disabled={markAllRead.isPending || !data?.unreadCount}>
+        <Button variant="ghost" onClick={handleMarkAllRead} disabled={markAllRead.isPending || !data?.unreadCount}>
           Mark all as read
         </Button>
       </div>
+
+      {notifError && (
+        <p className="mb-4 rounded-lg bg-danger-100 px-3 py-2.5 text-sm text-danger-600" role="alert">
+          {notifError}
+        </p>
+      )}
 
       {isLoading ? (
         <p className="text-sm text-slate-500">Loading…</p>
@@ -88,7 +116,7 @@ export function NotificationsPage() {
                 {n.status === 'UNREAD' && (
                   <button
                     type="button"
-                    onClick={() => markRead.mutate(n.notificationId)}
+                    onClick={() => handleMarkRead(n.notificationId)}
                     className="text-sm font-semibold text-pine-700 hover:underline"
                   >
                     Mark as read
@@ -96,7 +124,7 @@ export function NotificationsPage() {
                 )}
                 <button
                   type="button"
-                  onClick={() => deleteNotification.mutate(n.notificationId)}
+                  onClick={() => handleDelete(n.notificationId)}
                   className="text-sm font-semibold text-danger-600 hover:underline"
                 >
                   Delete

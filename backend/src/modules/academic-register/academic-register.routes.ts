@@ -1,42 +1,36 @@
 import { Router } from 'express';
+import { RoleName } from '@prisma/client';
 import { academicRegisterController } from './academic-register.controller';
 import { authenticate } from '../../middlewares/authenticate.middleware';
 import { authorize } from '../../middlewares/authorize.middleware';
 import { validate } from '../../middlewares/validate.middleware';
 import {
   classroomRegisterSchema,
-  gradeSummarySchema,
-  historicalRegisterSchema,
+  gradeRegisterSchema,
 } from './validation/academic-register.validation';
-import { RoleName } from '@prisma/client';
 
 const router = Router();
-
-// All routes require authentication
 router.use(authenticate);
 
-// Get academic register (Director, Vice Director, Admin only)
+const OVERSIGHT = [RoleName.ADMIN, RoleName.DIRECTOR, RoleName.VICE_DIRECTOR];
+
+// Classroom register — oversight roles AND teachers (teacher-level auth
+// is enforced inside the service, which checks TeacherSubject assignments
+// and homeroom teacher status for this classroom).
 router.get(
   '/',
-  authorize(RoleName.DIRECTOR, RoleName.VICE_DIRECTOR, RoleName.ADMIN),
+  authorize(...OVERSIGHT, RoleName.TEACHER),
   validate(classroomRegisterSchema, 'query'),
   academicRegisterController.getRegister
 );
 
-// Get grade-wide summary (Director, Vice Director, Admin only)
+// Grade-wide summary — oversight only (teachers see section register, not
+// cross-section grade summaries).
 router.get(
-  '/grade/:grade/:academicYear/:semester',
-  authorize(RoleName.DIRECTOR, RoleName.VICE_DIRECTOR, RoleName.ADMIN),
-  validate(gradeSummarySchema, 'params'),
-  academicRegisterController.getGradeSummary
-);
-
-// Get historical register (Student can view own, others need oversight access)
-router.get(
-  '/historical/:studentId/:academicYear/:semester',
-  authorize(RoleName.STUDENT, RoleName.DIRECTOR, RoleName.VICE_DIRECTOR, RoleName.ADMIN),
-  validate(historicalRegisterSchema, 'params'),
-  academicRegisterController.getHistoricalRegister
+  '/grade',
+  authorize(...OVERSIGHT),
+  validate(gradeRegisterSchema, 'query'),
+  academicRegisterController.getGradeRegister
 );
 
 export default router;

@@ -9,9 +9,9 @@ import type { UserSummary } from '../../types/user';
 
 export function TeachersPage() {
   const [search, setSearch] = useState('');
-  const { data, isLoading } = useTeacherOptions();
+  const { data: teacherData, isLoading, error, refetch } = useTeacherOptions();
 
-  const teachers: UserSummary[] = data?.items ?? [];
+  const teachers: UserSummary[] = teacherData?.items ?? [];
   const filtered = teachers.filter((t) =>
     t.fullName.toLowerCase().includes(search.toLowerCase()) ||
     (t.email && t.email.toLowerCase().includes(search.toLowerCase())) ||
@@ -78,6 +78,8 @@ export function TeachersPage() {
           rows={filtered}
           getRowKey={(t) => t.userId}
           isLoading={isLoading}
+          error={error}
+          onRetry={() => void refetch()}
           emptyMessage="No teachers match your search term."
         />
       </Card>

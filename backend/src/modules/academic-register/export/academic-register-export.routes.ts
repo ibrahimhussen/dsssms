@@ -1,32 +1,21 @@
 import { Router } from 'express';
+import { RoleName } from '@prisma/client';
 import { academicRegisterExportController } from './academic-register-export.controller';
 import { authenticate } from '../../../middlewares/authenticate.middleware';
 import { authorize } from '../../../middlewares/authorize.middleware';
 import { validate } from '../../../middlewares/validate.middleware';
-import {
-  classroomRegisterSchema,
-} from '../validation/academic-register.validation';
-import { RoleName } from '@prisma/client';
+import { exportRegisterSchema } from '../validation/academic-register.validation';
 
 const router = Router();
-
-// All routes require authentication
 router.use(authenticate);
 
-// Export to Excel (Director, Vice Director, Admin only)
-router.get(
-  '/excel',
-  authorize(RoleName.DIRECTOR, RoleName.VICE_DIRECTOR, RoleName.ADMIN),
-  validate(classroomRegisterSchema, 'query'),
-  academicRegisterExportController.exportToExcel
-);
+const ALLOWED = [RoleName.ADMIN, RoleName.DIRECTOR, RoleName.VICE_DIRECTOR];
 
-// Export to CSV (Director, Vice Director, Admin only)
 router.get(
-  '/csv',
-  authorize(RoleName.DIRECTOR, RoleName.VICE_DIRECTOR, RoleName.ADMIN),
-  validate(classroomRegisterSchema, 'query'),
-  academicRegisterExportController.exportToCSV
+  '/',
+  authorize(...ALLOWED),
+  validate(exportRegisterSchema, 'query'),
+  academicRegisterExportController.exportRegister
 );
 
 export default router;

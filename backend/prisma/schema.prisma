@@ -1,8 +1,3 @@
-// This is your Prisma schema file,
-// learn more about it in the docs: https://pris.ly/d/prisma-schema
-
-// Get a free hosted Postgres database in seconds: `npx create-db`
-
 generator client {
   provider = "prisma-client-js"
 }
@@ -11,64 +6,35 @@ datasource db {
   provider = "mysql"
 }
 
-// -----------------------------------------------------------------------------
-// A. System Users and Roles
-// -----------------------------------------------------------------------------
-
-enum RoleName {
-  ADMIN
-  DIRECTOR
-  VICE_DIRECTOR
-  TEACHER
-  STUDENT
-  PARENT
-}
-
-enum UserStatus {
-  ACTIVE
-  INACTIVE
-  LOCKED
-}
-
 /// Core authentication table shared by every actor in the system (proposal 5.3.3 - Table: Users).
 model User {
-  userId       Int        @id @default(autoincrement())
-  username     String     @unique @db.VarChar(50)
-  email        String?    @unique @db.VarChar(150)
-  passwordHash String     @map("password") @db.VarChar(255)
-  roleId       Int
-  status       UserStatus @default(ACTIVE)
-
-  failedLoginAttempts Int       @default(0)
-  lockedUntil         DateTime?
-  lastLoginAt         DateTime?
-
-  createdAt DateTime @default(now())
-  updatedAt DateTime @updatedAt
-
-  role Role @relation(fields: [roleId], references: [roleId])
-
-  administrator Administrator?
-  director      Director?
-  viceDirector  ViceDirector?
-  teacher       Teacher?
-  student       Student?
-  parent        Parent?
-
-  refreshTokens        RefreshToken[]
+  userId               Int                     @id @default(autoincrement())
+  username             String                  @unique @db.VarChar(50)
+  email                String?                 @unique @db.VarChar(150)
+  passwordHash         String                  @map("password") @db.VarChar(255)
+  roleId               Int
+  status               UserStatus              @default(ACTIVE)
+  failedLoginAttempts  Int                     @default(0)
+  lockedUntil          DateTime?
+  lastLoginAt          DateTime?
+  createdAt            DateTime                @default(now())
+  updatedAt            DateTime                @updatedAt
+  administrator        Administrator?
   auditLogs            AuditLog[]
-  notifications        Notification[]
-  systemSettingUpdates SystemSetting[]
-  permissions          UserPermission[]
-
-  preparedBatches PromotionBatch[] @relation("BatchPreparer")
-  approvedBatches PromotionBatch[] @relation("BatchApprover")
-  rejectedBatches PromotionBatch[] @relation("BatchRejecter")
-
-  assignedConducts     StudentConduct[] @relation("ConductAssigner")
-  reviewedSubjects     SubjectFinalization[] @relation("SubjectReviewer")
-  finalizedSubjects    SubjectFinalization[] @relation("SubjectFinalizer")
   finalizedClassrooms  ClassroomFinalization[] @relation("ClassroomFinalizer")
+  director             Director?
+  notifications        Notification[]
+  parent               Parent?
+  refreshTokens        RefreshToken[]
+  assignedConducts     StudentConduct[]        @relation("ConductAssigner")
+  student              Student?
+  finalizedSubjects    SubjectFinalization[]   @relation("SubjectFinalizer")
+  reviewedSubjects     SubjectFinalization[]   @relation("SubjectReviewer")
+  systemSettingUpdates SystemSetting[]
+  teacher              Teacher?
+  permissions          UserPermission[]
+  role                 Role                    @relation(fields: [roleId], references: [roleId])
+  viceDirector         ViceDirector?
 
   @@index([roleId])
   @@map("users")
@@ -78,8 +44,7 @@ model User {
 model Role {
   roleId   Int      @id @default(autoincrement())
   roleName RoleName @unique
-
-  users User[]
+  users    User[]
 
   @@map("roles")
 }
@@ -93,8 +58,7 @@ model RefreshToken {
   revokedAt  DateTime?
   createdAt  DateTime  @default(now())
   replacedBy String?
-
-  user User @relation(fields: [userId], references: [userId], onDelete: Cascade)
+  user       User      @relation(fields: [userId], references: [userId], onDelete: Cascade)
 
   @@index([userId])
   @@map("refresh_tokens")
@@ -110,8 +74,7 @@ model AuditLog {
   ipAddress String?  @db.VarChar(64)
   metadata  Json?
   createdAt DateTime @default(now())
-
-  user User? @relation(fields: [userId], references: [userId], onDelete: SetNull)
+  user      User?    @relation(fields: [userId], references: [userId])
 
   @@index([userId])
   @@index([action])
@@ -125,25 +88,19 @@ model UserPermission {
   permission String    @db.VarChar(100)
   grantedAt  DateTime  @default(now())
   expiresAt  DateTime?
-
-  user User @relation(fields: [userId], references: [userId], onDelete: Cascade)
+  user       User      @relation(fields: [userId], references: [userId], onDelete: Cascade)
 
   @@unique([userId, permission])
   @@index([userId])
   @@map("user_permissions")
 }
 
-// -----------------------------------------------------------------------------
-// B. Staff Information (1:1 with User)
-// -----------------------------------------------------------------------------
-
 model Administrator {
   adminId   Int    @id @default(autoincrement())
   userId    Int    @unique
   firstName String @db.VarChar(100)
   lastName  String @db.VarChar(100)
-
-  user User @relation(fields: [userId], references: [userId], onDelete: Cascade)
+  user      User   @relation(fields: [userId], references: [userId], onDelete: Cascade)
 
   @@map("administrators")
 }
@@ -153,8 +110,7 @@ model Director {
   userId     Int    @unique
   firstName  String @db.VarChar(100)
   lastName   String @db.VarChar(100)
-
-  user User @relation(fields: [userId], references: [userId], onDelete: Cascade)
+  user       User   @relation(fields: [userId], references: [userId], onDelete: Cascade)
 
   @@map("directors")
 }
@@ -164,151 +120,109 @@ model ViceDirector {
   userId         Int    @unique
   firstName      String @db.VarChar(100)
   lastName       String @db.VarChar(100)
-
-  user User @relation(fields: [userId], references: [userId], onDelete: Cascade)
+  user           User   @relation(fields: [userId], references: [userId], onDelete: Cascade)
 
   @@map("vice_directors")
 }
 
 model Teacher {
-  teacherId      Int     @id @default(autoincrement())
-  userId         Int     @unique
-  firstName      String  @db.VarChar(100)
-  lastName       String  @db.VarChar(100)
-  qualification  String? @db.VarChar(255)
-  specialization String? @db.VarChar(255)
-  phoneNumber    String? @db.VarChar(20)
-
-  user User @relation(fields: [userId], references: [userId], onDelete: Cascade)
-
+  teacherId            Int              @id @default(autoincrement())
+  userId               Int              @unique
+  firstName            String           @db.VarChar(100)
+  lastName             String           @db.VarChar(100)
+  qualification        String?          @db.VarChar(255)
+  specialization       String?          @db.VarChar(255)
+  phoneNumber          String?          @db.VarChar(20)
+  attendanceRecords    Attendance[]
   classroomsAsHomeroom Classroom[]      @relation("HomeroomTeacher")
   subjectAssignments   TeacherSubject[]
-  attendanceRecords    Attendance[]
+  user                 User             @relation(fields: [userId], references: [userId], onDelete: Cascade)
 
   @@map("teachers")
 }
 
-// -----------------------------------------------------------------------------
-// C. Student and Parent Information
-// -----------------------------------------------------------------------------
-
-enum Gender {
-  M
-  F
-}
-
-enum ClassSession {
-  MORNING
-  AFTERNOON
-}
-
 /// Defines classrooms/sections (proposal - Table: Classrooms). Relationship: Classroom (1:M) Student.
 model Classroom {
-  classroomId       Int          @id @default(autoincrement())
-  className         String       @db.VarChar(50)
-  section           String       @db.VarChar(10)
-  academicYear      String       @db.VarChar(10)
-  session           ClassSession @default(MORNING)
-  homeroomTeacherId Int?
-
-  homeroomTeacher Teacher? @relation("HomeroomTeacher", fields: [homeroomTeacherId], references: [teacherId], onDelete: SetNull)
-
+  classroomId        Int                     @id @default(autoincrement())
+  className          String                  @db.VarChar(50)
+  section            String                  @db.VarChar(10)
+  academicYear       String                  @db.VarChar(10)
+  homeroomTeacherId  Int?
+  session            ClassSession            @default(MORNING)
+  finalizations      ClassroomFinalization[]
+  homeroomTeacher    Teacher?                @relation("HomeroomTeacher", fields: [homeroomTeacherId], references: [teacherId])
   students           Student[]
   subjectAssignments TeacherSubject[]
-  attendanceRecords  Attendance[]
-  promotionBatches   PromotionBatch[]
-  enrollments        StudentEnrollment[]
-  promotionTargets   PromotionEntry[]    @relation("PromotionTarget")
-  conductRecords     StudentConduct[]
-  finalizations      ClassroomFinalization[]
 
   @@unique([className, section, academicYear])
+  @@index([homeroomTeacherId], map: "classrooms_homeroomTeacherId_fkey")
   @@map("classrooms")
 }
 
 /// Subjects offered by the school. Referenced by Grades and TeacherSubject.
 model Subject {
-  subjectId   Int    @id @default(autoincrement())
-  subjectCode String @unique @db.VarChar(20)
-  subjectName String @db.VarChar(100)
-
+  subjectId          Int                  @id @default(autoincrement())
+  subjectCode        String               @unique @db.VarChar(20)
+  subjectName        String               @db.VarChar(100)
   teacherAssignments TeacherSubject[]
+  gradeConfigs       GradeSubjectConfig[]
 
   @@map("subjects")
 }
 
 /// Resolves which Teacher teaches which Subject to which Classroom (M:N support table).
 model TeacherSubject {
-  id          Int @id @default(autoincrement())
-  teacherId   Int
-  subjectId   Int
-  classroomId Int
-
-  teacher   Teacher   @relation(fields: [teacherId], references: [teacherId], onDelete: Cascade)
-  subject   Subject   @relation(fields: [subjectId], references: [subjectId], onDelete: Cascade)
-  classroom Classroom @relation(fields: [classroomId], references: [classroomId], onDelete: Cascade)
-
-  timetableEntries TimetableEntry[]
-  assignments      Assignment[]
-  gradeComponents  GradeComponent[]
-  finalizations    SubjectFinalization[]
+  id              Int                   @id @default(autoincrement())
+  teacherId       Int
+  subjectId       Int
+  classroomId     Int
+  assignments     Assignment[]
+  gradeComponents GradeComponent[]
+  finalizations   SubjectFinalization[]
+  classroom       Classroom             @relation(fields: [classroomId], references: [classroomId], onDelete: Cascade)
+  subject         Subject               @relation(fields: [subjectId], references: [subjectId], onDelete: Cascade)
+  teacher         Teacher               @relation(fields: [teacherId], references: [teacherId], onDelete: Cascade)
 
   @@unique([teacherId, subjectId, classroomId])
+  @@index([classroomId], map: "teacher_subjects_classroomId_fkey")
+  @@index([subjectId], map: "teacher_subjects_subjectId_fkey")
   @@map("teacher_subjects")
-}
-
-enum AdmissionType {
-  NEW_STUDENT
-  TRANSFER
-}
-
-enum StudentStatus {
-  ACTIVE
-  TRANSFERRED_OUT
-  GRADUATED
-  SUSPENDED
 }
 
 /// Contains all student-specific information (proposal - Table: Students). Relationship: Classroom (1:M) Student.
 model Student {
-  studentId       Int      @id @default(autoincrement())
-  userId          Int      @unique
-  classroomId     Int
-  admissionNumber String   @unique @db.VarChar(50)
-  firstName       String   @db.VarChar(100)
-  lastName        String   @db.VarChar(100)
-  gender          Gender
-  dateOfBirth     DateTime @db.Date
-  address         String?  @db.VarChar(255)
-  enrolledAt      DateTime @default(now())
-
-  admissionType             AdmissionType @default(NEW_STUDENT)
-  studentStatus             StudentStatus @default(ACTIVE)
-  previousSchoolName        String?       @db.VarChar(150)
-  previousSchoolType        String?       @db.VarChar(50)
-  previousSchoolLocation    String?       @db.VarChar(150)
-  lastGradeCompleted        String?       @db.VarChar(20)
-  completionYear            String?       @db.VarChar(10)
-  previousStudentId         String?       @db.VarChar(50)
-  transferReason            String?       @db.VarChar(255)
-  transferCertificateRef    String?       @db.VarChar(100)
-  previousAcademicSummary  Json?
+  studentId                 Int                    @id @default(autoincrement())
+  userId                    Int                    @unique
+  classroomId               Int
+  admissionNumber           String                 @unique @db.VarChar(50)
+  firstName                 String                 @db.VarChar(100)
+  lastName                  String                 @db.VarChar(100)
+  gender                    Gender
+  dateOfBirth               DateTime               @db.Date
+  address                   String?                @db.VarChar(255)
+  enrolledAt                DateTime               @default(now())
+  admissionType             AdmissionType          @default(NEW_STUDENT)
+  completionYear            String?                @db.VarChar(10)
+  lastGradeCompleted        String?                @db.VarChar(20)
+  previousAcademicSummary   Json?
+  previousSchoolLocation    String?                @db.VarChar(150)
+  previousSchoolName        String?                @db.VarChar(150)
+  previousSchoolType        String?                @db.VarChar(50)
+  previousStudentId         String?                @db.VarChar(50)
+  studentStatus             StudentStatus          @default(ACTIVE)
+  transferCertificateRef    String?                @db.VarChar(100)
+  transferReason            String?                @db.VarChar(255)
   transferredOutAt          DateTime?
-  transferredOutDestination String?       @db.VarChar(150)
-  transferredOutReason      String?       @db.VarChar(255)
-
-  user      User      @relation(fields: [userId], references: [userId], onDelete: Cascade)
-  classroom Classroom @relation(fields: [classroomId], references: [classroomId])
-
-  parentLinks           StudentParentLink[]
-  attendanceRecords     Attendance[]
-  gradeEntries          GradeEntry[]
-  academicReports       AcademicReport[]
-  notifications         Notification[]
-  assignmentSubmissions AssignmentSubmission[]
-  enrollments           StudentEnrollment[]
-  promotionEntries      PromotionEntry[]
-  conductRecords        StudentConduct[]
+  transferredOutDestination String?                @db.VarChar(150)
+  transferredOutReason      String?                @db.VarChar(255)
+  academicReports           AcademicReport[]
+  assignmentSubmissions     AssignmentSubmission[]
+  gradeEntries              GradeEntry[]
+  notifications             Notification[]
+  conductRecords            StudentConduct[]
+  parentLinks               StudentParentLink[]
+  classroom                 Classroom              @relation(fields: [classroomId], references: [classroomId])
+  user                      User                   @relation(fields: [userId], references: [userId], onDelete: Cascade)
 
   @@index([classroomId])
   @@map("students")
@@ -316,22 +230,14 @@ model Student {
 
 /// Contains information for student guardians/parents (proposal - Table: Parents). 1:1 with User.
 model Parent {
-  parentId    Int     @id @default(autoincrement())
-  userId      Int     @unique
-  fullName    String  @db.VarChar(255)
-  phoneNumber String? @db.VarChar(20)
-
-  user  User                @relation(fields: [userId], references: [userId], onDelete: Cascade)
-  links StudentParentLink[]
+  parentId    Int                 @id @default(autoincrement())
+  userId      Int                 @unique
+  fullName    String              @db.VarChar(255)
+  phoneNumber String?             @db.VarChar(20)
+  user        User                @relation(fields: [userId], references: [userId], onDelete: Cascade)
+  links       StudentParentLink[]
 
   @@map("parents")
-}
-
-enum ParentRelationship {
-  FATHER
-  MOTHER
-  GUARDIAN
-  OTHER
 }
 
 /// Resolves the M:N relationship between Parents and Students (a parent may have many
@@ -341,23 +247,12 @@ model StudentParentLink {
   studentId    Int
   parentId     Int
   relationship ParentRelationship
-
-  student Student @relation(fields: [studentId], references: [studentId], onDelete: Cascade)
-  parent  Parent  @relation(fields: [parentId], references: [parentId], onDelete: Cascade)
+  parent       Parent             @relation(fields: [parentId], references: [parentId], onDelete: Cascade)
+  student      Student            @relation(fields: [studentId], references: [studentId], onDelete: Cascade)
 
   @@unique([studentId, parentId])
+  @@index([parentId], map: "student_parent_links_parentId_fkey")
   @@map("student_parent_links")
-}
-
-// -----------------------------------------------------------------------------
-// D. Academic Records
-// -----------------------------------------------------------------------------
-
-enum AttendanceStatus {
-  PRESENT
-  ABSENT
-  LATE
-  EXCUSED
 }
 
 model Attendance {
@@ -366,34 +261,18 @@ model Attendance {
   teacherId      Int
   classroomId    Int
   attendanceDate DateTime         @db.Date
-  period         Int              @default(0) // 0 = Daily Roll Call, 1+ = Subject Periods
   status         AttendanceStatus
   remarks        String?          @db.VarChar(255)
-  isLocked       Boolean          @default(false)
   createdAt      DateTime         @default(now())
   updatedAt      DateTime         @updatedAt
-
-  student   Student   @relation(fields: [studentId], references: [studentId], onDelete: Cascade)
-  teacher   Teacher   @relation(fields: [teacherId], references: [teacherId])
-  classroom Classroom @relation(fields: [classroomId], references: [classroomId])
+  isLocked       Boolean          @default(false)
+  period         Int              @default(0)
+  teacher        Teacher          @relation(fields: [teacherId], references: [teacherId])
 
   @@unique([studentId, attendanceDate, period])
   @@index([classroomId, attendanceDate, period])
+  @@index([teacherId], map: "attendance_teacherId_fkey")
   @@map("attendance")
-}
-
-enum Semester {
-  SEMESTER_1
-  SEMESTER_2
-}
-
-enum GradeCategory {
-  QUIZ
-  ASSIGNMENT
-  TEST
-  MID_EXAM
-  FINAL_EXAM
-  OTHER
 }
 
 /// One assessment component in a subject's grading scheme for a given
@@ -405,18 +284,17 @@ enum GradeCategory {
 /// 100 marks. Multiple components of the same category are allowed (e.g.
 /// "Quiz 1", "Quiz 2"), distinguished by name.
 model GradeComponent {
-  gradeComponentId Int           @id @default(autoincrement())
+  gradeComponentId Int            @id @default(autoincrement())
   teacherSubjectId Int
   semester         Semester
-  academicYear     String        @db.VarChar(10)
+  academicYear     String         @db.VarChar(10)
   category         GradeCategory
-  name             String        @db.VarChar(100)
-  maxMarks         Decimal       @db.Decimal(5, 2)
-  createdAt        DateTime      @default(now())
-  updatedAt        DateTime      @updatedAt
-
-  teacherSubject TeacherSubject @relation(fields: [teacherSubjectId], references: [id], onDelete: Cascade)
-  entries        GradeEntry[]
+  name             String         @db.VarChar(100)
+  maxMarks         Decimal        @db.Decimal(5, 2)
+  createdAt        DateTime       @default(now())
+  updatedAt        DateTime       @updatedAt
+  teacherSubject   TeacherSubject @relation(fields: [teacherSubjectId], references: [id], onDelete: Cascade)
+  entries          GradeEntry[]
 
   @@unique([teacherSubjectId, semester, academicYear, name])
   @@index([teacherSubjectId, semester, academicYear])
@@ -425,15 +303,14 @@ model GradeComponent {
 
 /// One student's score for one grade component.
 model GradeEntry {
-  gradeEntryId     Int      @id @default(autoincrement())
+  gradeEntryId     Int            @id @default(autoincrement())
   gradeComponentId Int
   studentId        Int
-  score            Decimal  @db.Decimal(5, 2)
-  createdAt        DateTime @default(now())
-  updatedAt        DateTime @updatedAt
-
-  gradeComponent GradeComponent @relation(fields: [gradeComponentId], references: [gradeComponentId], onDelete: Cascade)
-  student        Student        @relation(fields: [studentId], references: [studentId], onDelete: Cascade)
+  score            Decimal        @db.Decimal(5, 2)
+  createdAt        DateTime       @default(now())
+  updatedAt        DateTime       @updatedAt
+  gradeComponent   GradeComponent @relation(fields: [gradeComponentId], references: [gradeComponentId], onDelete: Cascade)
+  student          Student        @relation(fields: [studentId], references: [studentId], onDelete: Cascade)
 
   @@unique([gradeComponentId, studentId])
   @@index([studentId])
@@ -448,107 +325,86 @@ model AcademicReport {
   averageMark   Decimal  @db.Decimal(5, 2)
   rank          Int?
   generatedDate DateTime @default(now())
-
-  student Student @relation(fields: [studentId], references: [studentId], onDelete: Cascade)
+  student       Student  @relation(fields: [studentId], references: [studentId], onDelete: Cascade)
 
   @@unique([studentId, semester, academicYear])
   @@map("academic_reports")
-}
-
-enum ConductRating {
-  EXCELLENT
-  VERY_GOOD
-  GOOD
-  SATISFACTORY
-  NEEDS_IMPROVEMENT
 }
 
 /// Official conduct rating assigned by authorized academic staff for a student
 /// for a specific academic period. This is separate from discipline incidents and
 /// represents the professional academic judgment of the student's general behavior.
 model StudentConduct {
-  id            Int           @id @default(autoincrement())
-  studentId     Int
-  classroomId   Int
-  academicYear  String        @db.VarChar(10)
-  semester      Semester
-  rating        ConductRating
-  assignedBy    Int           // User ID of Vice Director or Director who assigned
-  assignedAt    DateTime      @default(now())
-  notes         String?       @db.VarChar(500)
-  updatedAt     DateTime      @updatedAt
-
-  student   Student   @relation(fields: [studentId], references: [studentId], onDelete: Cascade)
-  classroom Classroom @relation(fields: [classroomId], references: [classroomId])
-  assignedByUser User @relation("ConductAssigner", fields: [assignedBy], references: [userId], onDelete: Cascade)
+  id             Int           @id @default(autoincrement())
+  studentId      Int
+  classroomId    Int
+  academicYear   String        @db.VarChar(10)
+  semester       Semester
+  rating         ConductRating
+  assignedBy     Int
+  assignedAt     DateTime      @default(now())
+  notes          String?       @db.VarChar(500)
+  updatedAt      DateTime      @updatedAt
+  assignedByUser User          @relation("ConductAssigner", fields: [assignedBy], references: [userId], onDelete: Cascade)
+  student        Student       @relation(fields: [studentId], references: [studentId], onDelete: Cascade)
 
   @@unique([studentId, classroomId, academicYear, semester])
   @@index([classroomId, academicYear, semester])
   @@index([studentId, academicYear, semester])
+  @@index([assignedBy], map: "student_conduct_assignedBy_fkey")
   @@map("student_conduct")
-}
-
-enum FinalizationStatus {
-  DRAFT
-  UNDER_REVIEW
-  APPROVED
-  FINALIZED
 }
 
 /// Tracks the finalization status of subject results for a specific teaching assignment
 /// and academic period. This enables the two-stage finalization workflow.
 model SubjectFinalization {
-  id                  Int               @id @default(autoincrement())
-  teacherSubjectId    Int
-  semester            Semester
-  academicYear        String            @db.VarChar(10)
-  status              FinalizationStatus @default(DRAFT)
-  reviewedBy          Int?              // User ID of Vice Director who reviewed
-  reviewedAt          DateTime?
-  finalizedBy         Int?              // User ID of Vice Director/Director who finalized
-  finalizedAt         DateTime?
-  correctionReason    String?           @db.VarChar(500) // For post-finalization corrections
-  lastCorrectionAt    DateTime?
-  createdAt           DateTime          @default(now())
-  updatedAt           DateTime          @updatedAt
-
-  teacherSubject TeacherSubject @relation(fields: [teacherSubjectId], references: [id], onDelete: Cascade)
-  reviewedByUser   User? @relation("SubjectReviewer", fields: [reviewedBy], references: [userId], onDelete: SetNull)
-  finalizedByUser  User? @relation("SubjectFinalizer", fields: [finalizedBy], references: [userId], onDelete: SetNull)
+  id               Int                @id @default(autoincrement())
+  teacherSubjectId Int
+  semester         Semester
+  academicYear     String             @db.VarChar(10)
+  status           FinalizationStatus @default(DRAFT)
+  reviewedBy       Int?
+  reviewedAt       DateTime?
+  finalizedBy      Int?
+  finalizedAt      DateTime?
+  correctionReason String?            @db.VarChar(500)
+  lastCorrectionAt DateTime?
+  createdAt        DateTime           @default(now())
+  updatedAt        DateTime           @updatedAt
+  finalizedByUser  User?              @relation("SubjectFinalizer", fields: [finalizedBy], references: [userId])
+  reviewedByUser   User?              @relation("SubjectReviewer", fields: [reviewedBy], references: [userId])
+  teacherSubject   TeacherSubject     @relation(fields: [teacherSubjectId], references: [id], onDelete: Cascade)
 
   @@unique([teacherSubjectId, semester, academicYear])
   @@index([teacherSubjectId, status])
   @@index([semester, academicYear, status])
+  @@index([finalizedBy], map: "subject_finalizations_finalizedBy_fkey")
+  @@index([reviewedBy], map: "subject_finalizations_reviewedBy_fkey")
   @@map("subject_finalizations")
 }
 
 /// Tracks the finalization status of an entire classroom for an academic period.
 /// All subjects must be APPROVED before a classroom can be FINALIZED.
 model ClassroomFinalization {
-  id                  Int               @id @default(autoincrement())
-  classroomId         Int
-  semester            Semester
-  academicYear        String            @db.VarChar(10)
-  status              FinalizationStatus @default(DRAFT)
-  finalizedBy         Int?              // User ID of Vice Director/Director who finalized
-  finalizedAt         DateTime?
-  correctionReason    String?           @db.VarChar(500) // For post-finalization corrections
-  lastCorrectionAt    DateTime?
-  createdAt           DateTime          @default(now())
-  updatedAt           DateTime          @updatedAt
-
-  classroom       Classroom @relation(fields: [classroomId], references: [classroomId], onDelete: Cascade)
-  finalizedByUser User?     @relation("ClassroomFinalizer", fields: [finalizedBy], references: [userId], onDelete: SetNull)
+  id               Int                @id @default(autoincrement())
+  classroomId      Int
+  semester         Semester
+  academicYear     String             @db.VarChar(10)
+  status           FinalizationStatus @default(DRAFT)
+  finalizedBy      Int?
+  finalizedAt      DateTime?
+  correctionReason String?            @db.VarChar(500)
+  lastCorrectionAt DateTime?
+  createdAt        DateTime           @default(now())
+  updatedAt        DateTime           @updatedAt
+  classroom        Classroom          @relation(fields: [classroomId], references: [classroomId], onDelete: Cascade)
+  finalizedByUser  User?              @relation("ClassroomFinalizer", fields: [finalizedBy], references: [userId])
 
   @@unique([classroomId, semester, academicYear])
   @@index([classroomId, status])
   @@index([semester, academicYear, status])
+  @@index([finalizedBy], map: "classroom_finalizations_finalizedBy_fkey")
   @@map("classroom_finalizations")
-}
-
-enum NotificationStatus {
-  READ
-  UNREAD
 }
 
 model Notification {
@@ -559,31 +415,12 @@ model Notification {
   message         String             @db.Text
   sentDate        DateTime           @default(now())
   status          NotificationStatus @default(UNREAD)
-
-  student       Student? @relation(fields: [studentId], references: [studentId], onDelete: Cascade)
-  recipientUser User?    @relation(fields: [recipientUserId], references: [userId], onDelete: Cascade)
+  recipientUser   User?              @relation(fields: [recipientUserId], references: [userId], onDelete: Cascade)
+  student         Student?           @relation(fields: [studentId], references: [studentId], onDelete: Cascade)
 
   @@index([studentId])
   @@index([recipientUserId])
   @@map("notifications")
-}
-
-// -----------------------------------------------------------------------------
-// E. Timetable and Assignments
-// -----------------------------------------------------------------------------
-
-enum DayOfWeek {
-  MONDAY
-  TUESDAY
-  WEDNESDAY
-  THURSDAY
-  FRIDAY
-  SATURDAY
-}
-
-enum TimetableStatus {
-  DRAFT
-  PUBLISHED
 }
 
 /// One weekly period slot for a teaching assignment (Teacher+Subject+Classroom).
@@ -593,27 +430,20 @@ enum TimetableStatus {
 model TimetableEntry {
   timetableEntryId Int             @id @default(autoincrement())
   teacherSubjectId Int
-  semester         Semester        @default(SEMESTER_1)
   dayOfWeek        DayOfWeek
-  period           Int             @default(1) // 1, 2, 3...
-  startTime        String          @db.VarChar(5) // "HH:MM", 24-hour
+  startTime        String          @db.VarChar(5)
   endTime          String          @db.VarChar(5)
   roomNumber       String?         @db.VarChar(50)
-  status           TimetableStatus @default(DRAFT)
   createdAt        DateTime        @default(now())
   updatedAt        DateTime        @updatedAt
-
-  teacherSubject TeacherSubject @relation(fields: [teacherSubjectId], references: [id], onDelete: Cascade)
+  period           Int             @default(1)
+  semester         Semester        @default(SEMESTER_1)
+  status           TimetableStatus @default(DRAFT)
 
   @@unique([teacherSubjectId, semester, dayOfWeek, period])
   @@index([teacherSubjectId, semester])
+  @@index([teacherSubjectId])
   @@map("timetable_entries")
-}
-
-enum SubmissionStatus {
-  NOT_SUBMITTED
-  SUBMITTED
-  LATE
 }
 
 /// Homework/assignment set by a teacher for one of their teaching assignments
@@ -622,16 +452,15 @@ enum SubmissionStatus {
 /// file storage layer, so students self-report completion and teachers can
 /// correct that status.
 model Assignment {
-  assignmentId     Int      @id @default(autoincrement())
+  assignmentId     Int                    @id @default(autoincrement())
   teacherSubjectId Int
-  title            String   @db.VarChar(150)
-  description      String?  @db.Text
-  dueDate          DateTime @db.Date
-  createdAt        DateTime @default(now())
-  updatedAt        DateTime @updatedAt
-
-  teacherSubject TeacherSubject         @relation(fields: [teacherSubjectId], references: [id], onDelete: Cascade)
-  submissions    AssignmentSubmission[]
+  title            String                 @db.VarChar(150)
+  description      String?                @db.Text
+  dueDate          DateTime               @db.Date
+  createdAt        DateTime               @default(now())
+  updatedAt        DateTime               @updatedAt
+  submissions      AssignmentSubmission[]
+  teacherSubject   TeacherSubject         @relation(fields: [teacherSubjectId], references: [id], onDelete: Cascade)
 
   @@index([teacherSubjectId])
   @@map("assignments")
@@ -645,69 +474,28 @@ model AssignmentSubmission {
   submittedAt  DateTime?
   notes        String?          @db.VarChar(500)
   updatedAt    DateTime         @updatedAt
-
-  assignment Assignment @relation(fields: [assignmentId], references: [assignmentId], onDelete: Cascade)
-  student    Student    @relation(fields: [studentId], references: [studentId], onDelete: Cascade)
+  assignment   Assignment       @relation(fields: [assignmentId], references: [assignmentId], onDelete: Cascade)
+  student      Student          @relation(fields: [studentId], references: [studentId], onDelete: Cascade)
 
   @@unique([assignmentId, studentId])
   @@index([studentId])
   @@map("assignment_submissions")
 }
 
-// -----------------------------------------------------------------------------
-// F. Student Promotion
-// -----------------------------------------------------------------------------
-
-enum EnrollmentDecision {
-  ACTIVE       // currently enrolled — set on admission and on promotion execution
-  PROMOTED     // end-of-year: moved to the next grade
-  REPEATED     // end-of-year: stayed in the same grade
-  GRADUATED    // completed Grade 12
-  TRANSFERRED_OUT
-  CORRECTED    // this row was superseded by a correction
-  REVERSED     // this row was fully reversed
-}
-
-enum EligibilityStatus {
-  ELIGIBLE
-  PENDING_REVIEW
-  NOT_ELIGIBLE
-}
-
-enum PromotionDecision {
-  PROMOTED
-  REPEATED
-  GRADUATED   // only valid for Grade 12 students
-}
-
-enum BatchStatus {
-  DRAFT
-  SUBMITTED
-  APPROVED
-  REJECTED
-  COMPLETED
-}
-
 /// One row per student per academic year — the authoritative enrollment history.
 /// Student.classroomId is kept as a convenience pointer to the current row's
 /// classroom; StudentEnrollment is the record of truth for all past placements.
 model StudentEnrollment {
-  id            Int                @id @default(autoincrement())
-  studentId     Int
-  classroomId   Int
-  academicYear  String             @db.VarChar(10)
-  decision      EnrollmentDecision @default(ACTIVE)
-  promotedFromId Int?              // FK to the previous enrollment row
-  batchId       Int?               // FK to PromotionBatch (null for first admission)
-  notes         String?            @db.VarChar(500)
-  createdAt     DateTime           @default(now())
-  updatedAt     DateTime           @updatedAt
-
-  student    Student            @relation(fields: [studentId], references: [studentId], onDelete: Cascade)
-  classroom  Classroom          @relation(fields: [classroomId], references: [classroomId])
-  promotedFrom StudentEnrollment? @relation("EnrollmentHistory", fields: [promotedFromId], references: [id])
-  successors   StudentEnrollment[] @relation("EnrollmentHistory")
-  batch        PromotionBatch?   @relation(fields: [batchId], references: [id])
+  id             Int                @id @default(autoincrement())
+  studentId      Int
+  classroomId    Int
+  academicYear   String             @db.VarChar(10)
+  decision       EnrollmentDecision @default(ACTIVE)
+  promotedFromId Int?
+  batchId        Int?
+  notes          String?            @db.VarChar(500)
+  createdAt      DateTime           @default(now())
+  updatedAt      DateTime           @updatedAt
 
   @@unique([studentId, academicYear])
   @@index([classroomId])
@@ -725,8 +513,8 @@ model PromotionBatch {
   targetAcademicYear String      @db.VarChar(10)
   sourceClassroomId  Int
   status             BatchStatus @default(DRAFT)
-  preparedById       Int         // Vice Director (or Director) who prepared
-  approvedById       Int?        // Director who approved
+  preparedById       Int
+  approvedById       Int?
   rejectedById       Int?
   rejectionReason    String?     @db.VarChar(500)
   submittedAt        DateTime?
@@ -735,59 +523,200 @@ model PromotionBatch {
   createdAt          DateTime    @default(now())
   updatedAt          DateTime    @updatedAt
 
-  sourceClassroom Classroom          @relation(fields: [sourceClassroomId], references: [classroomId])
-  preparedBy      User               @relation("BatchPreparer", fields: [preparedById], references: [userId])
-  approvedBy      User?              @relation("BatchApprover", fields: [approvedById], references: [userId])
-  rejectedBy      User?              @relation("BatchRejecter", fields: [rejectedById], references: [userId])
-  entries         PromotionEntry[]
-  enrollments     StudentEnrollment[]
-
   @@map("promotion_batches")
 }
 
 /// One student's record inside a PromotionBatch — captures the decision,
 /// eligibility assessment, target classroom, and any override notes.
 model PromotionEntry {
-  id                  Int               @id @default(autoincrement())
-  batchId             Int
-  studentId           Int
-  eligibilityStatus   EligibilityStatus @default(PENDING_REVIEW)
-  decision            PromotionDecision @default(PROMOTED)
-  targetClassroomId   Int?              // null until the Vice Director assigns a classroom
-  averageMark         Decimal?          @db.Decimal(5, 2)
-  attendancePercent   Decimal?          @db.Decimal(5, 2)
-  overrideReason      String?           @db.VarChar(500)
-  createdAt           DateTime          @default(now())
-  updatedAt           DateTime          @updatedAt
-
-  batch           PromotionBatch @relation(fields: [batchId], references: [id], onDelete: Cascade)
-  student         Student        @relation(fields: [studentId], references: [studentId])
-  targetClassroom Classroom?     @relation("PromotionTarget", fields: [targetClassroomId], references: [classroomId])
+  id                Int               @id @default(autoincrement())
+  batchId           Int
+  studentId         Int
+  eligibilityStatus EligibilityStatus @default(PENDING_REVIEW)
+  decision          PromotionDecision @default(PROMOTED)
+  targetClassroomId Int?
+  averageMark       Decimal?          @db.Decimal(5, 2)
+  attendancePercent Decimal?          @db.Decimal(5, 2)
+  overrideReason    String?           @db.VarChar(500)
+  createdAt         DateTime          @default(now())
+  updatedAt         DateTime          @updatedAt
 
   @@unique([batchId, studentId])
   @@index([batchId])
   @@map("promotion_entries")
 }
 
-// -----------------------------------------------------------------------------
-// K. System Configuration
-// -----------------------------------------------------------------------------
+/// Defines which subjects are officially required for a grade in a given
+/// academic year, independently of teacher assignments. This is the
+/// authoritative subject list for the Academic Register — a subject appears
+/// in the register if it exists here, regardless of whether a teacher has
+/// been assigned yet.
+model GradeSubjectConfig {
+  id           Int      @id @default(autoincrement())
+  className    String   @db.VarChar(50)   // e.g. "Grade 9", "Grade 10"
+  academicYear String   @db.VarChar(10)   // e.g. "2026/27"
+  subjectId    Int
+  sortOrder    Int      @default(0)
+  createdAt    DateTime @default(now())
+  updatedAt    DateTime @updatedAt
+
+  subject Subject @relation(fields: [subjectId], references: [subjectId], onDelete: Cascade)
+
+  @@unique([className, academicYear, subjectId])
+  @@index([className, academicYear])
+  @@map("grade_subject_configs")
+}
 
 /// Singleton row (id is always 1) holding school-wide configuration editable
 /// from the admin System Settings page.
 model SystemSetting {
-  id                    Int      @id @default(1)
-  schoolName            String   @db.VarChar(150)
-  schoolAddress         String?  @db.VarChar(255)
-  contactEmail          String?  @db.VarChar(150)
-  contactPhone          String?  @db.VarChar(30)
-  currentAcademicYear   String   @db.VarChar(10)
-  promotionPassMark     Decimal  @default(50) @db.Decimal(5, 2)
-  minimumSubjectPassMark Decimal @default(40) @db.Decimal(5, 2)
-  updatedAt             DateTime @updatedAt
-  updatedByUserId       Int?
+  id                     Int      @id @default(1)
+  schoolName             String   @db.VarChar(150)
+  schoolAddress          String?  @db.VarChar(255)
+  contactEmail           String?  @db.VarChar(150)
+  contactPhone           String?  @db.VarChar(30)
+  currentAcademicYear    String   @db.VarChar(10)
+  updatedAt              DateTime @updatedAt
+  updatedByUserId        Int?
+  minimumSubjectPassMark Decimal  @default(40.00) @db.Decimal(5, 2)
+  promotionPassMark      Decimal  @default(50.00) @db.Decimal(5, 2)
+  updatedBy              User?    @relation(fields: [updatedByUserId], references: [userId])
 
-  updatedBy User? @relation(fields: [updatedByUserId], references: [userId], onDelete: SetNull)
-
+  @@index([updatedByUserId], map: "system_settings_updatedByUserId_fkey")
   @@map("system_settings")
+}
+
+enum RoleName {
+  ADMIN
+  DIRECTOR
+  VICE_DIRECTOR
+  TEACHER
+  STUDENT
+  PARENT
+}
+
+enum UserStatus {
+  ACTIVE
+  INACTIVE
+  LOCKED
+}
+
+enum Gender {
+  M
+  F
+}
+
+enum ClassSession {
+  MORNING
+  AFTERNOON
+}
+
+enum AdmissionType {
+  NEW_STUDENT
+  TRANSFER
+}
+
+enum StudentStatus {
+  ACTIVE
+  TRANSFERRED_OUT
+  GRADUATED
+  SUSPENDED
+}
+
+enum ParentRelationship {
+  FATHER
+  MOTHER
+  GUARDIAN
+  OTHER
+}
+
+enum AttendanceStatus {
+  PRESENT
+  ABSENT
+  LATE
+  EXCUSED
+}
+
+enum Semester {
+  SEMESTER_1
+  SEMESTER_2
+}
+
+enum GradeCategory {
+  QUIZ
+  ASSIGNMENT
+  TEST
+  MID_EXAM
+  FINAL_EXAM
+  OTHER
+}
+
+enum ConductRating {
+  EXCELLENT
+  VERY_GOOD
+  GOOD
+  SATISFACTORY
+  NEEDS_IMPROVEMENT
+}
+
+enum FinalizationStatus {
+  DRAFT
+  UNDER_REVIEW
+  APPROVED
+  FINALIZED
+}
+
+enum NotificationStatus {
+  READ
+  UNREAD
+}
+
+enum DayOfWeek {
+  MONDAY
+  TUESDAY
+  WEDNESDAY
+  THURSDAY
+  FRIDAY
+  SATURDAY
+}
+
+enum TimetableStatus {
+  DRAFT
+  PUBLISHED
+}
+
+enum SubmissionStatus {
+  NOT_SUBMITTED
+  SUBMITTED
+  LATE
+}
+
+enum EnrollmentDecision {
+  ACTIVE
+  PROMOTED
+  REPEATED
+  GRADUATED
+  TRANSFERRED_OUT
+  CORRECTED
+  REVERSED
+}
+
+enum EligibilityStatus {
+  ELIGIBLE
+  PENDING_REVIEW
+  NOT_ELIGIBLE
+}
+
+enum PromotionDecision {
+  PROMOTED
+  REPEATED
+  GRADUATED
+}
+
+enum BatchStatus {
+  DRAFT
+  SUBMITTED
+  APPROVED
+  REJECTED
+  COMPLETED
 }

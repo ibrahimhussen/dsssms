@@ -10,6 +10,7 @@ import { SelectField } from '../../components/ui/SelectField';
 import { TextField } from '../../components/ui/TextField';
 import { Badge } from '../../components/ui/Badge';
 import { LedgerRule } from '../../components/ui/LedgerRule';
+import { ErrorMessage } from '../../components/ui/ErrorMessage';
 import { CredentialsDialog } from '../../components/ui/CredentialsDialog';
 import type { CredentialsItem } from '../../components/ui/CredentialsDialog';
 import { MessageParentsModal } from './MessageParentsModal';
@@ -45,15 +46,19 @@ export function StudentsPage() {
   const [transferOutTarget, setTransferOutTarget] = useState<StudentSummary | null>(null);
   const [issuedCredentials, setIssuedCredentials] = useState<CredentialsItem[]>([]);
   const [isExporting, setIsExporting] = useState(false);
+  const [exportError, setExportError] = useState<string | null>(null);
   const [messageTarget, setMessageTarget] = useState<StudentSummary | null>(null);
 
-  const { data, isLoading } = useStudents(filters);
+  const { data, isLoading, error, refetch } = useStudents(filters);
   const { data: classroomsData } = useClassroomOptions();
 
   async function handleExport() {
     setIsExporting(true);
+    setExportError(null);
     try {
       await studentsApi.exportToExcel({ classroomId: filters.classroomId, search: filters.search });
+    } catch (err) {
+      setExportError(err instanceof Error ? err.message : 'Export failed. Please try again.');
     } finally {
       setIsExporting(false);
     }
@@ -160,11 +165,15 @@ export function StudentsPage() {
         </div>
       </div>
 
+      {exportError && <ErrorMessage error={new Error(exportError)} className="mb-4" />}
+
       <Table
         columns={columns}
         rows={data?.items ?? []}
         getRowKey={(s) => s.studentId}
         isLoading={isLoading}
+        error={error}
+        onRetry={() => void refetch()}
         emptyMessage="No students match these filters."
       />
 

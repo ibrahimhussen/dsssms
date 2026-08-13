@@ -23,7 +23,15 @@ router.post('/staff', authorize(RoleName.ADMIN), validate(createStaffSchema), us
 
 router.get('/', authorize(RoleName.ADMIN), validate(listUsersQuerySchema, 'query'), userController.list);
 
-router.get('/:id', authorize(RoleName.ADMIN), validate(userIdParamSchema, 'params'), userController.getById);
+// Directors and Vice Directors need to list teachers for classroom and assignment management.
+// This is a scoped read — it only returns users with the TEACHER role.
+router.get(
+  '/teachers',
+  authorize(RoleName.ADMIN, RoleName.DIRECTOR, RoleName.VICE_DIRECTOR),
+  userController.listTeachers
+);
+
+router.get('/:id', authorize(RoleName.ADMIN, RoleName.DIRECTOR, RoleName.VICE_DIRECTOR), validate(userIdParamSchema, 'params'), userController.getById);
 
 router.patch(
   '/:id/status',

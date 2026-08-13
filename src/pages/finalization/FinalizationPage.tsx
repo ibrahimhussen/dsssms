@@ -37,54 +37,42 @@ export function FinalizationPage() {
   const finalizeSubject = useFinalizeSubject();
   const finalizeClassroom = useFinalizeClassroom();
 
+  const [actionError, setActionError] = useState<string | null>(null);
+
   const handleSubmitForReview = async (teacherSubjectId: number) => {
+    setActionError(null);
     try {
-      await submitForReview.mutateAsync({
-        teacherSubjectId,
-        semester,
-        academicYear,
-      });
+      await submitForReview.mutateAsync({ teacherSubjectId, semester, academicYear });
     } catch (err) {
-      console.error('Submit failed:', err);
+      setActionError(err instanceof Error ? err.message : 'Submit failed. Please try again.');
     }
   };
 
   const handleReview = async (teacherSubjectId: number, approved: boolean, reviewNotes?: string) => {
+    setActionError(null);
     try {
-      await reviewSubject.mutateAsync({
-        teacherSubjectId,
-        semester,
-        academicYear,
-        approved,
-        reviewNotes,
-      });
+      await reviewSubject.mutateAsync({ teacherSubjectId, semester, academicYear, approved, reviewNotes });
     } catch (err) {
-      console.error('Review failed:', err);
+      setActionError(err instanceof Error ? err.message : 'Review action failed. Please try again.');
     }
   };
 
   const handleFinalizeSubject = async (teacherSubjectId: number) => {
+    setActionError(null);
     try {
-      await finalizeSubject.mutateAsync({
-        teacherSubjectId,
-        semester,
-        academicYear,
-      });
+      await finalizeSubject.mutateAsync({ teacherSubjectId, semester, academicYear });
     } catch (err) {
-      console.error('Finalize failed:', err);
+      setActionError(err instanceof Error ? err.message : 'Finalization failed. Please try again.');
     }
   };
 
   const handleFinalizeClassroom = async () => {
     if (!classroomId) return;
+    setActionError(null);
     try {
-      await finalizeClassroom.mutateAsync({
-        classroomId,
-        semester,
-        academicYear,
-      });
+      await finalizeClassroom.mutateAsync({ classroomId, semester, academicYear });
     } catch (err) {
-      console.error('Finalize classroom failed:', err);
+      setActionError(err instanceof Error ? err.message : 'Classroom finalization failed. Please try again.');
     }
   };
 
@@ -185,8 +173,8 @@ export function FinalizationPage() {
           onChange={(e) => setTeacherId(e.target.value ? Number(e.target.value) : undefined)}
         >
           <option value="">All teachers…</option>
-          {teachersData?.items.map((t) => (
-            <option key={t.userId} value={t.userId}>
+          {teachersData?.items.filter(t => t.teacherId).map((t) => (
+            <option key={t.teacherId} value={t.teacherId}>
               {t.fullName}
             </option>
           ))}
@@ -203,6 +191,12 @@ export function FinalizationPage() {
       {error && (
         <p className="mb-4 rounded-lg bg-danger-100 px-3 py-2.5 text-sm text-danger-600" role="alert">
           {error instanceof Error ? error.message : 'Failed to load finalization data.'}
+        </p>
+      )}
+
+      {actionError && (
+        <p className="mb-4 rounded-lg bg-danger-100 px-3 py-2.5 text-sm text-danger-600" role="alert">
+          {actionError}
         </p>
       )}
 

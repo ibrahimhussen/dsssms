@@ -16,7 +16,7 @@ export function ParentsPage() {
   const [isCreateOpen, setCreateOpen] = useState(false);
   const [issuedCredentials, setIssuedCredentials] = useState<CredentialsItem[]>([]);
 
-  const { data, isLoading } = useParents(filters);
+  const { data, isLoading, error, refetch } = useParents(filters);
 
   function updateFilter<K extends keyof ListParentsParams>(key: K, value: ListParentsParams[K]) {
     setFilters((prev) => ({ ...prev, [key]: value, page: 1 }));
@@ -65,6 +65,8 @@ export function ParentsPage() {
         rows={data?.items ?? []}
         getRowKey={(p) => p.parentId}
         isLoading={isLoading}
+        error={error}
+        onRetry={() => void refetch()}
         emptyMessage="No parents match this search."
       />
 

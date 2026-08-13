@@ -16,7 +16,7 @@ export function SubjectsPage() {
   const [pendingDelete, setPendingDelete] = useState<SubjectSummary | null>(null);
   const [deleteError, setDeleteError] = useState<string | null>(null);
 
-  const { data, isLoading } = useSubjects(filters);
+  const { data, isLoading, error, refetch } = useSubjects(filters);
   const deleteSubject = useDeleteSubject();
 
   function updateFilter<K extends keyof ListSubjectsParams>(key: K, value: ListSubjectsParams[K]) {
@@ -69,6 +69,8 @@ export function SubjectsPage() {
         rows={data?.items ?? []}
         getRowKey={(s) => s.subjectId}
         isLoading={isLoading}
+        error={error}
+        onRetry={() => void refetch()}
         emptyMessage="No subjects match this search."
       />
 

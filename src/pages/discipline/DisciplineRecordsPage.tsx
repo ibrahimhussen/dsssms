@@ -29,7 +29,7 @@ export function DisciplineRecordsPage() {
 
   const canManage = ['ADMIN', 'VICE_DIRECTOR', 'TEACHER'].includes(user?.role || '');
 
-  const { data: records, isLoading } = useDisciplineRecords({
+  const { data: records, isLoading, error: loadError, refetch: refetchRecords } = useDisciplineRecords({
     severity: severityFilter || undefined,
     status: statusFilter || undefined,
     search: search || undefined,
@@ -69,11 +69,14 @@ export function DisciplineRecordsPage() {
     setFormError(null);
   }
 
+  const [statusChangeError, setStatusChangeError] = useState<string | null>(null);
+
   async function handleStatusChange(id: number, status: DisciplineStatus) {
+    setStatusChangeError(null);
     try {
       await updateMutation.mutateAsync({ id, input: { status } });
     } catch (err) {
-      console.error(err);
+      setStatusChangeError(err instanceof Error ? err.message : 'Could not update status.');
     }
   }
 
@@ -192,11 +195,18 @@ export function DisciplineRecordsPage() {
           </SelectField>
         </div>
 
+      {statusChangeError && (
+        <p className="mb-3 rounded-lg bg-danger-100 px-3 py-2.5 text-sm text-danger-600" role="alert">
+          {statusChangeError}
+        </p>
+      )}
         <Table
           columns={columns}
           rows={records ?? []}
           getRowKey={(r) => r.id}
           isLoading={isLoading}
+          error={loadError}
+          onRetry={() => void refetchRecords()}
           emptyMessage="No discipline records match these criteria."
         />
       </Card>

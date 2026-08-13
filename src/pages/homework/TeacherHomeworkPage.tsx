@@ -17,9 +17,16 @@ export function TeacherHomeworkPage() {
 
   const openAssignment = assignments?.find((a) => a.assignmentId === openAssignmentId);
 
+  const [deleteError, setDeleteError] = useState<string | null>(null);
+
   async function handleDelete(assignmentId: number) {
     if (!window.confirm('Remove this assignment and all of its submission records?')) return;
-    await deleteHomework.mutateAsync(assignmentId);
+    setDeleteError(null);
+    try {
+      await deleteHomework.mutateAsync(assignmentId);
+    } catch (err) {
+      setDeleteError(err instanceof Error ? err.message : 'Could not delete this assignment.');
+    }
   }
 
   return (
@@ -29,6 +36,12 @@ export function TeacherHomeworkPage() {
         <Button onClick={() => setIsCreateOpen(true)}>New assignment</Button>
       </div>
       <LedgerRule />
+
+      {deleteError && (
+        <p className="mb-4 rounded-lg bg-danger-100 px-3 py-2.5 text-sm text-danger-600" role="alert">
+          {deleteError}
+        </p>
+      )}
 
       {isLoading ? (
         <p className="text-sm text-slate-500">Loading…</p>

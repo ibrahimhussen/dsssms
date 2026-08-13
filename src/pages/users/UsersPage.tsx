@@ -9,6 +9,7 @@ import { SelectField } from '../../components/ui/SelectField';
 import { TextField } from '../../components/ui/TextField';
 import { LedgerRule } from '../../components/ui/LedgerRule';
 import { CredentialsDialog } from '../../components/ui/CredentialsDialog';
+import { ErrorMessage } from '../../components/ui/ErrorMessage';
 import { CreateStaffModal } from './CreateStaffModal';
 import { UserPermissionsModal } from './UserPermissionsModal';
 import { getRoleLabel } from '../../lib/role-labels';
@@ -30,22 +31,34 @@ export function UsersPage() {
   const [issuedCredentials, setIssuedCredentials] = useState<CreateStaffResult | null>(null);
   const [resetResult, setResetResult] = useState<{ username: string; temporaryPassword: string } | null>(null);
 
-  const { data, isLoading } = useUsers(filters);
+  const { data, isLoading, error, refetch } = useUsers(filters);
   const updateStatus = useUpdateUserStatus();
   const resetPassword = useResetUserPassword();
+  const [statusError, setStatusError] = useState<string | null>(null);
+  const [resetError, setResetError] = useState<string | null>(null);
 
   function updateFilter<K extends keyof ListUsersParams>(key: K, value: ListUsersParams[K]) {
     setFilters((prev) => ({ ...prev, [key]: value, page: 1 }));
   }
 
   async function handleToggleStatus(user: UserSummary) {
+    setStatusError(null);
     const nextStatus: UserStatus = user.status === 'ACTIVE' ? 'INACTIVE' : 'ACTIVE';
-    await updateStatus.mutateAsync({ userId: user.userId, status: nextStatus });
+    try {
+      await updateStatus.mutateAsync({ userId: user.userId, status: nextStatus });
+    } catch (err) {
+      setStatusError(err instanceof Error ? err.message : 'Could not update status.');
+    }
   }
 
   async function handleResetPassword(user: UserSummary) {
-    const result = await resetPassword.mutateAsync(user.userId);
-    setResetResult(result);
+    setResetError(null);
+    try {
+      const result = await resetPassword.mutateAsync(user.userId);
+      setResetResult(result);
+    } catch (err) {
+      setResetError(err instanceof Error ? err.message : 'Could not reset password.');
+    }
   }
 
   const columns: Column<UserSummary>[] = [
@@ -120,11 +133,16 @@ export function UsersPage() {
         <Button onClick={() => setCreateOpen(true)}>Add staff</Button>
       </div>
 
+      {statusError && <ErrorMessage error={new Error(statusError)} className="mb-4" />}
+      {resetError && <ErrorMessage error={new Error(resetError)} className="mb-4" />}
+
       <Table
         columns={columns}
         rows={data?.items ?? []}
         getRowKey={(u) => u.userId}
         isLoading={isLoading}
+        error={error}
+        onRetry={() => void refetch()}
         emptyMessage="No staff accounts match these filters."
       />
 
