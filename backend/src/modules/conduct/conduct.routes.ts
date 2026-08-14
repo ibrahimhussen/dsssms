@@ -4,6 +4,7 @@ import { authenticate } from '../../middlewares/authenticate.middleware';
 import { authorize } from '../../middlewares/authorize.middleware';
 import { validate } from '../../middlewares/validate.middleware';
 import {
+  classroomConductParamsSchema,
   classroomConductQuerySchema,
   conductIdSchema,
   createConductSchema,
@@ -35,24 +36,26 @@ router.put(
 
 // Get student conduct (Student, Parent, Vice Director, Director)
 router.get(
-  '/student/:studentId/:classroomId/:semester/:academicYear',
+  '/student/:studentId/:classroomId/:semester',
   authorize(RoleName.STUDENT, RoleName.PARENT, RoleName.VICE_DIRECTOR, RoleName.DIRECTOR),
   conductController.getStudentConduct
 );
 
 // Get classroom conducts (Vice Director, Director only)
 router.get(
-  '/classroom/:classroomId/:semester/:academicYear',
+  '/classroom/:classroomId/:semester',
   authorize(RoleName.VICE_DIRECTOR, RoleName.DIRECTOR),
-  validate(classroomConductQuerySchema, 'params'),
+  validate(classroomConductParamsSchema, 'params'),
+  validate(classroomConductQuerySchema, 'query'),
   conductController.getClassroomConducts
 );
 
 // Get classroom conduct summary (Vice Director, Director only)
 router.get(
-  '/classroom/:classroomId/:semester/:academicYear/summary',
+  '/classroom/:classroomId/:semester/summary',
   authorize(RoleName.VICE_DIRECTOR, RoleName.DIRECTOR),
-  validate(classroomConductQuerySchema, 'params'),
+  validate(classroomConductParamsSchema, 'params'),
+  validate(classroomConductQuerySchema, 'query'),
   conductController.getClassroomConductSummary
 );
 

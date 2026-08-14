@@ -9,6 +9,8 @@ import {
 } from '../../core/errors/app-error';
 import { getPaginationParams, buildPaginationMeta, PaginationQuery } from '../../core/http/pagination';
 import { recordAudit } from '../../core/audit/audit-recorder';
+import { createAutoNotification, notifyStudentParents } from '../notifications/notification.service';
+import { NotificationCategory } from '@prisma/client';
 import { AuthenticatedUser } from '../../middlewares/authenticate.middleware';
 import {
   CreateBatchInput,
@@ -564,6 +566,43 @@ export class PromotionService {
         studentCount: batch.entries.length,
       },
     });
+
+    // ── Auto-notify each student and their parents of the promotion decision ──
+    for (const entry of batch.entries) {
+      const student = await prisma.student.findUnique({
+        where: { studentId: entry.studentId },
+        select: { userId: true, firstName: true, lastName: true },
+      });
+      if (!student) continue;
+
+      const decisionLabel =
+        entry.decision === PromotionDecision.PROMOTED  ? 'promoted to the next grade' :
+        entry.decision === PromotionDecision.GRADUATED ? 'recorded as graduated'      :
+                                                          'required to repeat the year';
+
+      const dedupBase = `promotion:batch:${batchId}:student:${entry.studentId}`;
+
+      await createAutoNotification({
+        recipientUserId:  student.userId,
+        studentId:        entry.studentId,
+        category:         NotificationCategory.PROMOTION,
+        title:            'Promotion decision available',
+        message:          `Your promotion decision for ${batch.sourceAcademicYear} has been finalized. You have been ${decisionLabel}.`,
+        relatedEntity:    'PromotionBatch',
+        relatedEntityId:  String(batchId),
+        deduplicationKey: `${dedupBase}:student-notif`,
+      });
+
+      await notifyStudentParents({
+        studentId:       entry.studentId,
+        category:        NotificationCategory.PROMOTION,
+        title:           `${student.firstName} ${student.lastName} — promotion decision`,
+        message:         `The promotion decision for ${student.firstName} ${student.lastName} for ${batch.sourceAcademicYear} has been finalized. They have been ${decisionLabel}.`,
+        relatedEntity:   'PromotionBatch',
+        relatedEntityId: String(batchId),
+        deduplicationKeySuffix: dedupBase,
+      });
+    }
 
     const updated = await assertBatchExists(batchId);
     return toBatchDetailDto(updated);

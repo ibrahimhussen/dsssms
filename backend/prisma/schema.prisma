@@ -23,7 +23,8 @@ model User {
   auditLogs            AuditLog[]
   finalizedClassrooms  ClassroomFinalization[] @relation("ClassroomFinalizer")
   director             Director?
-  notifications        Notification[]
+  notifications        Notification[]  @relation("NotificationRecipient")
+  sentNotifications    Notification[]  @relation("NotificationSender")
   parent               Parent?
   refreshTokens        RefreshToken[]
   assignedConducts     StudentConduct[]        @relation("ConductAssigner")
@@ -35,6 +36,9 @@ model User {
   permissions          UserPermission[]
   role                 Role                    @relation(fields: [roleId], references: [roleId])
   viceDirector         ViceDirector?
+  preparedBatches      PromotionBatch[]        @relation("BatchPreparer")
+  approvedBatches      PromotionBatch[]        @relation("BatchApprover")
+  rejectedBatches      PromotionBatch[]        @relation("BatchRejecter")
 
   @@index([roleId])
   @@map("users")
@@ -153,6 +157,10 @@ model Classroom {
   homeroomTeacher    Teacher?                @relation("HomeroomTeacher", fields: [homeroomTeacherId], references: [teacherId])
   students           Student[]
   subjectAssignments TeacherSubject[]
+  conductRecords     StudentConduct[]
+  promotionBatches   PromotionBatch[]
+  promotionTargets   PromotionEntry[]  @relation("PromotionTarget")
+  enrollments        StudentEnrollment[]
 
   @@unique([className, section, academicYear])
   @@index([homeroomTeacherId], map: "classrooms_homeroomTeacherId_fkey")
@@ -221,6 +229,9 @@ model Student {
   notifications             Notification[]
   conductRecords            StudentConduct[]
   parentLinks               StudentParentLink[]
+  enrollments               StudentEnrollment[]
+  promotionEntries          PromotionEntry[]
+  attendanceRecords         Attendance[]
   classroom                 Classroom              @relation(fields: [classroomId], references: [classroomId])
   user                      User                   @relation(fields: [userId], references: [userId], onDelete: Cascade)
 
@@ -267,6 +278,7 @@ model Attendance {
   updatedAt      DateTime         @updatedAt
   isLocked       Boolean          @default(false)
   period         Int              @default(0)
+  student        Student          @relation(fields: [studentId], references: [studentId], onDelete: Cascade)
   teacher        Teacher          @relation(fields: [teacherId], references: [teacherId])
 
   @@unique([studentId, attendanceDate, period])
@@ -345,8 +357,10 @@ model StudentConduct {
   assignedAt     DateTime      @default(now())
   notes          String?       @db.VarChar(500)
   updatedAt      DateTime      @updatedAt
-  assignedByUser User          @relation("ConductAssigner", fields: [assignedBy], references: [userId], onDelete: Cascade)
-  student        Student       @relation(fields: [studentId], references: [studentId], onDelete: Cascade)
+
+  assignedByUser User      @relation("ConductAssigner", fields: [assignedBy], references: [userId], onDelete: Cascade)
+  student        Student   @relation(fields: [studentId], references: [studentId], onDelete: Cascade)
+  classroom      Classroom @relation(fields: [classroomId], references: [classroomId])
 
   @@unique([studentId, classroomId, academicYear, semester])
   @@index([classroomId, academicYear, semester])
@@ -408,18 +422,28 @@ model ClassroomFinalization {
 }
 
 model Notification {
-  notificationId  Int                @id @default(autoincrement())
-  studentId       Int?
-  recipientUserId Int?
-  title           String             @db.VarChar(150)
-  message         String             @db.Text
-  sentDate        DateTime           @default(now())
-  status          NotificationStatus @default(UNREAD)
-  recipientUser   User?              @relation(fields: [recipientUserId], references: [userId], onDelete: Cascade)
-  student         Student?           @relation(fields: [studentId], references: [studentId], onDelete: Cascade)
+  notificationId    Int                  @id @default(autoincrement())
+  recipientUserId   Int?
+  senderUserId      Int?
+  studentId         Int?
+  category          NotificationCategory @default(ANNOUNCEMENT)
+  title             String               @db.VarChar(150)
+  message           String               @db.Text
+  sentDate          DateTime             @default(now())
+  status            NotificationStatus   @default(UNREAD)
+  relatedEntity     String?              @db.VarChar(100)  // e.g. "ClassroomFinalization"
+  relatedEntityId   String?              @db.VarChar(64)   // e.g. "42"
+  deduplicationKey  String?              @unique @db.VarChar(255) // prevents duplicate auto-notifications
+
+  recipientUser User?    @relation("NotificationRecipient", fields: [recipientUserId], references: [userId], onDelete: Cascade)
+  senderUser    User?    @relation("NotificationSender",    fields: [senderUserId],    references: [userId], onDelete: SetNull)
+  student       Student? @relation(fields: [studentId], references: [studentId], onDelete: Cascade)
 
   @@index([studentId])
   @@index([recipientUserId])
+  @@index([senderUserId])
+  @@index([category])
+  @@index([deduplicationKey])
   @@map("notifications")
 }
 
@@ -497,6 +521,12 @@ model StudentEnrollment {
   createdAt      DateTime           @default(now())
   updatedAt      DateTime           @updatedAt
 
+  student      Student            @relation(fields: [studentId], references: [studentId], onDelete: Cascade)
+  classroom    Classroom          @relation(fields: [classroomId], references: [classroomId])
+  batch        PromotionBatch?    @relation(fields: [batchId], references: [id])
+  promotedFrom StudentEnrollment? @relation("EnrollmentHistory", fields: [promotedFromId], references: [id])
+  successors   StudentEnrollment[] @relation("EnrollmentHistory")
+
   @@unique([studentId, academicYear])
   @@index([classroomId])
   @@index([batchId])
@@ -523,6 +553,13 @@ model PromotionBatch {
   createdAt          DateTime    @default(now())
   updatedAt          DateTime    @updatedAt
 
+  sourceClassroom Classroom          @relation(fields: [sourceClassroomId], references: [classroomId])
+  preparedBy      User               @relation("BatchPreparer", fields: [preparedById], references: [userId])
+  approvedBy      User?              @relation("BatchApprover", fields: [approvedById], references: [userId])
+  rejectedBy      User?              @relation("BatchRejecter", fields: [rejectedById], references: [userId])
+  entries         PromotionEntry[]
+  enrollments     StudentEnrollment[]
+
   @@map("promotion_batches")
 }
 
@@ -540,6 +577,10 @@ model PromotionEntry {
   overrideReason    String?           @db.VarChar(500)
   createdAt         DateTime          @default(now())
   updatedAt         DateTime          @updatedAt
+
+  batch           PromotionBatch @relation(fields: [batchId], references: [id], onDelete: Cascade)
+  student         Student        @relation(fields: [studentId], references: [studentId])
+  targetClassroom Classroom?     @relation("PromotionTarget", fields: [targetClassroomId], references: [classroomId])
 
   @@unique([batchId, studentId])
   @@index([batchId])
@@ -664,6 +705,15 @@ enum FinalizationStatus {
   UNDER_REVIEW
   APPROVED
   FINALIZED
+}
+
+enum NotificationCategory {
+  SYSTEM
+  ACADEMIC
+  ATTENDANCE
+  REGISTRATION
+  PROMOTION
+  ANNOUNCEMENT
 }
 
 enum NotificationStatus {

@@ -43,13 +43,17 @@ export class ConductController {
   async getStudentConduct(req: Request & { user?: AuthenticatedUser }, res: Response, next: NextFunction) {
     try {
       if (!req.user) throw new UnauthorizedError();
-      const { studentId, classroomId, semester, academicYear } = req.params;
+      const { studentId, classroomId, semester } = req.params;
+      const academicYear = req.query.academicYear as string;
+      if (!academicYear) {
+        return res.status(400).json({ success: false, message: 'academicYear query parameter is required' });
+      }
       const result = await conductService.getStudentConduct(
         req.user,
-        Number(typeof studentId === 'string' ? studentId : studentId[0]),
-        Number(typeof classroomId === 'string' ? classroomId : classroomId[0]),
-        typeof semester === 'string' ? semester : semester[0] as any,
-        typeof academicYear === 'string' ? academicYear : academicYear[0]
+        Number(studentId),
+        Number(classroomId),
+        semester as any,
+        academicYear
       );
       res.json({ success: true, data: result });
     } catch (error) {
@@ -64,12 +68,16 @@ export class ConductController {
   async getClassroomConducts(req: Request & { user?: AuthenticatedUser }, res: Response, next: NextFunction) {
     try {
       if (!req.user) throw new UnauthorizedError();
-      const { classroomId, semester, academicYear } = req.params;
+      const { classroomId, semester } = req.params;
+      const academicYear = req.query.academicYear as string;
+      if (!academicYear) {
+        return res.status(400).json({ success: false, message: 'academicYear query parameter is required' });
+      }
       const result = await conductService.getClassroomConducts(
         req.user,
-        Number(typeof classroomId === 'string' ? classroomId : classroomId[0]),
-        typeof semester === 'string' ? semester : semester[0] as any,
-        typeof academicYear === 'string' ? academicYear : academicYear[0]
+        Number(classroomId),
+        semester as any,
+        academicYear
       );
       res.json({ success: true, data: result });
     } catch (error) {
@@ -84,12 +92,16 @@ export class ConductController {
   async getClassroomConductSummary(req: Request & { user?: AuthenticatedUser }, res: Response, next: NextFunction) {
     try {
       if (!req.user) throw new UnauthorizedError();
-      const { classroomId, semester, academicYear } = req.params;
+      const { classroomId, semester } = req.params;
+      const academicYear = req.query.academicYear as string;
+      if (!academicYear) {
+        return res.status(400).json({ success: false, message: 'academicYear query parameter is required' });
+      }
       const result = await conductService.getClassroomConductSummary(
         req.user,
-        Number(typeof classroomId === 'string' ? classroomId : classroomId[0]),
-        typeof semester === 'string' ? semester : semester[0] as any,
-        typeof academicYear === 'string' ? academicYear : academicYear[0]
+        Number(classroomId),
+        semester as any,
+        academicYear
       );
       res.json({ success: true, data: result });
     } catch (error) {

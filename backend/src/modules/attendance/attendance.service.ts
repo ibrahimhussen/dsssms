@@ -5,6 +5,8 @@ import { getPaginationParams, buildPaginationMeta, PaginationQuery } from '../..
 import { teacherSubjectService } from '../teacher-subjects/teacher-subject.service';
 import { assertCanAccessStudentRecords } from '../../core/authorization/student-access';
 import { AuthenticatedUser } from '../../middlewares/authenticate.middleware';
+import { notifyStudentParents } from '../notifications/notification.service';
+import { NotificationCategory } from '@prisma/client';
 import {
   BulkMarkAttendanceInput,
   ClassroomAttendanceQuery,
@@ -100,7 +102,42 @@ export class AttendanceService {
       )
     );
 
+    // Notify parents of absent students (daily roll call only — period 0)
+    if (input.period === 0) {
+      void this.notifyAbsentStudentParents(input.records, actor.userId, input.attendanceDate);
+    }
+
     return { classroomId: input.classroomId, attendanceDate: input.attendanceDate, period: input.period, recordsSaved: input.records.length };
+  }
+
+  private async notifyAbsentStudentParents(
+    records: { studentId: number; status: AttendanceStatus }[],
+    teacherUserId: number,
+    attendanceDate: Date
+  ): Promise<void> {
+    const absentIds = records
+      .filter((r) => r.status === AttendanceStatus.ABSENT)
+      .map((r) => r.studentId);
+    if (absentIds.length === 0) return;
+
+    const dateStr = attendanceDate instanceof Date
+      ? attendanceDate.toLocaleDateString()
+      : String(attendanceDate);
+
+    await Promise.all(
+      absentIds.map((studentId) =>
+        notifyStudentParents({
+          studentId,
+          senderUserId:    teacherUserId,
+          category:        NotificationCategory.ATTENDANCE,
+          title:           'Student absence recorded',
+          message:         `Your child was marked absent on ${dateStr}. Please contact the school if this is unexpected.`,
+          relatedEntity:   'Attendance',
+          relatedEntityId: String(studentId),
+          deduplicationKeySuffix: `absence:${studentId}:${dateStr}`,
+        })
+      )
+    );
   }
 
   async updateAttendance(actor: AuthenticatedUser, attendanceId: number, input: UpdateAttendanceInput): Promise<AttendanceRecordDto> {

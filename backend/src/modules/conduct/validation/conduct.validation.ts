@@ -24,7 +24,17 @@ export const conductIdSchema = z.object({
   id: z.coerce.number().int().positive(),
 });
 
+export const classroomConductParamsSchema = z.object({
+  classroomId: z.coerce.number().int().positive(),
+  semester: z.nativeEnum(Semester),
+});
+
 export const classroomConductQuerySchema = z.object({
+  academicYear: academicYearField,
+});
+
+// Keep the combined schema for any callers that still use it
+export const classroomConductFullSchema = z.object({
   classroomId: z.coerce.number().int().positive(),
   semester: z.nativeEnum(Semester),
   academicYear: academicYearField,

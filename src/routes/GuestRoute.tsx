@@ -1,5 +1,6 @@
 import { Navigate, Outlet } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
+import { getRoleDashboardPath } from '../lib/role-redirect';
 
 export function GuestRoute() {
   const { user, isLoading } = useAuth();
@@ -14,7 +15,10 @@ export function GuestRoute() {
   }
 
   if (user) {
-    return <Navigate to="/" replace />;
+    // Redirect to the role-specific dashboard instead of always '/'.
+    // All roles currently resolve to '/' (DashboardPage dispatches internally),
+    // but the explicit call future-proofs this for role-specific landing routes.
+    return <Navigate to={getRoleDashboardPath(user.role)} replace />;
   }
 
   return <Outlet />;

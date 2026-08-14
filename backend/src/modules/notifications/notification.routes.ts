@@ -23,6 +23,7 @@ const OVERSIGHT_AND_TEACHER = [...OVERSIGHT_ROLES, RoleName.TEACHER];
 
 // Inbox routes — declared before '/:id' so they aren't swallowed by the param route.
 router.get('/me', validate(listNotificationsQuerySchema, 'query'), notificationController.getMyNotifications);
+router.get('/unread-count', notificationController.getUnreadCount);
 router.patch('/read-all', notificationController.markAllAsRead);
 
 router.post('/', authorize(...OVERSIGHT_ROLES), validate(createNotificationSchema), notificationController.send);

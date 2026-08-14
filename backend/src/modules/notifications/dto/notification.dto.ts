@@ -1,21 +1,26 @@
-import { NotificationStatus } from '@prisma/client';
+import { NotificationCategory, NotificationStatus } from '@prisma/client';
 
 export interface NotificationDto {
-  notificationId: number;
-  title: string;
-  message: string;
-  sentDate: string;
-  status: NotificationStatus;
+  notificationId:  number;
+  title:           string;
+  message:         string;
+  sentDate:        string;
+  status:          NotificationStatus;
+  category:        NotificationCategory;
   recipientUserId: number | null;
-  student: { studentId: number; firstName: string; lastName: string } | null;
+  senderUserId:    number | null;
+  senderName:      string | null;
+  relatedEntity:   string | null;
+  relatedEntityId: string | null;
+  student:         { studentId: number; firstName: string; lastName: string } | null;
 }
 
 export interface SendToParentsResultDto {
-  studentId: number;
+  studentId:         number;
   notificationsSent: number;
 }
 
 export interface BroadcastResultDto {
-  audience: string;
+  audience:          string;
   notificationsSent: number;
 }

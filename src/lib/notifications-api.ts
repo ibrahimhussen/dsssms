@@ -19,9 +19,14 @@ export const notificationsApi = {
     );
     if (!data.success) throw new Error(data.message);
     return {
-      items: data.data.items,
+      items:       data.data.items,
       unreadCount: data.data.unreadCount,
-      meta: data.pagination ?? { page: 1, limit: data.data.items.length, totalItems: data.data.items.length, totalPages: 1 },
+      meta:        data.pagination ?? {
+        page: 1,
+        limit: data.data.items.length,
+        totalItems: data.data.items.length,
+        totalPages: 1,
+      },
     };
   },
 

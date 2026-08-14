@@ -1,23 +1,36 @@
 import type { PaginationParams } from './pagination';
 
-export type NotificationStatus = 'READ' | 'UNREAD';
+export type NotificationStatus   = 'READ' | 'UNREAD';
+export type NotificationCategory =
+  | 'SYSTEM'
+  | 'ACADEMIC'
+  | 'ATTENDANCE'
+  | 'REGISTRATION'
+  | 'PROMOTION'
+  | 'ANNOUNCEMENT';
 
 export interface NotificationRecord {
-  notificationId: number;
-  title: string;
-  message: string;
-  sentDate: string;
-  status: NotificationStatus;
+  notificationId:  number;
+  title:           string;
+  message:         string;
+  sentDate:        string;
+  status:          NotificationStatus;
+  category:        NotificationCategory;
   recipientUserId: number | null;
-  student: { studentId: number; firstName: string; lastName: string } | null;
+  senderUserId:    number | null;
+  senderName:      string | null;
+  relatedEntity:   string | null;
+  relatedEntityId: string | null;
+  student:         { studentId: number; firstName: string; lastName: string } | null;
 }
 
 export interface ListNotificationsParams extends PaginationParams {
-  status?: NotificationStatus;
+  status?:   NotificationStatus;
+  category?: NotificationCategory;
 }
 
 export interface SendToParentsInput {
-  title: string;
+  title:   string;
   message: string;
 }
 
@@ -30,13 +43,14 @@ export type BroadcastAudience =
   | 'CLASSROOM_PARENTS';
 
 export interface BroadcastNotificationInput {
-  audience: BroadcastAudience;
+  audience:    BroadcastAudience;
   classroomId?: number;
-  title: string;
-  message: string;
+  category?:   NotificationCategory;
+  title:       string;
+  message:     string;
 }
 
 export interface BroadcastResult {
-  audience: BroadcastAudience;
+  audience:          BroadcastAudience;
   notificationsSent: number;
 }

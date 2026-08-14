@@ -15,8 +15,9 @@ import {
 
 export class NotificationController {
   send = asyncHandler(async (req: Request, res: Response) => {
+    if (!req.user) throw new UnauthorizedError();
     const input = req.body as CreateNotificationInput;
-    const notification = await notificationService.send(input);
+    const notification = await notificationService.send(req.user, input);
     ApiResponse.success(res, { statusCode: 201, message: 'Notification sent', data: notification });
   });
 
@@ -25,7 +26,11 @@ export class NotificationController {
     const { studentId } = req.params as unknown as StudentIdParam;
     const input = req.body as SendToParentsInput;
     const result = await notificationService.sendToParents(req.user, studentId, input);
-    ApiResponse.success(res, { statusCode: 201, message: `Notification sent to ${result.notificationsSent} parent(s)`, data: result });
+    ApiResponse.success(res, {
+      statusCode: 201,
+      message: `Notification sent to ${result.notificationsSent} parent(s)`,
+      data: result,
+    });
   });
 
   broadcast = asyncHandler(async (req: Request, res: Response) => {
@@ -42,8 +47,21 @@ export class NotificationController {
   getMyNotifications = asyncHandler(async (req: Request, res: Response) => {
     if (!req.user) throw new UnauthorizedError();
     const query = req.query as unknown as ListNotificationsQuery;
-    const { items, meta, unreadCount } = await notificationService.getMyNotifications(req.user.userId, query);
-    ApiResponse.success(res, { message: 'Notifications retrieved', data: { items, unreadCount }, pagination: meta });
+    const { items, meta, unreadCount } = await notificationService.getMyNotifications(
+      req.user.userId,
+      query
+    );
+    ApiResponse.success(res, {
+      message: 'Notifications retrieved',
+      data: { items, unreadCount },
+      pagination: meta,
+    });
+  });
+
+  getUnreadCount = asyncHandler(async (req: Request, res: Response) => {
+    if (!req.user) throw new UnauthorizedError();
+    const count = await notificationService.getUnreadCount(req.user.userId);
+    ApiResponse.success(res, { message: 'Unread count retrieved', data: { unreadCount: count } });
   });
 
   markAsRead = asyncHandler(async (req: Request, res: Response) => {
@@ -56,7 +74,10 @@ export class NotificationController {
   markAllAsRead = asyncHandler(async (req: Request, res: Response) => {
     if (!req.user) throw new UnauthorizedError();
     const result = await notificationService.markAllAsRead(req.user.userId);
-    ApiResponse.success(res, { message: `${result.updatedCount} notification(s) marked as read`, data: result });
+    ApiResponse.success(res, {
+      message: `${result.updatedCount} notification(s) marked as read`,
+      data: result,
+    });
   });
 
   delete = asyncHandler(async (req: Request, res: Response) => {

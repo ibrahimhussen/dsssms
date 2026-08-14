@@ -78,12 +78,16 @@ export class FinalizationController {
   async getSubjectFinalization(req: Request & { user?: AuthenticatedUser }, res: Response, next: NextFunction) {
     try {
       if (!req.user) throw new UnauthorizedError();
-      const { teacherSubjectId, semester, academicYear } = req.params;
+      const { teacherSubjectId, semester } = req.params;
+      const academicYear = req.query.academicYear as string;
+      if (!academicYear) {
+        return res.status(400).json({ success: false, message: 'academicYear query parameter is required' });
+      }
       const result = await finalizationService.getSubjectFinalization(
         req.user,
-        Number(typeof teacherSubjectId === 'string' ? teacherSubjectId : teacherSubjectId[0]),
-        typeof semester === 'string' ? semester : semester[0] as any,
-        typeof academicYear === 'string' ? academicYear : academicYear[0]
+        Number(teacherSubjectId),
+        semester as any,
+        academicYear
       );
       res.json({ success: true, data: result });
     } catch (error) {
@@ -98,12 +102,16 @@ export class FinalizationController {
   async getClassroomFinalization(req: Request & { user?: AuthenticatedUser }, res: Response, next: NextFunction) {
     try {
       if (!req.user) throw new UnauthorizedError();
-      const { classroomId, semester, academicYear } = req.params;
+      const { classroomId, semester } = req.params;
+      const academicYear = req.query.academicYear as string;
+      if (!academicYear) {
+        return res.status(400).json({ success: false, message: 'academicYear query parameter is required' });
+      }
       const result = await finalizationService.getClassroomFinalization(
         req.user,
-        Number(typeof classroomId === 'string' ? classroomId : classroomId[0]),
-        typeof semester === 'string' ? semester : semester[0] as any,
-        typeof academicYear === 'string' ? academicYear : academicYear[0]
+        Number(classroomId),
+        semester as any,
+        academicYear
       );
       res.json({ success: true, data: result });
     } catch (error) {
@@ -118,12 +126,16 @@ export class FinalizationController {
   async getClassroomSubjectFinalizations(req: Request & { user?: AuthenticatedUser }, res: Response, next: NextFunction) {
     try {
       if (!req.user) throw new UnauthorizedError();
-      const { classroomId, semester, academicYear } = req.params;
+      const { classroomId, semester } = req.params;
+      const academicYear = req.query.academicYear as string;
+      if (!academicYear) {
+        return res.status(400).json({ success: false, message: 'academicYear query parameter is required' });
+      }
       const result = await finalizationService.getClassroomSubjectFinalizations(
         req.user,
-        Number(typeof classroomId === 'string' ? classroomId : classroomId[0]),
-        typeof semester === 'string' ? semester : semester[0] as any,
-        typeof academicYear === 'string' ? academicYear : academicYear[0]
+        Number(classroomId),
+        semester as any,
+        academicYear
       );
       res.json({ success: true, data: result });
     } catch (error) {

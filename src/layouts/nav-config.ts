@@ -1,84 +1,238 @@
 import type { RoleName } from '../types/auth';
 import type { IconType } from 'react-icons';
 import {
-  MdDashboard, MdPeople, MdAdminPanelSettings, MdSettings, MdHistory,
+  MdDashboard, MdPeople, MdSettings, MdHistory,
   MdBackup, MdMeetingRoom, MdMenuBook, MdAssignment,
   MdSchedule, MdFactCheck, MdAssessment, MdDescription,
   MdTrendingUp, MdGavel, MdCampaign, MdNotifications,
-  MdAccountCircle, MdLogout, MdUpgrade,
+  MdAccountCircle, MdLogout, MdUpgrade, MdFolder,
+  MdManageAccounts, MdSchool, MdAccessTime, MdGroups,
 } from 'react-icons/md';
 import { FaUserGraduate, FaChalkboardTeacher, FaUsers } from 'react-icons/fa';
 
+// ── Types ─────────────────────────────────────────────────────────────────────
+
 export interface NavItem {
-  label: string;
-  path: string;
-  allowedRoles?: RoleName[]; // omitted = visible to every authenticated role
-  requiredPermission?: string; // if user has this permission, they bypass allowedRoles
-  icon: IconType;
-  isLogout?: boolean;         // rendered as a button instead of a link
+  type:               'item';
+  label:              string;
+  path:               string;
+  allowedRoles?:      RoleName[];
+  requiredPermission?: string;
+  icon:               IconType;
+  isLogout?:          boolean;
 }
 
-// School-management oversight roles (Director + Vice Director).
-// ADMIN is excluded — system admin handles technical concerns, not school ops.
+export interface NavGroup {
+  type:          'group';
+  label:         string;
+  icon:          IconType;
+  allowedRoles:  RoleName[];   // group is only rendered when user role is in this list
+  children:      NavItem[];
+}
+
+export type NavEntry = NavItem | NavGroup;
+
+// ── Shared role sets ──────────────────────────────────────────────────────────
+
 const SCHOOL_MGMT: RoleName[] = ['DIRECTOR', 'VICE_DIRECTOR'];
 
-export const NAV_ITEMS: NavItem[] = [
-  // ── Universal ──────────────────────────────────────────────────────────────
-  { label: 'Dashboard', path: '/', icon: MdDashboard },
+// ── Helpers ───────────────────────────────────────────────────────────────────
 
-  // ── System Administrator only ───────────────────────────────────────────────
-  { label: 'Staff Accounts',            path: '/users',           allowedRoles: ['ADMIN'], icon: MdPeople },
-  { label: 'User Roles & Permissions',  path: '/users',           allowedRoles: ['ADMIN'], icon: MdAdminPanelSettings },
-  { label: 'System Settings',           path: '/system-settings', allowedRoles: ['ADMIN'], icon: MdSettings },
-  { label: 'Audit Logs',                path: '/audit-logs',      allowedRoles: ['ADMIN'], icon: MdHistory },
-  { label: 'Backup & Restore',          path: '/backups',         allowedRoles: ['ADMIN'], icon: MdBackup },
+function item(
+  label: string,
+  path: string,
+  icon: IconType,
+  opts: { allowedRoles?: RoleName[]; requiredPermission?: string; isLogout?: boolean } = {}
+): NavItem {
+  return { type: 'item', label, path, icon, ...opts };
+}
 
-  // ── Director + Vice Director (school management) ────────────────────────────
-  { label: 'Students',             path: '/students',             allowedRoles: SCHOOL_MGMT, requiredPermission: 'students:view', icon: FaUserGraduate },
-  { label: 'Teachers',             path: '/teachers',             allowedRoles: [...SCHOOL_MGMT, 'ADMIN'], icon: FaChalkboardTeacher },
-  // Parents: Director only (Vice Director does not manage parent accounts)
-  { label: 'Parents',              path: '/parents',              allowedRoles: ['DIRECTOR'], icon: FaUsers },
-  { label: 'Classrooms',           path: '/classrooms',           allowedRoles: SCHOOL_MGMT, icon: MdMeetingRoom },
-  { label: 'Subjects',             path: '/subjects',             allowedRoles: SCHOOL_MGMT, icon: MdMenuBook },
-  { label: 'Grade Subject Config', path: '/grade-subject-config', allowedRoles: [...SCHOOL_MGMT, 'ADMIN'], icon: MdAssignment },
-  { label: 'Teaching Assignments', path: '/teaching-assignments', allowedRoles: SCHOOL_MGMT, icon: MdAssignment },
-  { label: 'Class Timetable',      path: '/timetable-admin',      allowedRoles: SCHOOL_MGMT, icon: MdSchedule },
-  { label: 'Attendance',           path: '/attendance',           allowedRoles: SCHOOL_MGMT, icon: MdFactCheck },
-  { label: 'Attendance Reports',   path: '/attendance-reports',   allowedRoles: SCHOOL_MGMT, icon: MdAssessment },
-  { label: 'Academic Reports',     path: '/academic-reports',     allowedRoles: SCHOOL_MGMT, icon: MdDescription },
-  { label: 'Academic Register',   path: '/academic-register',   allowedRoles: [...SCHOOL_MGMT, 'ADMIN'], icon: MdMenuBook },
-  { label: 'Results Finalization', path: '/finalization',         allowedRoles: [...SCHOOL_MGMT, 'TEACHER', 'ADMIN'], icon: MdFactCheck },
-  { label: 'Student Conduct',     path: '/conduct',             allowedRoles: SCHOOL_MGMT, icon: MdGavel },
-  { label: 'School Performance',   path: '/school-performance',   allowedRoles: SCHOOL_MGMT, icon: MdTrendingUp },
-  { label: 'Discipline Records',   path: '/discipline-records',   allowedRoles: [...SCHOOL_MGMT, 'TEACHER'], icon: MdGavel },
-  { label: 'Announcements',        path: '/announcements',        allowedRoles: SCHOOL_MGMT, icon: MdCampaign },
-  { label: 'Student Promotion',    path: '/promotion',            allowedRoles: SCHOOL_MGMT, icon: MdUpgrade },
+function group(
+  label: string,
+  icon: IconType,
+  allowedRoles: RoleName[],
+  children: NavItem[]
+): NavGroup {
+  return { type: 'group', label, icon, allowedRoles, children };
+}
 
-  // ── Teacher ─────────────────────────────────────────────────────────────────
-  { label: 'My Classes',           path: '/my-classes',    allowedRoles: ['TEACHER'], icon: MdMeetingRoom },
-  { label: 'Class Timetable',      path: '/timetable',     allowedRoles: ['TEACHER'], icon: MdSchedule },
-  { label: 'Take Attendance',      path: '/attendance',    allowedRoles: ['TEACHER'], icon: MdFactCheck },
-  { label: 'Enter Grades',         path: '/grades',        allowedRoles: ['TEACHER'], icon: MdDescription },
-  { label: 'Assignments',          path: '/homework',      allowedRoles: ['TEACHER'], icon: MdAssignment },
+// ── Nav entries ───────────────────────────────────────────────────────────────
 
-  // ── Student ──────────────────────────────────────────────────────────────────
-  { label: 'My Timetable',         path: '/timetable',     allowedRoles: ['STUDENT'], icon: MdSchedule },
-  { label: 'My Attendance',        path: '/my-attendance', allowedRoles: ['STUDENT'], icon: MdFactCheck },
-  { label: 'My Grades',            path: '/my-grades',     allowedRoles: ['STUDENT'], icon: MdDescription },
-  { label: 'Transcript',           path: '/transcript',    allowedRoles: ['STUDENT'], icon: MdMenuBook },
-  { label: 'Assignments',          path: '/my-homework',   allowedRoles: ['STUDENT'], icon: MdAssignment },
+export const NAV_ENTRIES: NavEntry[] = [
+  // ── Universal ────────────────────────────────────────────────────────────────
+  item('Dashboard', '/', MdDashboard),
 
-  // ── Universal bottom items ───────────────────────────────────────────────────
-  { label: 'Notifications', path: '/notifications', icon: MdNotifications },
-  { label: 'My Profile',    path: '/profile',       icon: MdAccountCircle },
-  { label: 'Logout',        path: '#logout',        icon: MdLogout, isLogout: true },
+  // ════════════════ ADMIN GROUPS ════════════════════════════════════════════════
+
+  group('System Management', MdManageAccounts, ['ADMIN'], [
+    item('Staff Accounts',    '/users',           MdPeople),
+    item('System Settings',   '/system-settings', MdSettings),
+    item('Audit Logs',        '/audit-logs',      MdHistory),
+    item('Backup & Restore',  '/backups',         MdBackup),
+  ]),
+
+  group('Academic Configuration', MdFolder, ['ADMIN'], [
+    item('Grade Subject Config', '/grade-subject-config', MdAssignment),
+  ]),
+
+  group('Academic Records', MdSchool, ['ADMIN'], [
+    item('Academic Register',    '/academic-register', MdMenuBook),
+    item('Results Finalization', '/finalization',      MdFactCheck),
+  ]),
+
+  group('Communication', MdCampaign, ['ADMIN'], [
+    item('Notifications', '/notifications', MdNotifications),
+  ]),
+
+  // ════════════════ DIRECTOR GROUPS ════════════════════════════════════════════
+
+  group('School Management', MdGroups, ['DIRECTOR'], [
+    item('Students',  '/students',  FaUserGraduate, { requiredPermission: 'students:view' }),
+    item('Teachers',  '/teachers',  FaChalkboardTeacher),
+    item('Parents',   '/parents',   FaUsers),
+    item('Classrooms', '/classrooms', MdMeetingRoom),
+  ]),
+
+  group('Academic Management', MdSchool, ['DIRECTOR'], [
+    item('Subjects',             '/subjects',             MdMenuBook),
+    item('Teaching Assignments', '/teaching-assignments', MdAssignment),
+    item('Academic Register',    '/academic-register',    MdMenuBook),
+    item('Results Finalization', '/finalization',         MdFactCheck),
+    item('Academic Reports',     '/academic-reports',     MdDescription),
+    item('Grade Subject Config', '/grade-subject-config', MdAssignment),
+  ]),
+
+  group('Attendance', MdFactCheck, ['DIRECTOR'], [
+    item('Attendance Reports', '/attendance-reports', MdAssessment),
+  ]),
+
+  group('Timetable', MdSchedule, ['DIRECTOR'], [
+    item('Class Timetable', '/timetable-admin', MdSchedule),
+  ]),
+
+  group('School Performance', MdTrendingUp, ['DIRECTOR'], [
+    item('School Performance', '/school-performance', MdTrendingUp),
+  ]),
+
+  group('Student Promotion', MdUpgrade, ['DIRECTOR'], [
+    item('Promotion', '/promotion', MdUpgrade),
+  ]),
+
+  group('Communication', MdCampaign, ['DIRECTOR'], [
+    item('Announcements',  '/announcements',  MdCampaign),
+    item('Notifications',  '/notifications',  MdNotifications),
+  ]),
+
+  // ════════════════ VICE DIRECTOR GROUPS ═══════════════════════════════════════
+
+  group('Academic Management', MdSchool, ['VICE_DIRECTOR'], [
+    item('Students',             '/students',             FaUserGraduate),
+    item('Classrooms',           '/classrooms',           MdMeetingRoom),
+    item('Subjects',             '/subjects',             MdMenuBook),
+    item('Teaching Assignments', '/teaching-assignments', MdAssignment),
+    item('Academic Register',    '/academic-register',    MdMenuBook),
+    item('Results Finalization', '/finalization',         MdFactCheck),
+    item('Grade Subject Config', '/grade-subject-config', MdAssignment),
+    item('Academic Reports',     '/academic-reports',     MdDescription),
+  ]),
+
+  group('Attendance', MdFactCheck, ['VICE_DIRECTOR'], [
+    item('Attendance',         '/attendance',         MdFactCheck),
+    item('Attendance Reports', '/attendance-reports', MdAssessment),
+  ]),
+
+  group('Timetable', MdSchedule, ['VICE_DIRECTOR'], [
+    item('Class Timetable', '/timetable-admin', MdSchedule),
+  ]),
+
+  group('Student Affairs', MdGavel, ['VICE_DIRECTOR'], [
+    item('Student Conduct',    '/conduct',            MdGavel),
+    item('Discipline Records', '/discipline-records', MdGavel),
+    item('Student Promotion',  '/promotion',          MdUpgrade),
+  ]),
+
+  group('Communication', MdCampaign, ['VICE_DIRECTOR'], [
+    item('Announcements', '/announcements', MdCampaign),
+    item('Notifications', '/notifications', MdNotifications),
+  ]),
+
+  // ════════════════ TEACHER (flat — no groups) ══════════════════════════════════
+
+  item('My Classes',       '/my-classes',    MdMeetingRoom,  { allowedRoles: ['TEACHER'] }),
+  item('Class Timetable',  '/timetable',     MdSchedule,     { allowedRoles: ['TEACHER'] }),
+  item('Take Attendance',  '/attendance',    MdFactCheck,    { allowedRoles: ['TEACHER'] }),
+  item('Enter Grades',     '/grades',        MdDescription,  { allowedRoles: ['TEACHER'] }),
+  item('Assignments',      '/homework',      MdAssignment,   { allowedRoles: ['TEACHER'] }),
+  item('Discipline Records', '/discipline-records', MdGavel, { allowedRoles: ['TEACHER'] }),
+  item('Results Finalization', '/finalization', MdFactCheck, { allowedRoles: ['TEACHER'] }),
+
+  // ════════════════ STUDENT (flat — no groups) ══════════════════════════════════
+
+  item('My Timetable',  '/timetable',     MdSchedule,    { allowedRoles: ['STUDENT'] }),
+  item('My Attendance', '/my-attendance', MdFactCheck,   { allowedRoles: ['STUDENT'] }),
+  item('My Grades',     '/my-grades',     MdDescription, { allowedRoles: ['STUDENT'] }),
+  item('Transcript',    '/transcript',    MdMenuBook,    { allowedRoles: ['STUDENT'] }),
+  item('Assignments',   '/my-homework',   MdAssignment,  { allowedRoles: ['STUDENT'] }),
+
+  // ════════════════ UNIVERSAL BOTTOM ════════════════════════════════════════════
+
+  item('Notifications', '/notifications', MdNotifications),
+  item('My Profile',    '/profile',       MdAccountCircle),
+  item('Logout',        '#logout',        MdLogout, { isLogout: true }),
 ];
 
-export function getVisibleNavItems(role: RoleName, userPermissions: string[] = []): NavItem[] {
-  return NAV_ITEMS.filter((item) => {
-    if (!item.allowedRoles) return true;
-    if (item.allowedRoles.includes(role)) return true;
-    if (item.requiredPermission && userPermissions.includes(item.requiredPermission)) return true;
+// ── Filtering — called in AppLayout ──────────────────────────────────────────
+
+/**
+ * Returns the nav entries visible to a given role.
+ * - Items:  included if allowedRoles is absent OR includes role (or requiredPermission matches)
+ * - Groups: included if role is in group.allowedRoles; children are always included as-is
+ *           (the group's allowedRoles gate already ensures they're only shown to the right role)
+ * - Universal items (no allowedRoles) are only shown to roles that don't use groups,
+ *   UNLESS the item is Notifications/Profile/Logout which are truly universal.
+ */
+export function getNavEntries(role: RoleName, userPermissions: string[] = []): NavEntry[] {
+  const GROUPED_ROLES: RoleName[] = ['ADMIN', 'DIRECTOR', 'VICE_DIRECTOR'];
+  const useGroups = GROUPED_ROLES.includes(role);
+
+  // Universal bottom items shown to everyone
+  const UNIVERSAL_PATHS = new Set(['/notifications', '/profile', '#logout']);
+
+  return NAV_ENTRIES.filter((entry): boolean => {
+    // Groups: show if this role is in the group's allowedRoles
+    if (entry.type === 'group') {
+      return entry.allowedRoles.includes(role);
+    }
+
+    // Items
+    const navItem = entry as NavItem;
+
+    // Always show universal items (Dashboard, Notifications, Profile, Logout)
+    if (!navItem.allowedRoles) {
+      // Dashboard (path '/') — show to everyone
+      if (navItem.path === '/') return true;
+      // Notifications/Profile/Logout — show to everyone
+      if (UNIVERSAL_PATHS.has(navItem.path)) {
+        // For grouped roles, Notifications is inside a group — don't show as flat item too
+        if (useGroups && navItem.path === '/notifications') return false;
+        return true;
+      }
+      return true;
+    }
+
+    // Role-specific items: show only for non-grouped roles (Teacher, Student, Parent)
+    // For grouped roles, role-specific items appear inside groups only
+    if (useGroups) return false;
+
+    if (navItem.allowedRoles.includes(role)) return true;
+    if (navItem.requiredPermission && userPermissions.includes(navItem.requiredPermission)) return true;
     return false;
   });
+}
+
+// ── Legacy flat items getter — kept for any code that still imports it ────────
+/** @deprecated Use getNavEntries instead */
+export function getVisibleNavItems(role: RoleName, userPermissions: string[] = []) {
+  return getNavEntries(role, userPermissions)
+    .filter((e): e is NavItem => e.type === 'item');
 }

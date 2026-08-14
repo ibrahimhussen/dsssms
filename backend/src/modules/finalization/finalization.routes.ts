@@ -51,23 +51,23 @@ router.post(
   finalizationController.finalizeClassroom
 );
 
-// Get subject finalization details
+// Get subject finalization details  (?academicYear=2026%2F27)
 router.get(
-  '/subject/:teacherSubjectId/:semester/:academicYear',
+  '/subject/:teacherSubjectId/:semester',
   authorize(RoleName.TEACHER, RoleName.VICE_DIRECTOR, RoleName.DIRECTOR, RoleName.ADMIN),
   finalizationController.getSubjectFinalization
 );
 
-// Get classroom finalization details
+// Get classroom finalization details  (?academicYear=2026%2F27)
 router.get(
-  '/classroom/:classroomId/:semester/:academicYear',
+  '/classroom/:classroomId/:semester',
   authorize(RoleName.VICE_DIRECTOR, RoleName.DIRECTOR, RoleName.ADMIN),
   finalizationController.getClassroomFinalization
 );
 
-// Get all subject finalizations for a classroom
+// Get all subject finalizations for a classroom  (?academicYear=2026%2F27)
 router.get(
-  '/classroom/:classroomId/:semester/:academicYear/subjects',
+  '/classroom/:classroomId/:semester/subjects',
   authorize(RoleName.VICE_DIRECTOR, RoleName.DIRECTOR, RoleName.ADMIN),
   finalizationController.getClassroomSubjectFinalizations
 );

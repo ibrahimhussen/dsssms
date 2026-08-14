@@ -98,7 +98,8 @@ export const finalizationApi = {
     academicYear: string
   ): Promise<SubjectFinalization> {
     const response = await unwrap(apiClient.get<ApiResponse<SubjectFinalization>>(
-      `/finalization/subject/${teacherSubjectId}/${semester}/${academicYear}`
+      `/finalization/subject/${teacherSubjectId}/${semester}`,
+      { params: { academicYear } }
     ));
     return response;
   },
@@ -109,7 +110,8 @@ export const finalizationApi = {
     academicYear: string
   ): Promise<ClassroomFinalization> {
     const response = await unwrap(apiClient.get<ApiResponse<ClassroomFinalization>>(
-      `/finalization/classroom/${classroomId}/${semester}/${academicYear}`
+      `/finalization/classroom/${classroomId}/${semester}`,
+      { params: { academicYear } }
     ));
     return response;
   },
@@ -120,7 +122,8 @@ export const finalizationApi = {
     academicYear: string
   ): Promise<SubjectFinalization[]> {
     const response = await unwrap(apiClient.get<ApiResponse<SubjectFinalization[]>>(
-      `/finalization/classroom/${classroomId}/${semester}/${academicYear}/subjects`
+      `/finalization/classroom/${classroomId}/${semester}/subjects`,
+      { params: { academicYear } }
     ));
     return response;
   },

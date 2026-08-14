@@ -13,9 +13,36 @@ import { LedgerRule } from '../../components/ui/LedgerRule';
 import { Pagination } from '../../components/ui/Pagination';
 import { EmptyState } from '../../components/ui/EmptyState';
 import { ComposeAnnouncementModal } from './ComposeAnnouncementModal';
-import type { ListNotificationsParams, NotificationStatus } from '../../types/notification';
+import type {
+  ListNotificationsParams,
+  NotificationCategory,
+  NotificationStatus,
+} from '../../types/notification';
 
+// Only oversight roles can send school-wide announcements.
+// Teachers can send to classroom only — handled inside ComposeAnnouncementModal.
 const COMPOSE_ROLES = ['ADMIN', 'DIRECTOR', 'VICE_DIRECTOR', 'TEACHER'];
+
+const CATEGORY_LABELS: Record<NotificationCategory, string> = {
+  SYSTEM:       'System',
+  ACADEMIC:     'Academic',
+  ATTENDANCE:   'Attendance',
+  REGISTRATION: 'Registration',
+  PROMOTION:    'Promotion',
+  ANNOUNCEMENT: 'Announcement',
+};
+
+function categoryBadge(category: NotificationCategory) {
+  switch (category) {
+    case 'ACADEMIC':     return <Badge tone="positive">Academic</Badge>;
+    case 'ATTENDANCE':   return <Badge tone="warning">Attendance</Badge>;
+    case 'PROMOTION':    return <Badge tone="neutral">Promotion</Badge>;
+    case 'REGISTRATION': return <Badge tone="neutral">Registration</Badge>;
+    case 'SYSTEM':       return <Badge tone="danger">System</Badge>;
+    case 'ANNOUNCEMENT': return <Badge>Announcement</Badge>;
+    default:             return null;
+  }
+}
 
 export function NotificationsPage() {
   const { user } = useAuth();
@@ -24,8 +51,8 @@ export function NotificationsPage() {
   const [filters, setFilters] = useState<ListNotificationsParams>({ page: 1, limit: 20 });
 
   const { data, isLoading } = useMyInbox(filters);
-  const markRead = useMarkNotificationRead();
-  const markAllRead = useMarkAllNotificationsRead();
+  const markRead          = useMarkNotificationRead();
+  const markAllRead       = useMarkAllNotificationsRead();
   const deleteNotification = useDeleteNotification();
   const [notifError, setNotifError] = useState<string | null>(null);
 
@@ -46,7 +73,7 @@ export function NotificationsPage() {
   function handleDelete(id: number) {
     setNotifError(null);
     deleteNotification.mutate(id, {
-      onError: (err) => setNotifError(err instanceof Error ? err.message : 'Could not delete notification.'),
+      onError: (err) => setNotifError(err instanceof Error ? err.message : 'Could not delete.'),
     });
   }
 
@@ -61,29 +88,56 @@ export function NotificationsPage() {
             </span>
           )}
         </h1>
-        {canCompose && <Button onClick={() => setComposeOpen(true)}>Send announcement</Button>}
+        {canCompose && (
+          <Button onClick={() => setComposeOpen(true)}>Send announcement</Button>
+        )}
       </div>
       <LedgerRule />
 
-      <div className="mb-5 flex flex-wrap items-center justify-between gap-4">
-        <SelectField
-          label="Filter"
-          className="min-w-[160px]"
-          value={filters.status ?? ''}
-          onChange={(e) =>
-            setFilters((prev) => ({
-              ...prev,
-              status: (e.target.value || undefined) as NotificationStatus | undefined,
-              page: 1,
-            }))
-          }
-        >
-          <option value="">All</option>
-          <option value="UNREAD">Unread</option>
-          <option value="READ">Read</option>
-        </SelectField>
+      {/* ── Filters ── */}
+      <div className="mb-5 flex flex-wrap items-end justify-between gap-3">
+        <div className="flex flex-wrap gap-3">
+          <SelectField
+            label="Status"
+            className="min-w-[140px]"
+            value={filters.status ?? ''}
+            onChange={(e) =>
+              setFilters((prev) => ({
+                ...prev,
+                status: (e.target.value || undefined) as NotificationStatus | undefined,
+                page: 1,
+              }))
+            }
+          >
+            <option value="">All statuses</option>
+            <option value="UNREAD">Unread</option>
+            <option value="READ">Read</option>
+          </SelectField>
 
-        <Button variant="ghost" onClick={handleMarkAllRead} disabled={markAllRead.isPending || !data?.unreadCount}>
+          <SelectField
+            label="Category"
+            className="min-w-[160px]"
+            value={filters.category ?? ''}
+            onChange={(e) =>
+              setFilters((prev) => ({
+                ...prev,
+                category: (e.target.value || undefined) as NotificationCategory | undefined,
+                page: 1,
+              }))
+            }
+          >
+            <option value="">All categories</option>
+            {(Object.keys(CATEGORY_LABELS) as NotificationCategory[]).map((c) => (
+              <option key={c} value={c}>{CATEGORY_LABELS[c]}</option>
+            ))}
+          </SelectField>
+        </div>
+
+        <Button
+          variant="ghost"
+          onClick={handleMarkAllRead}
+          disabled={markAllRead.isPending || !data?.unreadCount}
+        >
           Mark all as read
         </Button>
       </div>
@@ -104,14 +158,27 @@ export function NotificationsPage() {
             <li
               key={n.notificationId}
               className={`rounded-2xl border p-4 shadow-sm ${
-                n.status === 'UNREAD' ? 'border-gold-500/40 bg-gold-100/40' : 'border-slate-200 bg-white'
+                n.status === 'UNREAD'
+                  ? 'border-gold-500/40 bg-gold-100/40'
+                  : 'border-slate-200 bg-white'
               }`}
             >
-              <div className="mb-1 flex items-start justify-between gap-3">
-                <p className="font-semibold text-ink-900">{n.title}</p>
-                <span className="shrink-0 text-xs text-slate-500">{new Date(n.sentDate).toLocaleString()}</span>
+              <div className="mb-1 flex flex-wrap items-start justify-between gap-2">
+                <div className="flex items-center gap-2 flex-wrap">
+                  <p className="font-semibold text-ink-900">{n.title}</p>
+                  {categoryBadge(n.category)}
+                </div>
+                <span className="shrink-0 text-xs text-slate-500">
+                  {new Date(n.sentDate).toLocaleString()}
+                </span>
               </div>
-              <p className="mb-3 text-sm text-ink-700">{n.message}</p>
+
+              <p className="mb-2 text-sm text-ink-700">{n.message}</p>
+
+              {n.senderName && (
+                <p className="mb-2 text-xs text-slate-500">From: {n.senderName}</p>
+              )}
+
               <div className="flex gap-3">
                 {n.status === 'UNREAD' && (
                   <button
@@ -135,9 +202,19 @@ export function NotificationsPage() {
         </ul>
       )}
 
-      {data && <Pagination meta={data.meta} onPageChange={(page) => setFilters((prev) => ({ ...prev, page }))} />}
+      {data && (
+        <Pagination
+          meta={data.meta}
+          onPageChange={(page) => setFilters((prev) => ({ ...prev, page }))}
+        />
+      )}
 
-      {canCompose && <ComposeAnnouncementModal isOpen={isComposeOpen} onClose={() => setComposeOpen(false)} />}
+      {canCompose && (
+        <ComposeAnnouncementModal
+          isOpen={isComposeOpen}
+          onClose={() => setComposeOpen(false)}
+        />
+      )}
     </div>
   );
 }

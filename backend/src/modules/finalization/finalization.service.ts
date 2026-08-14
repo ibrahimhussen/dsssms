@@ -7,6 +7,8 @@ import {
   NotFoundError,
 } from '../../core/errors/app-error';
 import { recordAudit } from '../../core/audit/audit-recorder';
+import { createAutoNotification, notifyStudentParents } from '../notifications/notification.service';
+import { NotificationCategory } from '@prisma/client';
 import { AuthenticatedUser } from '../../middlewares/authenticate.middleware';
 import {
   CorrectFinalizationInput,
@@ -406,6 +408,43 @@ export class FinalizationService {
         academicYear: input.academicYear,
       },
     });
+
+    // ── Auto-notify students and their parents that results are now official ──
+    const students = await prisma.student.findMany({
+      where: { classroomId: input.classroomId },
+      select: { studentId: true, userId: true, firstName: true, lastName: true },
+    });
+
+    const semester = input.semester === 'SEMESTER_1' ? 'Semester 1' : 'Semester 2';
+
+    await Promise.all(
+      students.map(async (student) => {
+        const dedupBase = `classroom-finalized:${finalization.id}:student:${student.studentId}`;
+
+        // Notify the student
+        await createAutoNotification({
+          recipientUserId:  student.userId,
+          studentId:        student.studentId,
+          category:         NotificationCategory.ACADEMIC,
+          title:            `${semester} results are now available`,
+          message:          `Your ${semester} academic results for ${input.academicYear} have been finalized and are officially available in your transcript.`,
+          relatedEntity:    'ClassroomFinalization',
+          relatedEntityId:  String(finalization.id),
+          deduplicationKey: `${dedupBase}:student-notif`,
+        });
+
+        // Notify all parents linked to this student
+        await notifyStudentParents({
+          studentId:       student.studentId,
+          category:        NotificationCategory.ACADEMIC,
+          title:           `${student.firstName} ${student.lastName} — ${semester} results available`,
+          message:         `The ${semester} academic results for ${input.academicYear} for your child ${student.firstName} ${student.lastName} have been officially finalized.`,
+          relatedEntity:   'ClassroomFinalization',
+          relatedEntityId: String(finalization.id),
+          deduplicationKeySuffix: `${dedupBase}`,
+        });
+      })
+    );
 
     return toClassroomFinalizationDto(finalization);
   }

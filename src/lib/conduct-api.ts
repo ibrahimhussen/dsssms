@@ -65,7 +65,8 @@ export const conductApi = {
     academicYear: string
   ): Promise<StudentConduct> {
     const response = await unwrap(apiClient.get<ApiResponse<StudentConduct>>(
-      `/conduct/student/${studentId}/${classroomId}/${semester}/${academicYear}`
+      `/conduct/student/${studentId}/${classroomId}/${semester}`,
+      { params: { academicYear } }
     ));
     return response;
   },
@@ -76,7 +77,8 @@ export const conductApi = {
     academicYear: string
   ): Promise<StudentConduct[]> {
     const response = await unwrap(apiClient.get<ApiResponse<StudentConduct[]>>(
-      `/conduct/classroom/${classroomId}/${semester}/${academicYear}`
+      `/conduct/classroom/${classroomId}/${semester}`,
+      { params: { academicYear } }
     ));
     return response;
   },
@@ -87,7 +89,8 @@ export const conductApi = {
     academicYear: string
   ): Promise<ClassroomConductSummary> {
     const response = await unwrap(apiClient.get<ApiResponse<ClassroomConductSummary>>(
-      `/conduct/classroom/${classroomId}/${semester}/${academicYear}/summary`
+      `/conduct/classroom/${classroomId}/${semester}/summary`,
+      { params: { academicYear } }
     ));
     return response;
   },

@@ -1,12 +1,15 @@
 import { z } from 'zod';
-import { NotificationStatus } from '@prisma/client';
+import { NotificationCategory, NotificationStatus } from '@prisma/client';
 import { paginationQuerySchema } from '../../../core/http/pagination';
 
 export const createNotificationSchema = z.object({
   recipientUserId: z.coerce.number().int().positive(),
-  studentId: z.coerce.number().int().positive().optional(),
-  title: z.string().trim().min(1, 'Title is required').max(150),
-  message: z.string().trim().min(1, 'Message is required').max(2000),
+  studentId:       z.coerce.number().int().positive().optional(),
+  category:        z.nativeEnum(NotificationCategory).default(NotificationCategory.ANNOUNCEMENT),
+  title:           z.string().trim().min(1, 'Title is required').max(150),
+  message:         z.string().trim().min(1, 'Message is required').max(2000),
+  relatedEntity:   z.string().trim().max(100).optional(),
+  relatedEntityId: z.string().trim().max(64).optional(),
 });
 
 export const sendToParentsSchema = z.object({
@@ -25,9 +28,10 @@ const BROADCAST_AUDIENCES = [
 
 export const broadcastNotificationSchema = z
   .object({
-    audience: z.enum(BROADCAST_AUDIENCES),
+    audience:   z.enum(BROADCAST_AUDIENCES),
     classroomId: z.coerce.number().int().positive().optional(),
-    title: z.string().trim().min(1, 'Title is required').max(150),
+    category:   z.nativeEnum(NotificationCategory).default(NotificationCategory.ANNOUNCEMENT),
+    title:   z.string().trim().min(1, 'Title is required').max(150),
     message: z.string().trim().min(1, 'Message is required').max(2000),
   })
   .refine(
@@ -36,12 +40,13 @@ export const broadcastNotificationSchema = z
   );
 
 export const listNotificationsQuerySchema = paginationQuerySchema.extend({
-  status: z.nativeEnum(NotificationStatus).optional(),
+  status:   z.nativeEnum(NotificationStatus).optional(),
+  category: z.nativeEnum(NotificationCategory).optional(),
 });
 
 export const listAllNotificationsQuerySchema = listNotificationsQuerySchema.extend({
   recipientUserId: z.coerce.number().int().positive().optional(),
-  studentId: z.coerce.number().int().positive().optional(),
+  studentId:       z.coerce.number().int().positive().optional(),
 });
 
 export const notificationIdParamSchema = z.object({
