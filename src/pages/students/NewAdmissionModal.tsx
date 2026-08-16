@@ -10,6 +10,8 @@ import { useClassroomOptions } from '../../hooks/useClassrooms';
 import { newAdmissionFormSchema } from '../../lib/validation/student';
 import type { NewAdmissionFormValues } from '../../lib/validation/student';
 import type { CreateStudentResult } from '../../types/student';
+import { PreviousAcademicSummaryEditor } from './PreviousAcademicSummaryEditor';
+import type { PreviousAcademicSummary } from './PreviousAcademicSummaryEditor';
 
 interface Props {
   isOpen: boolean;
@@ -21,6 +23,7 @@ export function NewAdmissionModal({ isOpen, onClose, onCreated }: Props) {
   const createStudent = useCreateStudent();
   const { data: classroomsData } = useClassroomOptions();
   const [serverError, setServerError] = useState<string | null>(null);
+  const [prevSummary, setPrevSummary] = useState<PreviousAcademicSummary | null>(null);
 
   const {
     register,
@@ -52,6 +55,7 @@ export function NewAdmissionModal({ isOpen, onClose, onCreated }: Props) {
         lastGradeCompleted: values.lastGradeCompleted || undefined,
         completionYear: values.completionYear || undefined,
         previousStudentId: values.previousStudentId || undefined,
+        previousAcademicSummary: prevSummary ?? undefined,
         parents: values.addGuardian
           ? [
               {
@@ -74,6 +78,7 @@ export function NewAdmissionModal({ isOpen, onClose, onCreated }: Props) {
   function handleClose() {
     reset();
     setServerError(null);
+    setPrevSummary(null);
     onClose();
   }
 
@@ -129,6 +134,12 @@ export function NewAdmissionModal({ isOpen, onClose, onCreated }: Props) {
             <TextField label="Completion year" placeholder="e.g. 2024" error={errors.completionYear?.message} {...register('completionYear')} />
             <TextField label="Previous student ID" placeholder="(if available)" error={errors.previousStudentId?.message} {...register('previousStudentId')} />
           </div>
+
+          {/* Grade 8 / previous results */}
+          <PreviousAcademicSummaryEditor
+            value={prevSummary}
+            onChange={setPrevSummary}
+          />
         </div>
 
         {/* ── Guardian ─────────────────────────────────────────────────── */}

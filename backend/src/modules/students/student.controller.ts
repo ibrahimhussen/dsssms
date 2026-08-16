@@ -91,6 +91,12 @@ export class StudentController {
     ApiResponse.success(res, { message: 'Student retrieved', data: student });
   });
 
+  getEnrollmentHistory = asyncHandler(async (req: Request, res: Response) => {
+    const { id } = req.params as unknown as StudentIdParam;
+    const history = await studentService.getEnrollmentHistory(id);
+    ApiResponse.success(res, { message: 'Enrollment history retrieved', data: history });
+  });
+
   getMyProfile = asyncHandler(async (req: Request, res: Response) => {
     if (!req.user) throw new UnauthorizedError();
     const student = await studentService.getStudentByUserId(req.user.userId);

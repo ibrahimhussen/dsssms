@@ -62,11 +62,12 @@ interface EditEntryModalProps {
   entry: PromotionEntry | null;
   batchId: number;
   targetAcademicYear: string;
+  sourceGrade: string;   // e.g. "Grade 9" — used to derive next grade for PROMOTED
   isGrade12: boolean;
   onClose: () => void;
 }
 
-function EditEntryModal({ entry, batchId, targetAcademicYear, isGrade12, onClose }: EditEntryModalProps) {
+function EditEntryModal({ entry, batchId, targetAcademicYear, sourceGrade, isGrade12, onClose }: EditEntryModalProps) {
   const { data: classroomsData } = useClassroomOptions();
   const updateEntry = useUpdatePromotionEntry(batchId);
   const [decision, setDecision] = useState<PromotionDecision>(entry?.decision ?? 'PROMOTED');
@@ -76,7 +77,28 @@ function EditEntryModal({ entry, batchId, targetAcademicYear, isGrade12, onClose
   const [overrideReason, setOverrideReason] = useState(entry?.overrideReason ?? '');
   const [error, setError] = useState<string | null>(null);
 
-  const targetClassrooms = classroomsData?.items.filter((c) => c.academicYear === targetAcademicYear) ?? [];
+  // Derive the next grade from the source grade number
+  // e.g. "Grade 9" → "Grade 10", "Grade 12" → "Grade 12" (no promotion beyond 12)
+  function nextGrade(current: string): string {
+    const match = current.match(/(\d+)/);
+    if (!match) return current;
+    const num = parseInt(match[1], 10);
+    return `Grade ${num + 1}`;
+  }
+
+  const allTargetYearClassrooms = classroomsData?.items.filter(
+    (c) => c.academicYear === targetAcademicYear
+  ) ?? [];
+
+  // For PROMOTED: only show classrooms of the next grade
+  // For REPEATED: only show classrooms of the same grade
+  const targetClassrooms = allTargetYearClassrooms.filter((c) => {
+    if (decision === 'PROMOTED') return c.className === nextGrade(sourceGrade);
+    if (decision === 'REPEATED') return c.className === sourceGrade;
+    return false; // GRADUATED — no classroom needed
+  });
+
+  const noTargetClassrooms = allTargetYearClassrooms.length === 0;
 
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
@@ -139,18 +161,39 @@ function EditEntryModal({ entry, batchId, targetAcademicYear, isGrade12, onClose
         </SelectField>
 
         {decision !== 'GRADUATED' && (
-          <SelectField
-            label={decision === 'PROMOTED' ? 'Target classroom (next grade)' : 'Target classroom (same grade, new year)'}
-            value={targetClassroomId}
-            onChange={(e) => setTargetClassroomId(e.target.value)}
-          >
-            <option value="">Select a classroom for {targetAcademicYear}…</option>
-            {targetClassrooms.map((c) => (
-              <option key={c.classroomId} value={c.classroomId}>
-                {c.className} {c.section}
-              </option>
-            ))}
-          </SelectField>
+          <>
+            {noTargetClassrooms ? (
+              <div className="mb-4 rounded-lg border border-gold-200 bg-gold-50 px-3 py-2.5 text-sm text-gold-700">
+                <p className="font-semibold">No classrooms exist for {targetAcademicYear} yet.</p>
+                <p className="mt-0.5">
+                  Classrooms for the target academic year must be created before assigning students.
+                  Go to <strong>Classrooms</strong> and create the {targetAcademicYear} sections first.
+                </p>
+              </div>
+            ) : targetClassrooms.length === 0 ? (
+              <div className="mb-4 rounded-lg border border-gold-200 bg-gold-50 px-3 py-2.5 text-sm text-gold-700">
+                <p className="font-semibold">
+                  No {decision === 'PROMOTED' ? `Grade ${parseInt(sourceGrade.match(/(\d+)/)?.[1] ?? '0', 10) + 1}` : sourceGrade} classrooms found for {targetAcademicYear}.
+                </p>
+                <p className="mt-0.5">
+                  Create the target classrooms in the Classrooms page first.
+                </p>
+              </div>
+            ) : (
+              <SelectField
+                label={decision === 'PROMOTED' ? 'Target classroom (next grade)' : 'Target classroom (same grade, new year)'}
+                value={targetClassroomId}
+                onChange={(e) => setTargetClassroomId(e.target.value)}
+              >
+                <option value="">Select a classroom for {targetAcademicYear}…</option>
+                {targetClassrooms.map((c) => (
+                  <option key={c.classroomId} value={c.classroomId}>
+                    {c.className} {c.section}
+                  </option>
+                ))}
+              </SelectField>
+            )}
+          </>
         )}
 
         <TextField
@@ -184,18 +227,33 @@ function EditEntryModal({ entry, batchId, targetAcademicYear, isGrade12, onClose
 interface BulkAssignModalProps {
   batchId: number;
   targetAcademicYear: string;
+  sourceGrade: string;
   isOpen: boolean;
   onClose: () => void;
 }
 
-function BulkAssignModal({ batchId, targetAcademicYear, isOpen, onClose }: BulkAssignModalProps) {
+function BulkAssignModal({ batchId, targetAcademicYear, sourceGrade, isOpen, onClose }: BulkAssignModalProps) {
   const { data: classroomsData } = useClassroomOptions();
   const bulkAssign = useBulkAssignClassroom(batchId);
   const [targetClassroomId, setTargetClassroomId] = useState('');
   const [onlyDecision, setOnlyDecision] = useState<PromotionDecision>('PROMOTED');
   const [error, setError] = useState<string | null>(null);
 
-  const targetClassrooms = classroomsData?.items.filter((c) => c.academicYear === targetAcademicYear) ?? [];
+  function nextGrade(current: string): string {
+    const match = current.match(/(\d+)/);
+    if (!match) return current;
+    return `Grade ${parseInt(match[1], 10) + 1}`;
+  }
+
+  const allTargetYearClassrooms = classroomsData?.items.filter(
+    (c) => c.academicYear === targetAcademicYear
+  ) ?? [];
+
+  const targetClassrooms = allTargetYearClassrooms.filter((c) =>
+    onlyDecision === 'PROMOTED' ? c.className === nextGrade(sourceGrade) : c.className === sourceGrade
+  );
+
+  const noTargetClassrooms = allTargetYearClassrooms.length === 0;
 
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
@@ -235,14 +293,28 @@ function BulkAssignModal({ batchId, targetAcademicYear, isOpen, onClose }: BulkA
           label={`Target classroom (${targetAcademicYear})`}
           value={targetClassroomId}
           onChange={(e) => setTargetClassroomId(e.target.value)}
+          disabled={targetClassrooms.length === 0}
         >
-          <option value="">Select a classroom…</option>
+          <option value="">
+            {noTargetClassrooms
+              ? `No classrooms exist for ${targetAcademicYear} — create them first`
+              : targetClassrooms.length === 0
+              ? 'No matching classrooms found'
+              : 'Select a classroom…'}
+          </option>
           {targetClassrooms.map((c) => (
             <option key={c.classroomId} value={c.classroomId}>
               {c.className} {c.section}
             </option>
           ))}
         </SelectField>
+
+        {noTargetClassrooms && (
+          <p className="mb-3 rounded-lg border border-gold-200 bg-gold-50 px-3 py-2 text-xs text-gold-700">
+            Classrooms for <strong>{targetAcademicYear}</strong> must be created in the{' '}
+            <strong>Classrooms</strong> page before you can assign students.
+          </p>
+        )}
 
         {error && (
           <p className="mb-4 rounded-lg bg-danger-100 px-3 py-2.5 text-sm text-danger-600" role="alert">
@@ -362,6 +434,11 @@ export function PromotionBatchPage() {
   const isGrade12 = batch
     ? batch.sourceClassroomLabel.toLowerCase().includes('grade 12') || batch.sourceClassroomLabel.trim().startsWith('12 ')
     : false;
+
+  // Extract "Grade N" from the source classroom label e.g. "Grade 9 A (2026/27)" → "Grade 9"
+  const sourceGrade = batch
+    ? (batch.sourceClassroomLabel.match(/Grade\s*\d+/i)?.[0]?.trim() ?? '')
+    : '';
 
   async function handleSubmit() {
     if (!batchId) return;
@@ -555,6 +632,7 @@ export function PromotionBatchPage() {
         entry={editEntry}
         batchId={batch.id}
         targetAcademicYear={batch.targetAcademicYear}
+        sourceGrade={sourceGrade}
         isGrade12={isGrade12}
         onClose={() => setEditEntry(null)}
       />
@@ -562,6 +640,7 @@ export function PromotionBatchPage() {
       <BulkAssignModal
         batchId={batch.id}
         targetAcademicYear={batch.targetAcademicYear}
+        sourceGrade={sourceGrade}
         isOpen={isBulkAssignOpen}
         onClose={() => setBulkAssignOpen(false)}
       />

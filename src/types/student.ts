@@ -128,6 +128,19 @@ export interface BulkImportResult {
   errors: Array<{ student: string; error: string }>;
 }
 
+/** One row of enrollment history returned by GET /students/:id/enrollments */
+export interface StudentEnrollmentRecord {
+  id:           number;
+  academicYear: string;
+  classroomId:  number;
+  className:    string;
+  section:      string;
+  decision:     string;
+  batchId:      number | null;
+  notes:        string | null;
+  createdAt:    string;
+}
+
 export interface ListStudentsParams extends PaginationParams {
   classroomId?: number;
   search?: string;

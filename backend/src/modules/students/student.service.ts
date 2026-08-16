@@ -122,8 +122,6 @@ export class StudentService {
               dateOfBirth: input.dateOfBirth,
               address: input.address,
               classroomId: input.classroomId,
-              
-              // NEW FIELDS:
               admissionType: input.admissionType ?? 'NEW_STUDENT',
               previousSchoolName: input.previousSchoolName,
               previousSchoolType: input.previousSchoolType,
@@ -138,6 +136,32 @@ export class StudentService {
           });
 
           const studentId = createdStudent.studentId;
+
+          // ── Create the initial StudentEnrollment for this admission ───────
+          // Every student must have an enrollment row for their admission year.
+          // This is required by the Promotion workflow (which reads enrollment
+          // history) and by the Academic Register (which shows enrollment state).
+          const classroom = await tx.classroom.findUniqueOrThrow({
+            where: { classroomId: input.classroomId },
+          });
+
+          // Guard against duplicate enrollment for the same student+year.
+          // (Defensive: shouldn't happen on first admission, but safe to upsert.)
+          await tx.studentEnrollment.upsert({
+            where: {
+              studentId_academicYear: {
+                studentId,
+                academicYear: classroom.academicYear,
+              },
+            },
+            create: {
+              studentId,
+              classroomId: input.classroomId,
+              academicYear: classroom.academicYear,
+              decision: 'ACTIVE',
+            },
+            update: {}, // already exists — do nothing
+          });
 
           if (input.parents?.length) {
             const newlyCreated = await this.linkParentsWithinTransaction(tx, studentId, input.parents);
@@ -214,11 +238,13 @@ export class StudentService {
     const { skip, take } = getPaginationParams(query as PaginationQuery);
 
     const where: Prisma.StudentWhereInput = {
-      ...(query.classroomId && { classroomId: query.classroomId }),
+      ...(query.classroomId   && { classroomId: query.classroomId }),
+      ...(query.admissionType && { admissionType: query.admissionType }),
+      ...(query.studentStatus && { studentStatus: query.studentStatus }),
       ...(query.search && {
         OR: [
           { firstName: { contains: query.search } },
-          { lastName: { contains: query.search } },
+          { lastName:  { contains: query.search } },
           { admissionNumber: { contains: query.search } },
         ],
       }),
@@ -236,13 +262,15 @@ export class StudentService {
   }
 
   /** Same filters as `listStudents`, but returns every match (capped) for a full export rather than one page. */
-  async exportStudents(query: Pick<ListStudentsQuery, 'classroomId' | 'search'>): Promise<StudentSummaryDto[]> {
+  async exportStudents(query: Pick<ListStudentsQuery, 'classroomId' | 'search' | 'admissionType' | 'studentStatus'>): Promise<StudentSummaryDto[]> {
     const where: Prisma.StudentWhereInput = {
-      ...(query.classroomId && { classroomId: query.classroomId }),
+      ...(query.classroomId   && { classroomId: query.classroomId }),
+      ...(query.admissionType && { admissionType: query.admissionType }),
+      ...(query.studentStatus && { studentStatus: query.studentStatus }),
       ...(query.search && {
         OR: [
           { firstName: { contains: query.search } },
-          { lastName: { contains: query.search } },
+          { lastName:  { contains: query.search } },
           { admissionNumber: { contains: query.search } },
         ],
       }),
@@ -262,6 +290,29 @@ export class StudentService {
     const student = await prisma.student.findUnique({ where: { studentId }, include: STUDENT_INCLUDE });
     if (!student) throw new NotFoundError('Student');
     return toStudentSummaryDto(student);
+  }
+
+  async getEnrollmentHistory(studentId: number) {
+    const student = await prisma.student.findUnique({ where: { studentId } });
+    if (!student) throw new NotFoundError('Student');
+
+    const enrollments = await prisma.studentEnrollment.findMany({
+      where: { studentId },
+      include: { classroom: true },
+      orderBy: { academicYear: 'asc' },
+    });
+
+    return enrollments.map((e) => ({
+      id:           e.id,
+      academicYear: e.academicYear,
+      classroomId:  e.classroomId,
+      className:    e.classroom.className,
+      section:      e.classroom.section,
+      decision:     e.decision,
+      batchId:      e.batchId,
+      notes:        e.notes,
+      createdAt:    e.createdAt.toISOString(),
+    }));
   }
 
   async getStudentByUserId(userId: number): Promise<StudentSummaryDto> {

@@ -38,8 +38,10 @@ export const transferClassroomSchema = z.object({
 });
 
 export const listStudentsQuerySchema = paginationQuerySchema.extend({
-  classroomId: z.coerce.number().int().positive().optional(),
-  search: z.string().trim().max(150).optional(),
+  classroomId:   z.coerce.number().int().positive().optional(),
+  search:        z.string().trim().max(150).optional(),
+  admissionType: z.nativeEnum(AdmissionType).optional(),
+  studentStatus: z.nativeEnum(StudentStatus).optional(),
 });
 
 export const studentIdParamSchema = z.object({

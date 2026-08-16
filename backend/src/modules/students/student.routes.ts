@@ -33,6 +33,7 @@ router.post('/:id/transfer-out', authorizeWithPermissions(MANAGE_ROLES, ['studen
 router.get('/', authorizeWithPermissions(READ_ROLES, ['students:view']), validate(listStudentsQuerySchema, 'query'), studentController.list);
 router.get('/export', authorizeWithPermissions(READ_ROLES, ['students:view']), validate(listStudentsQuerySchema, 'query'), studentController.export);
 router.get('/:id', authorizeWithPermissions(READ_ROLES, ['students:view']), validate(studentIdParamSchema, 'params'), studentController.getById);
+router.get('/:id/enrollments', authorizeWithPermissions(READ_ROLES, ['students:view']), validate(studentIdParamSchema, 'params'), studentController.getEnrollmentHistory);
 
 router.patch(
   '/:id',

@@ -61,6 +61,7 @@ export function AddTimetableEntryModal({
   const [dayOfWeek, setDayOfWeek] = useState<DayOfWeek>(initialDayOfWeek);
   const [startTime, setStartTime] = useState(initialStartTime);
   const [endTime, setEndTime] = useState(initialEndTime);
+  const [period, setPeriod] = useState<number>(1);
   const [roomNumber, setRoomNumber] = useState('');
   const [error, setError] = useState<string | null>(null);
 
@@ -79,6 +80,7 @@ export function AddTimetableEntryModal({
     setDayOfWeek(initialDayOfWeek);
     setStartTime(initialStartTime);
     setEndTime(initialEndTime);
+    setPeriod(1);
     setRoomNumber('');
     setError(null);
   }
@@ -102,6 +104,7 @@ export function AddTimetableEntryModal({
         teacherSubjectId: Number(teacherSubjectId),
         semester,
         dayOfWeek,
+        period,
         startTime,
         endTime,
         roomNumber: roomNumber.trim() || undefined,
@@ -150,6 +153,7 @@ export function AddTimetableEntryModal({
                   onClick={() => {
                     setStartTime(p.start);
                     setEndTime(p.end);
+                    setPeriod(p.period);
                   }}
                   className={`rounded-lg px-2.5 py-1 text-xs font-medium transition-colors border cursor-pointer ${
                     isSelected
@@ -172,12 +176,15 @@ export function AddTimetableEntryModal({
           <TextField label="End time" type="time" value={endTime} onChange={(e) => setEndTime(e.target.value)} />
         </div>
 
-        <TextField
-          label="Room (optional)"
-          value={roomNumber}
-          onChange={(e) => setRoomNumber(e.target.value)}
-          maxLength={50}
-        />
+        <div className="grid grid-cols-2 gap-x-4">
+          <TextField
+            label="Period number"
+            type="number"
+            value={period}
+            onChange={(e) => setPeriod(Math.max(1, parseInt(e.target.value) || 1))}
+          />
+          <TextField label="Room (optional)" value={roomNumber} onChange={(e) => setRoomNumber(e.target.value)} maxLength={50} />
+        </div>
 
         {error && (
           <p className="mb-4 rounded-lg bg-danger-100 px-3 py-2.5 text-sm text-danger-600" role="alert">

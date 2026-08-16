@@ -1,3 +1,5 @@
+// ── Inputs (sent to backend) ──────────────────────────────────────────────────
+
 export interface SubmitForReviewInput {
   teacherSubjectId: number;
   semester: 'SEMESTER_1' | 'SEMESTER_2';
@@ -28,26 +30,37 @@ export interface CorrectFinalizationInput {
   correctionReason: string;
 }
 
+// ── DTOs (received from backend) ─────────────────────────────────────────────
+
+/** Matches Prisma FinalizationStatus enum exactly */
+export type FinalizationStatus = 'DRAFT' | 'UNDER_REVIEW' | 'APPROVED' | 'FINALIZED';
+
 export interface SubjectFinalization {
   id: number;
   teacherSubjectId: number;
+  subjectName: string;
+  teacherName: string;
   semester: string;
   academicYear: string;
-  status: 'PENDING' | 'SUBMITTED' | 'APPROVED' | 'REJECTED' | 'FINALIZED' | 'DRAFT' | 'UNDER_REVIEW';
-  submittedAt?: string;
-  reviewedAt?: string;
-  reviewedBy?: {
+  status: FinalizationStatus;
+  reviewedAt?: string | null;
+  reviewedBy?: number | null;
+  reviewedByUser?: {
     userId: number;
     firstName: string;
     lastName: string;
   };
-  finalizedAt?: string;
-  finalizedBy?: {
+  finalizedAt?: string | null;
+  finalizedBy?: number | null;
+  finalizedByUser?: {
     userId: number;
     firstName: string;
     lastName: string;
   };
-  reviewNotes?: string;
+  correctionReason?: string | null;
+  lastCorrectionAt?: string | null;
+  createdAt: string;
+  updatedAt: string;
   studentCount: number;
   missingResultsCount: number;
 }
@@ -57,13 +70,11 @@ export interface ClassroomFinalization {
   classroomId: number;
   semester: string;
   academicYear: string;
-  status: 'PENDING' | 'FINALIZED';
-  finalizedAt?: string;
-  finalizedBy?: {
-    userId: number;
-    firstName: string;
-    lastName: string;
-  };
-  subjectFinalizations: SubjectFinalization[];
-  allSubjectsFinalized: boolean;
+  status: FinalizationStatus;
+  finalizedAt?: string | null;
+  finalizedBy?: number | null;
+  correctionReason?: string | null;
+  lastCorrectionAt?: string | null;
+  createdAt: string;
+  updatedAt: string;
 }

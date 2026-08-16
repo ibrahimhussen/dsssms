@@ -187,6 +187,7 @@ model TeacherSubject {
   assignments     Assignment[]
   gradeComponents GradeComponent[]
   finalizations   SubjectFinalization[]
+  timetableEntries TimetableEntry[]
   classroom       Classroom             @relation(fields: [classroomId], references: [classroomId], onDelete: Cascade)
   subject         Subject               @relation(fields: [subjectId], references: [subjectId], onDelete: Cascade)
   teacher         Teacher               @relation(fields: [teacherId], references: [teacherId], onDelete: Cascade)
@@ -463,6 +464,8 @@ model TimetableEntry {
   period           Int             @default(1)
   semester         Semester        @default(SEMESTER_1)
   status           TimetableStatus @default(DRAFT)
+
+  teacherSubject TeacherSubject @relation(fields: [teacherSubjectId], references: [id], onDelete: Cascade)
 
   @@unique([teacherSubjectId, semester, dayOfWeek, period])
   @@index([teacherSubjectId, semester])

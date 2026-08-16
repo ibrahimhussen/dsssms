@@ -23,6 +23,7 @@ export interface CreateTimetableEntryInput {
   teacherSubjectId: number;
   semester: Semester;
   dayOfWeek: DayOfWeek;
+  period: number;
   startTime: string;
   endTime: string;
   roomNumber?: string;

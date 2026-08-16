@@ -13,6 +13,22 @@ export function useStudents(params: ListStudentsParams, options: { enabled?: boo
   });
 }
 
+export function useStudent(studentId: number | null) {
+  return useQuery({
+    queryKey: ['students', 'detail', studentId],
+    queryFn: () => studentsApi.getById(studentId!),
+    enabled: studentId !== null,
+  });
+}
+
+export function useStudentEnrollmentHistory(studentId: number | null) {
+  return useQuery({
+    queryKey: ['students', 'enrollments', studentId],
+    queryFn: () => studentsApi.getEnrollmentHistory(studentId!),
+    enabled: studentId !== null,
+  });
+}
+
 export function useCreateStudent() {
   const queryClient = useQueryClient();
   return useMutation({

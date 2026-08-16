@@ -7,6 +7,7 @@ import type {
   CreateStudentResult,
   ListStudentsParams,
   StudentSummary,
+  StudentEnrollmentRecord,
   TransferOutInput,
   BulkImportResult,
 } from '../types/student';
@@ -28,6 +29,10 @@ export const studentsApi = {
 
   getById(studentId: number) {
     return unwrap(apiClient.get<ApiResponse<StudentSummary>>(`/students/${studentId}`));
+  },
+
+  getEnrollmentHistory(studentId: number) {
+    return unwrap(apiClient.get<ApiResponse<StudentEnrollmentRecord[]>>(`/students/${studentId}/enrollments`));
   },
 
   getMyProfile() {

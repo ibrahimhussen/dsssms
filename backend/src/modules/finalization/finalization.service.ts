@@ -78,6 +78,8 @@ function toSubjectFinalizationDto(
   return {
     id: finalization.id,
     teacherSubjectId: finalization.teacherSubjectId,
+    subjectName: finalization.teacherSubject.subject.subjectName,
+    teacherName: `${finalization.teacherSubject.teacher.firstName} ${finalization.teacherSubject.teacher.lastName}`,
     semester: finalization.semester,
     academicYear: finalization.academicYear,
     status: finalization.status,
@@ -91,8 +93,8 @@ function toSubjectFinalizationDto(
     lastCorrectionAt: finalization.lastCorrectionAt?.toISOString() ?? null,
     createdAt: finalization.createdAt.toISOString(),
     updatedAt: finalization.updatedAt.toISOString(),
-    studentCount: 0, // Calculated separately in getClassroomSubjectFinalizations
-    missingResultsCount: 0, // Calculated separately in getClassroomSubjectFinalizations
+    studentCount: 0,
+    missingResultsCount: 0,
   };
 }
 
@@ -512,6 +514,8 @@ export class FinalizationService {
 
   /**
    * Get all subject finalizations for a classroom.
+   * Required subjects come from GradeSubjectConfig — a subject appears here
+   * even when no TeacherSubject assignment exists yet.
    */
   async getClassroomSubjectFinalizations(
     actor: AuthenticatedUser,
@@ -521,15 +525,25 @@ export class FinalizationService {
   ): Promise<SubjectFinalizationDto[]> {
     await assertCanAccessClassroom(actor, classroomId);
 
-    const teacherSubjects = await prisma.teacherSubject.findMany({
-      where: { classroomId },
-      include: {
-        subject: true,
-        teacher: true,
-        classroom: true,
-      },
+    const classroom = await prisma.classroom.findUnique({ where: { classroomId } });
+    if (!classroom) throw new NotFoundError('Classroom');
+
+    // ── 1. Authoritative required-subject list from GradeSubjectConfig ────────
+    const configuredSubjects = await prisma.gradeSubjectConfig.findMany({
+      where: { className: classroom.className, academicYear },
+      include: { subject: true },
+      orderBy: [{ sortOrder: 'asc' }, { subject: { subjectName: 'asc' } }],
     });
 
+    // ── 2. TeacherSubject assignments for this classroom ──────────────────────
+    const teacherSubjects = await prisma.teacherSubject.findMany({
+      where: { classroomId },
+      include: { subject: true, teacher: true },
+    });
+    // Map subjectId → TeacherSubject (first assignment wins if multiple)
+    const tsBySubjectId = new Map(teacherSubjects.map((ts) => [ts.subjectId, ts]));
+
+    // ── 3. Existing finalization records ──────────────────────────────────────
     const finalizations = await prisma.subjectFinalization.findMany({
       where: {
         teacherSubjectId: { in: teacherSubjects.map((ts) => ts.id) },
@@ -538,70 +552,83 @@ export class FinalizationService {
       },
       include: SUBJECT_FINALIZATION_INCLUDE,
     });
+    const finByTsId = new Map(finalizations.map((f) => [f.teacherSubjectId, f]));
 
-    const finalizationMap = new Map(
-      finalizations.map((f) => [f.teacherSubjectId, f])
-    );
+    // ── 4. Students and grade-component completion ────────────────────────────
+    const students = await prisma.student.findMany({ where: { classroomId } });
 
     const result: SubjectFinalizationDto[] = [];
 
-    for (const ts of teacherSubjects) {
-      const finalization = finalizationMap.get(ts.id);
+    for (const config of configuredSubjects) {
+      const ts = tsBySubjectId.get(config.subjectId);
 
-      // Get student count and completion status
-      const students = await prisma.student.findMany({
-        where: { classroomId },
-      });
-
-      const gradeComponents = await prisma.gradeComponent.findMany({
-        where: {
-          teacherSubjectId: ts.id,
+      if (!ts) {
+        // Required subject but no teacher assigned — still must appear
+        result.push({
+          id: 0,
+          teacherSubjectId: 0,
+          subjectName: config.subject.subjectName,
+          teacherName: '— No teacher assigned —',
           semester,
           academicYear,
-        },
-        include: {
-          entries: true,
-        },
-      });
-
-      const totalComponents = gradeComponents.length;
-      let completedStudentCount = 0;
-
-      for (const student of students) {
-        let studentComplete = true;
-        for (const component of gradeComponents) {
-          const entry = component.entries.find((e) => e.studentId === student.studentId);
-          if (!entry) {
-            studentComplete = false;
-            break;
-          }
-        }
-        if (studentComplete) completedStudentCount++;
+          status: 'DRAFT' as FinalizationStatus,
+          reviewedBy: null,
+          reviewedAt: null,
+          finalizedBy: null,
+          finalizedAt: null,
+          correctionReason: null,
+          lastCorrectionAt: null,
+          createdAt: new Date().toISOString(),
+          updatedAt: new Date().toISOString(),
+          studentCount: students.length,
+          missingResultsCount: students.length,
+        });
+        continue;
       }
 
-      const baseDto = finalization ? toSubjectFinalizationDto(finalization) : {
-        id: 0,
-        teacherSubjectId: ts.id,
-        semester,
-        academicYear,
-        status: 'DRAFT' as FinalizationStatus,
-        reviewedBy: null,
-        reviewedAt: null,
-        finalizedBy: null,
-        finalizedAt: null,
-        correctionReason: null,
-        lastCorrectionAt: null,
-        createdAt: new Date().toISOString(),
-        updatedAt: new Date().toISOString(),
-        studentCount: students.length,
-        missingResultsCount: students.length - completedStudentCount,
-      };
-
-      result.push({
-        ...baseDto,
-        studentCount: students.length,
-        missingResultsCount: students.length - completedStudentCount,
+      // Compute result completeness for this subject
+      const gradeComponents = await prisma.gradeComponent.findMany({
+        where: { teacherSubjectId: ts.id, semester, academicYear },
+        include: { entries: { select: { studentId: true } } },
       });
+
+      let missingResultsCount = 0;
+      if (gradeComponents.length === 0) {
+        missingResultsCount = students.length;
+      } else {
+        for (const student of students) {
+          const hasAllEntries = gradeComponents.every((c) =>
+            c.entries.some((e) => e.studentId === student.studentId)
+          );
+          if (!hasAllEntries) missingResultsCount++;
+        }
+      }
+
+      const finalization = finByTsId.get(ts.id);
+
+      const baseDto = finalization
+        ? toSubjectFinalizationDto(finalization)
+        : {
+            id: 0,
+            teacherSubjectId: ts.id,
+            subjectName: ts.subject.subjectName,
+            teacherName: `${ts.teacher.firstName} ${ts.teacher.lastName}`,
+            semester,
+            academicYear,
+            status: 'DRAFT' as FinalizationStatus,
+            reviewedBy: null,
+            reviewedAt: null,
+            finalizedBy: null,
+            finalizedAt: null,
+            correctionReason: null,
+            lastCorrectionAt: null,
+            createdAt: new Date().toISOString(),
+            updatedAt: new Date().toISOString(),
+            studentCount: students.length,
+            missingResultsCount,
+          };
+
+      result.push({ ...baseDto, studentCount: students.length, missingResultsCount });
     }
 
     return result;

@@ -67,13 +67,23 @@ export class TimetableService {
     const teacherSubject = await prisma.teacherSubject.findUnique({ where: { id: input.teacherSubjectId } });
     if (!teacherSubject) throw new NotFoundError('Teaching assignment');
 
+    // Find all TeacherSubject IDs that share the same teacher OR classroom as the
+    // new entry — we need to check those for period conflicts on the same day.
+    const conflictingTsIds = await prisma.teacherSubject.findMany({
+      where: {
+        OR: [
+          { teacherId: teacherSubject.teacherId },
+          { classroomId: teacherSubject.classroomId },
+        ],
+      },
+      select: { id: true, teacherId: true, classroomId: true },
+    });
+
     const sameDayEntries = await prisma.timetableEntry.findMany({
       where: {
         semester: input.semester,
         dayOfWeek: input.dayOfWeek,
-        teacherSubject: {
-          OR: [{ teacherId: teacherSubject.teacherId }, { classroomId: teacherSubject.classroomId }],
-        },
+        teacherSubjectId: { in: conflictingTsIds.map((ts) => ts.id) },
       },
       include: { teacherSubject: true },
     });
@@ -116,9 +126,19 @@ export class TimetableService {
 
   /** Oversight view: entries for a given classroom, teaching assignment, or semester. */
   async listEntries(query: ListTimetableQuery): Promise<TimetableEntryDto[]> {
+    let teacherSubjectIdFilter: number[] | undefined;
+
+    if (query.classroomId) {
+      const tsIds = await prisma.teacherSubject.findMany({
+        where: { classroomId: query.classroomId },
+        select: { id: true },
+      });
+      teacherSubjectIdFilter = tsIds.map((ts) => ts.id);
+    }
+
     const where: Prisma.TimetableEntryWhereInput = {
       ...(query.teacherSubjectId && { teacherSubjectId: query.teacherSubjectId }),
-      ...(query.classroomId && { teacherSubject: { classroomId: query.classroomId } }),
+      ...(teacherSubjectIdFilter && { teacherSubjectId: { in: teacherSubjectIdFilter } }),
       ...(query.semester && { semester: query.semester }),
     };
 
@@ -131,9 +151,14 @@ export class TimetableService {
     const teacher = await prisma.teacher.findUnique({ where: { userId } });
     if (!teacher) throw new ForbiddenError();
 
+    const tsIds = await prisma.teacherSubject.findMany({
+      where: { teacherId: teacher.teacherId },
+      select: { id: true },
+    });
+
     const entries = await prisma.timetableEntry.findMany({
       where: {
-        teacherSubject: { teacherId: teacher.teacherId },
+        teacherSubjectId: { in: tsIds.map((ts) => ts.id) },
         ...(semester && { semester }),
       },
       include: ENTRY_INCLUDE,
@@ -146,9 +171,14 @@ export class TimetableService {
     const student = await prisma.student.findUnique({ where: { userId } });
     if (!student) throw new ForbiddenError();
 
+    const tsIds = await prisma.teacherSubject.findMany({
+      where: { classroomId: student.classroomId },
+      select: { id: true },
+    });
+
     const entries = await prisma.timetableEntry.findMany({
       where: {
-        teacherSubject: { classroomId: student.classroomId },
+        teacherSubjectId: { in: tsIds.map((ts) => ts.id) },
         ...(semester && { semester }),
       },
       include: ENTRY_INCLUDE,

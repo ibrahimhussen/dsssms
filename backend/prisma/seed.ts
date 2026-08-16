@@ -130,19 +130,49 @@ async function main(): Promise<void> {
   const teacher = teacherUser.teacher!;
 
   // --- Classroom ----------------------------------------------------------------
-  console.log('Seeding a demo classroom...');
-  const classroom = await prisma.classroom.upsert({
-    where: {
-      className_section_academicYear: { className: 'Grade 9', section: 'A', academicYear: CURRENT_ACADEMIC_YEAR },
-    },
-    update: {},
-    create: {
-      className: 'Grade 9',
-      section: 'A',
-      academicYear: CURRENT_ACADEMIC_YEAR,
-      homeroomTeacherId: teacher.teacherId,
-    },
-  });
+  console.log('Seeding demo classrooms (4 grades × 3 sections = 12 classrooms)...');
+
+  const classroomDefs = [
+    { className: 'Grade 9',  section: 'A' },
+    { className: 'Grade 9',  section: 'B' },
+    { className: 'Grade 9',  section: 'C' },
+    { className: 'Grade 10', section: 'A' },
+    { className: 'Grade 10', section: 'B' },
+    { className: 'Grade 10', section: 'C' },
+    { className: 'Grade 11', section: 'A' },
+    { className: 'Grade 11', section: 'B' },
+    { className: 'Grade 11', section: 'C' },
+    { className: 'Grade 12', section: 'A' },
+    { className: 'Grade 12', section: 'B' },
+    { className: 'Grade 12', section: 'C' },
+  ];
+
+  const classrooms: Record<string, Awaited<ReturnType<typeof prisma.classroom.upsert>>> = {};
+
+  for (const def of classroomDefs) {
+    const key = `${def.className}-${def.section}`;
+    classrooms[key] = await prisma.classroom.upsert({
+      where: {
+        className_section_academicYear: {
+          className: def.className,
+          section: def.section,
+          academicYear: CURRENT_ACADEMIC_YEAR,
+        },
+      },
+      update: {},
+      create: {
+        className: def.className,
+        section: def.section,
+        academicYear: CURRENT_ACADEMIC_YEAR,
+        // Assign the demo teacher as homeroom for Grade 9 A only
+        homeroomTeacherId: def.className === 'Grade 9' && def.section === 'A' ? teacher.teacherId : undefined,
+      },
+    });
+    console.log(`  Classroom: ${def.className} ${def.section} (${CURRENT_ACADEMIC_YEAR})`);
+  }
+
+  // Convenience reference — Grade 9 A is the primary demo classroom
+  const classroom = classrooms['Grade 9-A'];
 
   // --- Teaching assignments ------------------------------------------------------
   console.log('Seeding teaching assignments...');
@@ -194,18 +224,61 @@ async function main(): Promise<void> {
     });
   }
 
+  // --- Director & Vice Director -----------------------------------------------
+  console.log('Seeding demo Director and Vice Director...');
+
+  const directorUsername = 'director.demo';
+  const directorUser = await prisma.user.findUnique({ where: { username: directorUsername } });
+  if (!directorUser) {
+    await prisma.user.create({
+      data: {
+        username: directorUsername,
+        email: 'director@dinsho-secondary.edu.et',
+        passwordHash: await hash(DEFAULT_PASSWORD),
+        roleId: roles.DIRECTOR,
+        director: { create: { firstName: 'Alemu', lastName: 'Tadesse' } },
+      },
+    });
+    console.log(`  Created director — username: ${directorUsername} / password: ${DEFAULT_PASSWORD}`);
+  } else {
+    await resetPasswordIfEnabled(directorUsername, 'Director');
+  }
+
+  const viceDirectorUsername = 'vicedirector.demo';
+  const viceDirectorUser = await prisma.user.findUnique({ where: { username: viceDirectorUsername } });
+  if (!viceDirectorUser) {
+    await prisma.user.create({
+      data: {
+        username: viceDirectorUsername,
+        email: 'vicedirector@dinsho-secondary.edu.et',
+        passwordHash: await hash(DEFAULT_PASSWORD),
+        roleId: roles.VICE_DIRECTOR,
+        viceDirector: { create: { firstName: 'Tigist', lastName: 'Haile' } },
+      },
+    });
+    console.log(`  Created vice director — username: ${viceDirectorUsername} / password: ${DEFAULT_PASSWORD}`);
+  } else {
+    await resetPasswordIfEnabled(viceDirectorUsername, 'Vice Director');
+  }
+
   // --- Students + Parents ------------------------------------------------------
   console.log('Seeding demo students and parents...');
+
+  // Students split across Grade 9 A and Grade 9 B to demonstrate multi-section
   const studentSeed = [
-    { firstName: 'husen', lastName: 'Ahmed', gender: Gender.F, dob: '2010-03-14', guardianName: 'Tesfaye Alemu' },
-    { firstName: 'chaltu', lastName: 'sani', gender: Gender.M, dob: '2010-07-02', guardianName: 'Getachew Worku' },
-    { firstName: 'Selam', lastName: 'Mulugeta', gender: Gender.F, dob: '2010-01-22', guardianName: 'Mulugeta Bekele' },
+    { firstName: 'husen',   lastName: 'Ahmed',    gender: Gender.F, dob: '2010-03-14', guardianName: 'Tesfaye Alemu',   classroomKey: 'Grade 9-A' },
+    { firstName: 'chaltu',  lastName: 'sani',     gender: Gender.M, dob: '2010-07-02', guardianName: 'Getachew Worku',  classroomKey: 'Grade 9-A' },
+    { firstName: 'Selam',   lastName: 'Mulugeta', gender: Gender.F, dob: '2010-01-22', guardianName: 'Mulugeta Bekele', classroomKey: 'Grade 9-A' },
+    { firstName: 'Abdi',    lastName: 'Bekele',   gender: Gender.M, dob: '2010-05-10', guardianName: 'Bekele Girma',    classroomKey: 'Grade 9-B' },
+    { firstName: 'Meron',   lastName: 'Tesfaye',  gender: Gender.F, dob: '2010-09-18', guardianName: 'Tesfaye Lemma',   classroomKey: 'Grade 9-B' },
+    { firstName: 'Dawit',   lastName: 'Haile',    gender: Gender.M, dob: '2010-11-03', guardianName: 'Haile Wolde',     classroomKey: 'Grade 9-B' },
   ];
 
   const students = [];
 
-  for (const s of studentSeed) {
-    const admissionNumber = `ADM-2025-${1000 + studentSeed.indexOf(s)}`;
+  for (const [idx, s] of studentSeed.entries()) {
+    const admissionNumber = `ADM-2025-${1000 + idx}`;
+    const studentClassroom = classrooms[s.classroomKey];
     const existingStudent = await prisma.student.findUnique({ where: { admissionNumber }, include: { user: true } });
     if (existingStudent) {
       students.push(existingStudent);
@@ -228,7 +301,7 @@ async function main(): Promise<void> {
             lastName: s.lastName,
             gender: s.gender,
             dateOfBirth: new Date(s.dob),
-            classroomId: classroom.classroomId,
+            classroomId: studentClassroom.classroomId,
           },
         },
       },
@@ -236,6 +309,18 @@ async function main(): Promise<void> {
     });
     const student = studentUserRecord.student!;
     students.push(student);
+
+    // Create initial StudentEnrollment for this admission year
+    await prisma.studentEnrollment.upsert({
+      where: { studentId_academicYear: { studentId: student.studentId, academicYear: CURRENT_ACADEMIC_YEAR } },
+      update: {},
+      create: {
+        studentId: student.studentId,
+        classroomId: studentClassroom.classroomId,
+        academicYear: CURRENT_ACADEMIC_YEAR,
+        decision: 'ACTIVE',
+      },
+    });
 
     const parentUsername = await uniqueUsername(
       `${s.guardianName.split(' ')[0].toLowerCase()}.${s.guardianName.split(' ')[1].toLowerCase()}`
@@ -258,15 +343,18 @@ async function main(): Promise<void> {
       },
     });
 
-    console.log(`  Created student — username: ${studentUsername} / password: ${DEFAULT_PASSWORD}`);
+    console.log(`  Created student — ${s.firstName} ${s.lastName} → ${s.classroomKey} — username: ${studentUsername}`);
     console.log(`  Created guardian — username: ${parentUsername} / password: ${DEFAULT_PASSWORD}`);
   }
 
+  // Grade 9 A students only (for attendance + grades which are classroom-specific)
+  const grade9AStudents = students.filter((_, i) => studentSeed[i].classroomKey === 'Grade 9-A');
+
   // --- Sample attendance (today) ------------------------------------------------
-  console.log('Seeding sample attendance for today...');
+  console.log('Seeding sample attendance for today (Grade 9 A)...');
   const today = new Date();
   today.setHours(0, 0, 0, 0);
-  for (const student of students) {
+  for (const student of grade9AStudents) {
     await prisma.attendance.upsert({
       where: { studentId_attendanceDate_period: { studentId: student.studentId, attendanceDate: today, period: 0 } },
       update: {},
@@ -282,7 +370,7 @@ async function main(): Promise<void> {
   }
 
   // --- Sample grades (Semester 1) ------------------------------------------------
-  console.log('Seeding a sample grading scheme and scores for Semester 1...');
+  console.log('Seeding a sample grading scheme and scores for Semester 1 (Grade 9 A)...');
   const gradeComponentSeed = [
     { category: 'QUIZ' as const, name: 'Quiz 1', maxMarks: 10 },
     { category: 'ASSIGNMENT' as const, name: 'Assignment 1', maxMarks: 10 },
@@ -315,9 +403,8 @@ async function main(): Promise<void> {
       components.push(component);
     }
 
-    for (const [studentIndex, student] of students.entries()) {
+    for (const [studentIndex, student] of grade9AStudents.entries()) {
       for (const component of components) {
-        // A simple deterministic spread so demo scores aren't all identical.
         const ratio = 0.65 + (0.3 * ((studentIndex + component.gradeComponentId) % 4)) / 3;
         const score = Math.round(Number(component.maxMarks) * ratio * 100) / 100;
         await prisma.gradeEntry.upsert({
@@ -328,6 +415,28 @@ async function main(): Promise<void> {
       }
     }
   }
+
+  // --- Grade Subject Config (Grade 9 / 2026/27) --------------------------------
+  console.log('Seeding Grade Subject Config for Grade 9...');
+  for (const [sortOrder, subject] of subjects.entries()) {
+    await prisma.gradeSubjectConfig.upsert({
+      where: {
+        className_academicYear_subjectId: {
+          className: 'Grade 9',
+          academicYear: CURRENT_ACADEMIC_YEAR,
+          subjectId: subject.subjectId,
+        },
+      },
+      update: {},
+      create: {
+        className: 'Grade 9',
+        academicYear: CURRENT_ACADEMIC_YEAR,
+        subjectId: subject.subjectId,
+        sortOrder,
+      },
+    });
+  }
+  console.log(`  Configured ${subjects.length} subjects for Grade 9 ${CURRENT_ACADEMIC_YEAR}`);
 
   // --- Sample assignment ------------------------------------------------------
   console.log('Seeding a sample assignment...');
@@ -346,11 +455,15 @@ async function main(): Promise<void> {
       },
     });
     await prisma.assignmentSubmission.createMany({
-      data: students.map((s) => ({ assignmentId: assignment.assignmentId, studentId: s.studentId })),
+      data: grade9AStudents.map((s) => ({ assignmentId: assignment.assignmentId, studentId: s.studentId })),
     });
   }
 
   console.log('\nSeeding complete. All demo accounts use the password: ' + DEFAULT_PASSWORD);
+  console.log('  admin / director.demo / vicedirector.demo / abebe.kebede');
+  console.log('  Students: husen.ahmed, chaltu.sani, selam.mulugeta (Grade 9A)');
+  console.log('            abdi.bekele, meron.tesfaye, dawit.haile (Grade 9B)');
+  console.log('  Classrooms: 12 classrooms across Grade 9–12, Sections A–C');
 }
 
 async function seedSystemSettings(): Promise<void> {

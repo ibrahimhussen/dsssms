@@ -11,6 +11,8 @@ import { useClassroomOptions } from '../../hooks/useClassrooms';
 import { transferAdmissionFormSchema } from '../../lib/validation/student';
 import type { TransferAdmissionFormValues } from '../../lib/validation/student';
 import type { CreateStudentResult } from '../../types/student';
+import { PreviousAcademicSummaryEditor } from './PreviousAcademicSummaryEditor';
+import type { PreviousAcademicSummary } from './PreviousAcademicSummaryEditor';
 
 interface Props {
   isOpen: boolean;
@@ -22,6 +24,7 @@ export function TransferAdmissionModal({ isOpen, onClose, onCreated }: Props) {
   const createStudent = useCreateStudent();
   const { data: classroomsData } = useClassroomOptions();
   const [serverError, setServerError] = useState<string | null>(null);
+  const [prevSummary, setPrevSummary] = useState<PreviousAcademicSummary | null>(null);
 
   const {
     register,
@@ -55,6 +58,7 @@ export function TransferAdmissionModal({ isOpen, onClose, onCreated }: Props) {
         previousStudentId: values.previousStudentId || undefined,
         transferReason: values.transferReason || undefined,
         transferCertificateRef: values.transferCertificateRef || undefined,
+        previousAcademicSummary: prevSummary ?? undefined,
         parents: values.addGuardian
           ? [
               {
@@ -77,6 +81,7 @@ export function TransferAdmissionModal({ isOpen, onClose, onCreated }: Props) {
   function handleClose() {
     reset();
     setServerError(null);
+    setPrevSummary(null);
     onClose();
   }
 
@@ -165,6 +170,10 @@ export function TransferAdmissionModal({ isOpen, onClose, onCreated }: Props) {
             rows={2}
             error={errors.transferReason?.message}
             {...register('transferReason')}
+          />
+          <PreviousAcademicSummaryEditor
+            value={prevSummary}
+            onChange={setPrevSummary}
           />
         </div>
 

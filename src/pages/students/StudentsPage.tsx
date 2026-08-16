@@ -18,7 +18,8 @@ import { NewAdmissionModal } from './NewAdmissionModal';
 import { TransferAdmissionModal } from './TransferAdmissionModal';
 import { TransferOutModal } from './TransferOutModal';
 import { BulkImportModal } from './BulkImportModal';
-import type { StudentSummary, CreateStudentResult, ListStudentsParams } from '../../types/student';
+import { StudentDetailModal } from './StudentDetailModal';
+import type { StudentSummary, CreateStudentResult, ListStudentsParams, StudentStatus } from '../../types/student';
 
 function admissionBadge(type: StudentSummary['admissionType']) {
   return type === 'TRANSFER' ? (
@@ -39,11 +40,16 @@ function statusBadge(status: StudentSummary['studentStatus']) {
 }
 
 export function StudentsPage() {
-  const [filters, setFilters] = useState<ListStudentsParams>({ page: 1, limit: 20 });
+  const [filters, setFilters] = useState<ListStudentsParams>({
+    page: 1,
+    limit: 20,
+    studentStatus: 'ACTIVE', // default to active students only
+  });
   const [isNewOpen, setNewOpen] = useState(false);
   const [isTransferAdmissionOpen, setTransferAdmissionOpen] = useState(false);
   const [isBulkOpen, setBulkOpen] = useState(false);
   const [transferOutTarget, setTransferOutTarget] = useState<StudentSummary | null>(null);
+  const [detailTarget, setDetailTarget] = useState<StudentSummary | null>(null);
   const [issuedCredentials, setIssuedCredentials] = useState<CredentialsItem[]>([]);
   const [isExporting, setIsExporting] = useState(false);
   const [exportError, setExportError] = useState<string | null>(null);
@@ -104,6 +110,9 @@ export function StudentsPage() {
       header: 'Actions',
       render: (s) => (
         <div className="flex flex-wrap gap-1">
+          <Button variant="ghost" onClick={() => setDetailTarget(s)}>
+            View profile
+          </Button>
           {s.parents.length > 0 && (
             <Button variant="ghost" onClick={() => setMessageTarget(s)}>
               Message parents
@@ -123,6 +132,34 @@ export function StudentsPage() {
     <div className="max-w-full">
       <h1 className="text-2xl">Students</h1>
       <LedgerRule />
+
+      {/* Status tabs */}
+      <div className="mb-4 flex gap-1 border-b border-slate-200">
+        {(
+          [
+            { label: 'Active',         value: 'ACTIVE'          },
+            { label: 'Graduated',      value: 'GRADUATED'       },
+            { label: 'Transferred Out', value: 'TRANSFERRED_OUT' },
+            { label: 'All',            value: undefined          },
+          ] as { label: string; value: StudentStatus | undefined }[]
+        ).map(({ label, value }) => {
+          const isActive = filters.studentStatus === value;
+          return (
+            <button
+              key={label}
+              type="button"
+              onClick={() => updateFilter('studentStatus', value)}
+              className={`border-b-2 px-4 py-2.5 text-sm font-medium transition-colors ${
+                isActive
+                  ? 'border-pine-700 text-pine-800'
+                  : 'border-transparent text-slate-500 hover:border-slate-300 hover:text-slate-700'
+              }`}
+            >
+              {label}
+            </button>
+          );
+        })}
+      </div>
 
       <div className="mb-5 flex flex-wrap items-center justify-between gap-4">
         <div className="flex flex-wrap items-end gap-3">
@@ -183,6 +220,7 @@ export function StudentsPage() {
       <TransferAdmissionModal isOpen={isTransferAdmissionOpen} onClose={() => setTransferAdmissionOpen(false)} onCreated={handleCreated} />
       <BulkImportModal isOpen={isBulkOpen} onClose={() => setBulkOpen(false)} />
       <TransferOutModal student={transferOutTarget} onClose={() => setTransferOutTarget(null)} />
+      <StudentDetailModal student={detailTarget} onClose={() => setDetailTarget(null)} />
 
       <CredentialsDialog isOpen={issuedCredentials.length > 0} onClose={() => setIssuedCredentials([])} items={issuedCredentials} />
       <MessageParentsModal student={messageTarget} onClose={() => setMessageTarget(null)} />

@@ -3,6 +3,8 @@ import { FinalizationStatus, Semester } from '@prisma/client';
 export interface SubjectFinalizationDto {
   id: number;
   teacherSubjectId: number;
+  subjectName: string;
+  teacherName: string;
   semester: Semester;
   academicYear: string;
   status: FinalizationStatus;
