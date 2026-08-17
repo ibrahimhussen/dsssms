@@ -3,9 +3,7 @@ import { prisma } from '../../database/prisma-client';
 import { ConflictError, NotFoundError, ValidationError } from '../../core/errors/app-error';
 import { hashPassword } from '../../core/utils/password.util';
 import {
-  buildBaseUsername,
-  ensureUniqueUsername,
-  generateAdmissionNumber,
+  generateStudentId,
   generateTemporaryPassword,
 } from '../../core/utils/code-generator.util';
 import { getPaginationParams, buildPaginationMeta, PaginationQuery } from '../../core/http/pagination';
@@ -68,14 +66,13 @@ function toStudentSummaryDto(student: StudentWithRelations): StudentSummaryDto {
   };
 }
 
-const MAX_ADMISSION_NUMBER_ATTEMPTS = 5;
+const MAX_ADMISSION_NUMBER_ATTEMPTS = 5; // kept to avoid breaking bulkImport error handling
 
 export class StudentService {
   /**
-   * Registers a new student, optionally linking one or more guardians in
-   * the same atomic transaction (each guardian is either an existing
-   * parentId or brand-new parent details — see LinkParentToStudentInput).
-   * Implements the proposal's "Register Student" use case (4.4).
+   * Registers a new student. Generates a permanent DSH-YYYY-NNNNN student ID
+   * inside the transaction (concurrency-safe via StudentIdCounter table).
+   * The student ID is also used as the username — simple, unique, memorable.
    */
   async createStudent(input: CreateStudentInput): Promise<CreateStudentResultDto> {
     const classroom = await prisma.classroom.findUnique({ where: { classroomId: input.classroomId } });
@@ -84,118 +81,69 @@ export class StudentService {
     const role = await prisma.role.findUnique({ where: { roleName: RoleName.STUDENT } });
     if (!role) throw new ValidationError('STUDENT role is not configured in the system');
 
-    const baseUsername = buildBaseUsername(input.firstName, input.lastName);
-    const username = await ensureUniqueUsername(
-      baseUsername,
-      async (candidate) => (await prisma.user.findUnique({ where: { username: candidate } })) !== null
-    );
-
     const temporaryPassword = generateTemporaryPassword();
     const passwordHash = await hashPassword(temporaryPassword);
+    const admissionYear = new Date().getFullYear();
 
-    let attempt = 0;
-    let lastError: unknown;
+    const guardianCredentials: import('./dto/student.dto').GuardianCredentialsIssuedDto[] = [];
 
-    while (attempt < MAX_ADMISSION_NUMBER_ATTEMPTS) {
-      attempt += 1;
-      const admissionNumber = generateAdmissionNumber();
+    const student = await prisma.$transaction(async (tx) => {
+      // Generate DSH-YYYY-NNNNN inside the transaction — row-lock on StudentIdCounter
+      // guarantees no two concurrent registrations get the same number.
+      const admissionNumber = await generateStudentId(tx, admissionYear);
 
-      try {
-        const guardianCredentials: import('./dto/student.dto').GuardianCredentialsIssuedDto[] = [];
+      // Student ID = Username for simplicity and consistency.
+      const username = admissionNumber;
 
-        const student = await prisma.$transaction(async (tx) => {
-          const createdUser = await tx.user.create({
-            data: {
-              username,
-              passwordHash,
-              roleId: role.roleId,
-            },
-          });
+      const createdUser = await tx.user.create({
+        data: { username, passwordHash, roleId: role.roleId },
+      });
 
-          const createdStudent = await tx.student.create({
-            data: {
-              userId: createdUser.userId,
-              admissionNumber,
-              firstName: input.firstName,
-              lastName: input.lastName,
-              gender: input.gender,
-              dateOfBirth: input.dateOfBirth,
-              address: input.address,
-              classroomId: input.classroomId,
-              admissionType: input.admissionType ?? 'NEW_STUDENT',
-              previousSchoolName: input.previousSchoolName,
-              previousSchoolType: input.previousSchoolType,
-              previousSchoolLocation: input.previousSchoolLocation,
-              lastGradeCompleted: input.lastGradeCompleted,
-              completionYear: input.completionYear,
-              previousStudentId: input.previousStudentId,
-              transferReason: input.transferReason,
-              transferCertificateRef: input.transferCertificateRef,
-              previousAcademicSummary: input.previousAcademicSummary ?? Prisma.JsonNull,
-            },
-          });
+      const createdStudent = await tx.student.create({
+        data: {
+          userId:                   createdUser.userId,
+          admissionNumber,
+          firstName:                input.firstName,
+          lastName:                 input.lastName,
+          gender:                   input.gender,
+          dateOfBirth:              input.dateOfBirth,
+          address:                  input.address,
+          classroomId:              input.classroomId,
+          admissionType:            input.admissionType ?? 'NEW_STUDENT',
+          previousSchoolName:       input.previousSchoolName,
+          previousSchoolType:       input.previousSchoolType,
+          previousSchoolLocation:   input.previousSchoolLocation,
+          lastGradeCompleted:       input.lastGradeCompleted,
+          completionYear:           input.completionYear,
+          previousStudentId:        input.previousStudentId,
+          transferReason:           input.transferReason,
+          transferCertificateRef:   input.transferCertificateRef,
+          previousAcademicSummary:  input.previousAcademicSummary ?? Prisma.JsonNull,
+        },
+      });
 
-          const studentId = createdStudent.studentId;
+      const studentId = createdStudent.studentId;
 
-          // ── Create the initial StudentEnrollment for this admission ───────
-          // Every student must have an enrollment row for their admission year.
-          // This is required by the Promotion workflow (which reads enrollment
-          // history) and by the Academic Register (which shows enrollment state).
-          const classroom = await tx.classroom.findUniqueOrThrow({
-            where: { classroomId: input.classroomId },
-          });
+      // Initial StudentEnrollment for this admission year
+      await tx.studentEnrollment.upsert({
+        where:  { studentId_academicYear: { studentId, academicYear: classroom.academicYear } },
+        create: { studentId, classroomId: input.classroomId, academicYear: classroom.academicYear, decision: 'ACTIVE' },
+        update: {},
+      });
 
-          // Guard against duplicate enrollment for the same student+year.
-          // (Defensive: shouldn't happen on first admission, but safe to upsert.)
-          await tx.studentEnrollment.upsert({
-            where: {
-              studentId_academicYear: {
-                studentId,
-                academicYear: classroom.academicYear,
-              },
-            },
-            create: {
-              studentId,
-              classroomId: input.classroomId,
-              academicYear: classroom.academicYear,
-              decision: 'ACTIVE',
-            },
-            update: {}, // already exists — do nothing
-          });
-
-          if (input.parents?.length) {
-            const newlyCreated = await this.linkParentsWithinTransaction(tx, studentId, input.parents);
-            guardianCredentials.push(...newlyCreated);
-          }
-
-          const full = await tx.student.findUniqueOrThrow({
-            where: { studentId },
-            include: STUDENT_INCLUDE,
-          });
-
-          return full;
-        });
-
-        return {
-          student: toStudentSummaryDto(student),
-          credentials: { username, temporaryPassword },
-          guardianCredentials,
-        };
-      } catch (err) {
-        lastError = err;
-        const isAdmissionCollision =
-          err instanceof Prisma.PrismaClientKnownRequestError &&
-          err.code === 'P2002' &&
-          (err.meta?.target as string[] | undefined)?.includes('admissionNumber');
-
-        if (!isAdmissionCollision) {
-          throw err;
-        }
-        // else: loop and try a freshly generated admission number
+      if (input.parents?.length) {
+        const newCreds = await this.linkParentsWithinTransaction(tx, studentId, input.parents);
+        guardianCredentials.push(...newCreds);
       }
-    }
 
-    throw lastError instanceof Error ? lastError : new ValidationError('Failed to generate a unique admission number');
+      return tx.student.findUniqueOrThrow({ where: { studentId }, include: STUDENT_INCLUDE });
+    });
+
+    return {
+      student:              toStudentSummaryDto(student),
+      credentials:          { username: student.admissionNumber, temporaryPassword },
+      guardianCredentials,
+    };
   }
 
   async bulkImportStudents(studentsInput: CreateStudentInput[]) {

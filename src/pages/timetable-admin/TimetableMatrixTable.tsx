@@ -1,51 +1,27 @@
 import { useMemo } from 'react';
 import type { DayOfWeek, TimetableEntry } from '../../types/timetable';
+import { MORNING_PERIODS, AFTERNOON_PERIODS, type TimetablePeriod } from '../../lib/timetable-periods';
 import { Badge } from '../../components/ui/Badge';
 
-export interface StandardPeriod {
-  id: string;
-  name: string;
-  localTime: string;
-  session: 'Morning' | 'Afternoon' | 'Break';
-  periodNumber?: number;
-  startTime: string;
-  endTime: string;
-}
-export const DEFAULT_PERIODS: StandardPeriod[] = [
-  // Morning Session: 2:00 – 6:15 Local (08:00 – 12:15)
-  // 3 Periods Before Rest + 15 min Rest Break (4:00-4:15 Local) + 3 Periods After Rest
-  { id: 'm-p1', name: 'Period 1', localTime: '2:00 – 2:40', session: 'Morning', periodNumber: 1, startTime: '08:00', endTime: '08:40' },
-  { id: 'm-p2', name: 'Period 2', localTime: '2:40 – 3:20', session: 'Morning', periodNumber: 2, startTime: '08:40', endTime: '09:20' },
-  { id: 'm-p3', name: 'Period 3', localTime: '3:20 – 4:00', session: 'Morning', periodNumber: 3, startTime: '09:20', endTime: '10:00' },
-  { id: 'm-mb', name: '☕ Rest', localTime: '4:00 – 4:15', session: 'Break', startTime: '10:00', endTime: '10:15' },
-  { id: 'm-p4', name: 'Period 4', localTime: '4:15 – 4:55', session: 'Morning', periodNumber: 4, startTime: '10:15', endTime: '10:55' },
-  { id: 'm-p5', name: 'Period 5', localTime: '4:55 – 5:35', session: 'Morning', periodNumber: 5, startTime: '10:55', endTime: '11:35' },
-  { id: 'm-p6', name: 'Period 6', localTime: '5:35 – 6:15', session: 'Morning', periodNumber: 6, startTime: '11:35', endTime: '12:15' },
-
-  // Afternoon Session: 6:30 – 10:45 Local (12:30 – 16:45)
-  // 3 Periods Before Rest + 15 min Rest Break (8:30-8:45 Local) + 3 Periods After Rest
-  { id: 'a-p1', name: 'Period 1', localTime: '6:30 – 7:10', session: 'Afternoon', periodNumber: 7, startTime: '12:30', endTime: '13:10' },
-  { id: 'a-p2', name: 'Period 2', localTime: '7:10 – 7:50', session: 'Afternoon', periodNumber: 8, startTime: '13:10', endTime: '13:50' },
-  { id: 'a-p3', name: 'Period 3', localTime: '7:50 – 8:30', session: 'Afternoon', periodNumber: 9, startTime: '13:50', endTime: '14:30' },
-  { id: 'a-ab', name: '☕ Rest', localTime: '8:30 – 8:45', session: 'Break', startTime: '14:30', endTime: '14:45' },
-  { id: 'a-p4', name: 'Period 4', localTime: '8:45 – 9:25', session: 'Afternoon', periodNumber: 10, startTime: '14:45', endTime: '15:25' },
-  { id: 'a-p5', name: 'Period 5', localTime: '9:25 – 10:05', session: 'Afternoon', periodNumber: 11, startTime: '15:25', endTime: '16:05' },
-  { id: 'a-p6', name: 'Period 6', localTime: '10:05 – 10:45', session: 'Afternoon', periodNumber: 12, startTime: '16:05', endTime: '16:45' },
-];
+// Re-export for callers that previously imported DEFAULT_PERIODS from here
+export type { TimetablePeriod as StandardPeriod };
+export const DEFAULT_PERIODS = [...MORNING_PERIODS, ...AFTERNOON_PERIODS];
 
 const DAYS: DayOfWeek[] = ['MONDAY', 'TUESDAY', 'WEDNESDAY', 'THURSDAY', 'FRIDAY'];
 const DAY_LABELS: Record<DayOfWeek, string> = {
-  MONDAY: 'Monday',
-  TUESDAY: 'Tuesday',
+  MONDAY:    'Monday',
+  TUESDAY:   'Tuesday',
   WEDNESDAY: 'Wednesday',
-  THURSDAY: 'Thursday',
-  FRIDAY: 'Friday',
-  SATURDAY: 'Saturday',
+  THURSDAY:  'Thursday',
+  FRIDAY:    'Friday',
+  SATURDAY:  'Saturday',
 };
+
+export type SessionFilter = 'MORNING' | 'AFTERNOON';
 
 interface TimetableMatrixTableProps {
   entries: TimetableEntry[];
-  sessionFilter?: 'MORNING' | 'AFTERNOON';
+  sessionFilter?: SessionFilter;
   isEditable?: boolean;
   onFillSlot?: (day: DayOfWeek, startTime: string, endTime: string, periodNumber: number) => void;
   onDeleteSlot?: (entry: TimetableEntry) => void;
@@ -60,48 +36,15 @@ export function TimetableMatrixTable({
   onDeleteSlot,
   isTeacherView = false,
 }: TimetableMatrixTableProps) {
-  const normalizedSessionFilter = sessionFilter?.toUpperCase() as 'MORNING' | 'AFTERNOON' | undefined;
+  // Determine which periods to show based on session filter
+  const periods = useMemo<TimetablePeriod[]>(() => {
+    if (sessionFilter === 'MORNING')   return MORNING_PERIODS;
+    if (sessionFilter === 'AFTERNOON') return AFTERNOON_PERIODS;
+    // No filter — show both sessions (admin overview without session selected)
+    return [...MORNING_PERIODS, ...AFTERNOON_PERIODS];
+  }, [sessionFilter]);
 
-  // Build time periods combining default periods and any custom entry times
-  const periods = useMemo(() => {
-    // Start from the session-filtered default periods
-    const basePeriods = normalizedSessionFilter
-      ? DEFAULT_PERIODS.filter((p) => {
-        if (p.session === 'Break') {
-          return p.id.startsWith(normalizedSessionFilter === 'MORNING' ? 'm-' : 'a-');
-        }
-        return p.session.toUpperCase() === normalizedSessionFilter;
-      })
-      : DEFAULT_PERIODS;
-
-    const periodList = [...basePeriods];
-
-    for (const e of entries) {
-      const exists = periodList.some((p) => p.startTime === e.startTime && p.endTime === e.endTime);
-      if (!exists) {
-        const entrySession = e.startTime < '12:30' ? 'Morning' : 'Afternoon';
-        // Only add custom period if it matches session filter
-        if (!normalizedSessionFilter || entrySession.toUpperCase() === normalizedSessionFilter) {
-          periodList.push({
-            id: `custom-${e.startTime}-${e.endTime}`,
-            name: `${e.startTime} - ${e.endTime}`,
-            localTime: `${e.startTime} – ${e.endTime}`,
-            session: entrySession as 'Morning' | 'Afternoon',
-            periodNumber: e.period,
-            startTime: e.startTime,
-            endTime: e.endTime,
-          });
-        }
-      }
-    }
-
-    return periodList.sort((a, b) => a.startTime.localeCompare(b.startTime));
-  }, [entries, normalizedSessionFilter]);
-
-  const morningCount = periods.filter((p) => p.session === 'Morning' || p.id === 'm-mb').length;
-  const afternoonCount = periods.filter((p) => p.session === 'Afternoon' || p.id === 'a-ab').length;
-
-  // Lookup map: `${day}_${startTime}_${endTime}` -> TimetableEntry
+  // Lookup map: `${day}_${startTime}_${endTime}` → TimetableEntry
   const entryMap = useMemo(() => {
     const map = new Map<string, TimetableEntry>();
     for (const e of entries) {
@@ -110,108 +53,147 @@ export function TimetableMatrixTable({
     return map;
   }, [entries]);
 
+  const morningPeriods   = periods.filter((p) => p.session === 'Morning' || (p.isBreak && p.id.startsWith('m-')));
+  const afternoonPeriods = periods.filter((p) => p.session === 'Afternoon' || (p.isBreak && p.id.startsWith('a-')));
+  const showMorning   = morningPeriods.length > 0;
+  const showAfternoon = afternoonPeriods.length > 0;
+
   return (
     <div className="overflow-x-auto rounded-2xl border border-slate-200 bg-white shadow-sm">
-      <table className="w-full min-w-[1200px] border-collapse text-left text-sm">
+      <table className="w-full min-w-[900px] border-collapse text-left text-sm">
         <thead>
+          {/* Session header row */}
           <tr className="border-b border-slate-200 bg-slate-100 text-xs uppercase tracking-wider text-slate-600 font-semibold">
-            <th className="w-28 border-r border-slate-200 p-2.5">Session</th>
-            {morningCount > 0 && (
-              <th colSpan={morningCount} className="border-r border-slate-200 bg-amber-50/90 p-2.5 text-center text-amber-900 font-semibold">
-                ☀️ Morning Session (6 Periods: 2:00 – 6:15 Local / Rest 4:00–4:15)
+            <th className="w-28 border-r border-slate-200 p-2.5" />
+            {showMorning && (
+              <th
+                colSpan={morningPeriods.length}
+                className="border-r border-slate-200 bg-amber-50 p-2.5 text-center text-amber-900 font-semibold"
+              >
+                ☀️ Morning Session &nbsp;·&nbsp; 02:00 – 06:15 &nbsp;·&nbsp; Break 04:00 – 04:15
               </th>
             )}
-            {afternoonCount > 0 && (
-              <th colSpan={afternoonCount} className="p-2.5 bg-indigo-50/90 text-center text-indigo-900 font-semibold">
-                🌤️ Afternoon Session (6 Periods: 6:30 – 10:45 Local / Rest 8:30–8:45)
+            {showAfternoon && (
+              <th
+                colSpan={afternoonPeriods.length}
+                className="p-2.5 bg-indigo-50 text-center text-indigo-900 font-semibold"
+              >
+                🌤️ Afternoon Session &nbsp;·&nbsp; 06:30 – 10:45 &nbsp;·&nbsp; Break 08:30 – 08:45
               </th>
             )}
           </tr>
+
+          {/* Period header row */}
           <tr className="border-b border-slate-200 bg-slate-50 text-slate-700">
-            <th className="w-28 border-r border-slate-200 p-3 font-semibold text-ink-900">Day / Time</th>
+            <th className="w-28 border-r border-slate-200 p-3 font-semibold text-ink-900">Day</th>
             {periods.map((p) => (
               <th
                 key={p.id}
-                className={`border-r border-slate-200 p-2.5 text-center last:border-r-0 ${p.session === 'Break' ? 'bg-amber-100/50 min-w-[90px]' : ''
-                  }`}
+                className={[
+                  'border-r border-slate-200 p-2.5 text-center last:border-r-0 min-w-[110px]',
+                  p.isBreak ? 'bg-amber-100/60 min-w-[80px]' : '',
+                ].join(' ')}
               >
-                <div className="font-semibold text-ink-900">{p.name}</div>
-                <div className="text-[0.75rem] font-medium text-emerald-800">{p.localTime}</div>
-                <div className="text-[0.6875rem] text-slate-500 font-mono">({p.startTime}–{p.endTime})</div>
+                {p.isBreak ? (
+                  <div>
+                    <div className="font-semibold text-amber-800 text-xs">☕ Break</div>
+                    <div className="text-[0.75rem] font-medium text-amber-700">{p.localTime}</div>
+                  </div>
+                ) : (
+                  <div>
+                    <div className="font-semibold text-ink-900 text-xs">{p.name}</div>
+                    <div className="text-[0.75rem] font-medium text-emerald-800">{p.localTime}</div>
+                  </div>
+                )}
               </th>
             ))}
           </tr>
         </thead>
+
         <tbody className="divide-y divide-slate-200">
           {DAYS.map((day) => (
             <tr key={day} className="hover:bg-slate-50/50 transition-colors">
-              <td className="border-r border-slate-200 bg-slate-50/75 p-3 font-semibold text-ink-900">
+              <td className="border-r border-slate-200 bg-slate-50/75 p-3 font-semibold text-ink-900 whitespace-nowrap">
                 {DAY_LABELS[day]}
               </td>
+
               {periods.map((p) => {
-                if (p.session === 'Break') {
+                // ── Break cell ────────────────────────────────────────────────
+                if (p.isBreak) {
                   return (
-                    <td key={p.id} className="border-r border-slate-200 bg-amber-50/40 p-2 text-center align-middle text-[0.75rem] text-amber-900 font-medium select-none">
-                      ☕ Rest Break
+                    <td
+                      key={p.id}
+                      className="border-r border-slate-200 bg-amber-50/40 p-2 text-center align-middle text-[0.7rem] text-amber-800 font-medium select-none"
+                    >
+                      ☕ Rest
                     </td>
                   );
                 }
 
                 const entry = entryMap.get(`${day}_${p.startTime}_${p.endTime}`);
 
-                return (
-                  <td key={p.id} className="border-r border-slate-200 p-2 align-top last:border-r-0 min-w-[130px]">
-                    {entry ? (
+                // ── Filled cell ───────────────────────────────────────────────
+                if (entry) {
+                  return (
+                    <td key={p.id} className="border-r border-slate-200 p-2 align-top last:border-r-0">
                       <div className="group relative flex flex-col justify-between rounded-xl border border-emerald-200 bg-emerald-50/60 p-2.5 transition-all hover:border-emerald-300 hover:shadow-sm">
                         <div>
-                          <div className="mb-1 flex items-center justify-between gap-1">
-                            <span className="font-semibold text-emerald-950 text-xs truncate" title={entry.teacherSubject.subject.subjectName}>
+                          <div className="mb-1 flex items-center justify-between gap-1 flex-wrap">
+                            <span className="font-semibold text-emerald-950 text-xs truncate max-w-[80px]" title={entry.teacherSubject.subject.subjectName}>
                               {entry.teacherSubject.subject.subjectName}
                             </span>
-                            {entry.roomNumber && (
-                              <Badge className="text-[0.65rem] px-1.5 py-0.2 bg-emerald-100 text-emerald-800">
-                                {entry.roomNumber}
-                              </Badge>
-                            )}
-                            {entry.status === 'DRAFT' && (
-                              <Badge className="text-[0.6rem] px-1 bg-amber-100 text-amber-800 ml-1 border border-amber-200">
-                                DRAFT
-                              </Badge>
-                            )}
+                            <div className="flex gap-1 flex-wrap">
+                              {entry.roomNumber && (
+                                <Badge className="text-[0.6rem] px-1.5 bg-emerald-100 text-emerald-800">
+                                  {entry.roomNumber}
+                                </Badge>
+                              )}
+                              {entry.status === 'DRAFT' && (
+                                <Badge className="text-[0.6rem] px-1 bg-amber-100 text-amber-800 border border-amber-200">
+                                  Draft
+                                </Badge>
+                              )}
+                            </div>
                           </div>
-                          <p className="text-[0.75rem] text-emerald-800/80 leading-snug">
+                          <p className="text-[0.7rem] text-emerald-800/80 leading-snug">
                             {isTeacherView
                               ? `${entry.teacherSubject.classroom.className} — Sec ${entry.teacherSubject.classroom.section}`
                               : `${entry.teacherSubject.teacher.firstName} ${entry.teacherSubject.teacher.lastName}`}
                           </p>
                           {!isTeacherView && (
-                            <span className="inline-block mt-0.5 text-[0.6875rem] font-semibold text-emerald-700/80">
+                            <span className="inline-block mt-0.5 text-[0.65rem] font-semibold text-emerald-700/80">
                               Sec {entry.teacherSubject.classroom.section}
                             </span>
                           )}
                         </div>
-
                         {isEditable && onDeleteSlot && (
-                          <div className="mt-2 flex justify-end opacity-90 group-hover:opacity-100">
+                          <div className="mt-2 flex justify-end">
                             <button
                               type="button"
                               onClick={() => onDeleteSlot(entry)}
-                              className="text-[0.7rem] text-rose-600 hover:text-rose-800 underline font-medium cursor-pointer"
+                              className="text-[0.65rem] text-rose-600 hover:text-rose-800 underline font-medium"
                             >
                               Remove
                             </button>
                           </div>
                         )}
                       </div>
-                    ) : isEditable ? (
+                    </td>
+                  );
+                }
+
+                // ── Empty cell ────────────────────────────────────────────────
+                return (
+                  <td key={p.id} className="border-r border-slate-200 p-2 align-top last:border-r-0">
+                    {isEditable ? (
                       <button
                         type="button"
                         onClick={() => onFillSlot?.(day, p.startTime, p.endTime, p.periodNumber!)}
-                        className="group flex h-full min-h-[64px] w-full flex-col items-center justify-center rounded-xl border border-dashed border-slate-200 bg-slate-50/40 p-2 text-slate-400 transition-all hover:border-emerald-400 hover:bg-emerald-50/30 hover:text-emerald-600 cursor-pointer"
-                        title={`Fill timetable slot for ${DAY_LABELS[day]} (${p.name}: ${p.localTime})`}
+                        className="group flex h-full min-h-[64px] w-full flex-col items-center justify-center rounded-xl border border-dashed border-slate-200 bg-slate-50/40 p-2 text-slate-400 transition-all hover:border-emerald-400 hover:bg-emerald-50/30 hover:text-emerald-600"
+                        title={`Add ${p.name} on ${DAY_LABELS[day]} (${p.localTime})`}
                       >
-                        <span className="text-lg leading-none transition-transform group-hover:scale-110">+</span>
-                        <span className="text-[0.7rem] font-medium mt-0.5">Fill slot</span>
+                        <span className="text-lg leading-none group-hover:scale-110 transition-transform">+</span>
+                        <span className="text-[0.65rem] font-medium mt-0.5">Fill slot</span>
                       </button>
                     ) : (
                       <div className="flex min-h-[64px] items-center justify-center text-[0.75rem] text-slate-300">

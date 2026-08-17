@@ -15,6 +15,8 @@ import type { DayOfWeek, TimetableEntry } from '../../types/timetable';
 import type { Semester } from '../../types/grade';
 import type { ClassSession } from '../../types/classroom';
 
+type SchoolSession = 'MORNING' | 'AFTERNOON';
+
 const DAYS: DayOfWeek[] = ['MONDAY', 'TUESDAY', 'WEDNESDAY', 'THURSDAY', 'FRIDAY'];
 const DAY_LABELS: Record<DayOfWeek, string> = {
   MONDAY: 'Monday',
@@ -37,6 +39,7 @@ export function TimetableAdminPage() {
   const [semester, setSemester] = useState<Semester>('SEMESTER_1');
   const [classroomId, setClassroomId] = useState<number | undefined>(undefined);
   const [viewMode, setViewMode] = useState<'grid' | 'cards'>('grid');
+  const [schoolSession, setSchoolSession] = useState<SchoolSession>('MORNING');
   const [isAddOpen, setIsAddOpen] = useState(false);
   const [fillSlot, setFillSlot] = useState<{ day: DayOfWeek; startTime: string; endTime: string; period: number } | null>(null);
   const [pendingDelete, setPendingDelete] = useState<TimetableEntry | null>(null);
@@ -89,7 +92,7 @@ export function TimetableAdminPage() {
     const semesterLabel = semester === 'SEMESTER_1' ? 'Semester 1' : 'Semester 2';
     const classLabel = `${selectedClassroom.className} — Section ${selectedClassroom.section}`;
     const yearLabel = selectedClassroom.academicYear;
-    const sessionLabel = classroomSession === 'MORNING' ? 'Morning Session (2:00 – 6:15)' : 'Afternoon Session (6:30 – 10:45)';
+    const sessionLabel = classroomSession === 'MORNING' ? 'Morning Session (2:00 – 6:45)' : 'Afternoon Session (6:30 – 11:15)';
     const sessionIcon = classroomSession === 'MORNING' ? '☀️' : '🌤️';
     const sessionColor = classroomSession === 'MORNING' ? '#f59e0b' : '#6366f1';
     const sessionBgLight = classroomSession === 'MORNING' ? '#fffbeb' : '#eef2ff';
@@ -502,6 +505,16 @@ export function TimetableAdminPage() {
           </SelectField>
 
           <SelectField
+            label="Session"
+            className="min-w-[190px]"
+            value={schoolSession}
+            onChange={(e) => setSchoolSession(e.target.value as SchoolSession)}
+          >
+            <option value="MORNING">☀️ Morning Session</option>
+            <option value="AFTERNOON">🌤️ Afternoon Session</option>
+          </SelectField>
+
+          <SelectField
             label="Section"
             className="min-w-[130px]"
             value={selectedSection}
@@ -616,7 +629,7 @@ export function TimetableAdminPage() {
           <div id="timetable-print-area">
             <TimetableMatrixTable
               entries={entries ?? []}
-              sessionFilter={classroomSession}
+              sessionFilter={schoolSession}
               isEditable={true}
               onFillSlot={handleFillSlot}
               onDeleteSlot={(entry) => setPendingDelete(entry)}
@@ -672,6 +685,7 @@ export function TimetableAdminPage() {
           initialDayOfWeek={fillSlot?.day}
           initialStartTime={fillSlot?.startTime}
           initialEndTime={fillSlot?.endTime}
+          initialSession={schoolSession}
         />
       )}
 

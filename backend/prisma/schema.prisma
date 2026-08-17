@@ -611,6 +611,20 @@ model GradeSubjectConfig {
   @@map("grade_subject_configs")
 }
 
+/// Concurrency-safe sequential counter for student ID generation.
+/// One row per admission year. The backend increments lastSequence inside
+/// the same transaction that creates the student, so two simultaneous
+/// registrations for the same year get different sequence numbers via
+/// MySQL row-level locking on the UPDATE.
+model StudentIdCounter {
+  id           Int      @id @default(autoincrement())
+  year         Int      @unique
+  lastSequence Int      @default(0)
+  updatedAt    DateTime @updatedAt
+
+  @@map("student_id_counters")
+}
+
 /// Singleton row (id is always 1) holding school-wide configuration editable
 /// from the admin System Settings page.
 model SystemSetting {

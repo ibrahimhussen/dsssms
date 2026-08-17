@@ -195,11 +195,13 @@ async function main(): Promise<void> {
 
   // --- Timetable ------------------------------------------------------------------
   console.log('Seeding a sample weekly timetable...');
+  // 40-minute morning periods stored in standard 24h time.
+  // Ethiopian display: 08:00 std → 02:00 local, 08:40 std → 02:40 local, etc.
   const timetableSeed = [
-    { teacherSubject: teacherSubjectAssignments[0], semester: Semester.SEMESTER_1, dayOfWeek: 'MONDAY' as const, period: 1, startTime: '08:00', endTime: '08:45', roomNumber: 'Room 12' },
-    { teacherSubject: teacherSubjectAssignments[1], semester: Semester.SEMESTER_1, dayOfWeek: 'MONDAY' as const, period: 2, startTime: '08:45', endTime: '09:30', roomNumber: 'Room 12' },
-    { teacherSubject: teacherSubjectAssignments[0], semester: Semester.SEMESTER_1, dayOfWeek: 'WEDNESDAY' as const, period: 3, startTime: '09:30', endTime: '10:15', roomNumber: 'Room 12' },
-    { teacherSubject: teacherSubjectAssignments[1], semester: Semester.SEMESTER_1, dayOfWeek: 'FRIDAY' as const, period: 1, startTime: '08:00', endTime: '08:45', roomNumber: 'Room 12' },
+    { teacherSubject: teacherSubjectAssignments[0], semester: Semester.SEMESTER_1, dayOfWeek: 'MONDAY' as const,    period: 1, startTime: '08:00', endTime: '08:40', roomNumber: 'Room 12' },
+    { teacherSubject: teacherSubjectAssignments[1], semester: Semester.SEMESTER_1, dayOfWeek: 'MONDAY' as const,    period: 2, startTime: '08:40', endTime: '09:20', roomNumber: 'Room 12' },
+    { teacherSubject: teacherSubjectAssignments[0], semester: Semester.SEMESTER_1, dayOfWeek: 'WEDNESDAY' as const, period: 3, startTime: '09:20', endTime: '10:00', roomNumber: 'Room 12' },
+    { teacherSubject: teacherSubjectAssignments[1], semester: Semester.SEMESTER_1, dayOfWeek: 'FRIDAY' as const,    period: 1, startTime: '08:00', endTime: '08:40', roomNumber: 'Room 12' },
   ];
   for (const slot of timetableSeed) {
     await prisma.timetableEntry.upsert({
@@ -277,7 +279,7 @@ async function main(): Promise<void> {
   const students = [];
 
   for (const [idx, s] of studentSeed.entries()) {
-    const admissionNumber = `ADM-2025-${1000 + idx}`;
+    const admissionNumber = `DSH-2026-0000${idx + 1}`;  // fixed demo IDs
     const studentClassroom = classrooms[s.classroomKey];
     const existingStudent = await prisma.student.findUnique({ where: { admissionNumber }, include: { user: true } });
     if (existingStudent) {
@@ -288,7 +290,7 @@ async function main(): Promise<void> {
       continue;
     }
 
-    const studentUsername = await uniqueUsername(`${s.firstName.toLowerCase()}.${s.lastName.toLowerCase()}`);
+    const studentUsername = admissionNumber;  // Student ID = Username
     const studentUserRecord = await prisma.user.create({
       data: {
         username: studentUsername,
@@ -458,6 +460,14 @@ async function main(): Promise<void> {
       data: grade9AStudents.map((s) => ({ assignmentId: assignment.assignmentId, studentId: s.studentId })),
     });
   }
+
+  // --- Seed StudentIdCounter so next real registration starts at DSH-2026-00007 ---
+  console.log('Seeding StudentIdCounter...');
+  await prisma.studentIdCounter.upsert({
+    where: { year: 2026 },
+    update: {},
+    create: { year: 2026, lastSequence: 6 }, // 6 demo students already seeded
+  });
 
   console.log('\nSeeding complete. All demo accounts use the password: ' + DEFAULT_PASSWORD);
   console.log('  admin / director.demo / vicedirector.demo / abebe.kebede');

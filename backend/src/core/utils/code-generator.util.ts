@@ -1,4 +1,6 @@
 import * as crypto from 'crypto';
+import { prisma } from '../../database/prisma-client';
+import { Prisma } from '@prisma/client';
 
 /**
  * Builds a base username from a person's name, e.g. "Abebe Kebede" -> "abebe.kebede".
@@ -36,9 +38,37 @@ export async function ensureUniqueUsername(
 }
 
 /**
- * Generates an admission number in the form ADM-<YEAR>-<5 random digits>,
- * e.g. ADM-2026-04821. Uniqueness is enforced at the database level
- * (Student.admissionNumber is @unique); on collision the caller retries.
+ * Generates the official permanent student ID in the form DSH-YYYY-NNNNN,
+ * e.g. DSH-2026-00001. Uses the StudentIdCounter table for a concurrency-safe
+ * sequential counter. Two simultaneous registrations for the same year
+ * serialize on the MySQL row-level lock acquired by the UPDATE and receive
+ * different sequence numbers.
+ *
+ * Must be called inside a Prisma transaction so the counter increment and
+ * student creation are atomic.
+ */
+export async function generateStudentId(
+  tx: Prisma.TransactionClient,
+  year: number = new Date().getFullYear()
+): Promise<string> {
+  // Upsert ensures the counter row exists for this year, then increment atomically.
+  // Using $executeRaw for the atomic increment — Prisma's update cannot do
+  // "SET field = field + 1" and read the result in one round-trip on all drivers.
+  await tx.$executeRaw`
+    INSERT INTO student_id_counters (year, lastSequence, updatedAt)
+    VALUES (${year}, 1, NOW())
+    ON DUPLICATE KEY UPDATE lastSequence = lastSequence + 1, updatedAt = NOW()
+  `;
+
+  const counter = await tx.studentIdCounter.findUniqueOrThrow({ where: { year } });
+  const seq = String(counter.lastSequence).padStart(5, '0');
+  return `DSH-${year}-${seq}`;
+}
+
+/**
+ * @deprecated Use generateStudentId(tx, year) instead.
+ * Kept only so existing bulk-import retry logic (which catches P2002 on
+ * admissionNumber) continues to compile until fully migrated.
  */
 export function generateAdmissionNumber(year: number = new Date().getFullYear()): string {
   const randomPart = crypto.randomInt(10000, 99999);
