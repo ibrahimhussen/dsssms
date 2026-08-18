@@ -60,7 +60,7 @@ export const router = createBrowserRouter([
           { path: '/backups', element: <ProtectedRoute allowedRoles={['ADMIN']}><BackupRestorePage /></ProtectedRoute> },
 
           { path: '/teachers', element: <ProtectedRoute allowedRoles={['DIRECTOR', 'VICE_DIRECTOR']}><TeachersPage /></ProtectedRoute> },
-          { path: '/students', element: <ProtectedRoute allowedRoles={['DIRECTOR', 'VICE_DIRECTOR']}><StudentsPage /></ProtectedRoute> },
+          { path: '/students', element: <ProtectedRoute allowedRoles={['ADMIN', 'DIRECTOR', 'VICE_DIRECTOR']}><StudentsPage /></ProtectedRoute> },
           { path: '/parents', element: <ProtectedRoute allowedRoles={['DIRECTOR']}><ParentsPage /></ProtectedRoute> },
           { path: '/classrooms', element: <ProtectedRoute allowedRoles={['DIRECTOR', 'VICE_DIRECTOR']}><ClassroomsPage /></ProtectedRoute> },
           { path: '/subjects', element: <ProtectedRoute allowedRoles={['DIRECTOR', 'VICE_DIRECTOR']}><SubjectsPage /></ProtectedRoute> },

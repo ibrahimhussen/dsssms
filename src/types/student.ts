@@ -141,6 +141,49 @@ export interface StudentEnrollmentRecord {
   createdAt:    string;
 }
 
+/** Username entry returned by GET /students/credentials/classroom/:id */
+export interface ClassroomCredentialItem {
+  studentId:       number;
+  admissionNumber: string;
+  firstName:       string;
+  lastName:        string;
+  username:        string;
+}
+
+/** Credential row returned by POST /students/accounts/generate/:id */
+export interface GeneratedCredential {
+  studentId:         number;
+  admissionNumber:   string;
+  firstName:         string;
+  lastName:          string;
+  username:          string;
+  temporaryPassword: string;
+  isNew:             boolean;
+}
+
+/** Result returned by POST /students/accounts/generate-new/:id */
+export interface BulkGenerateNewResult {
+  total:     number;
+  generated: number;
+  skipped:   number;
+  failed:    number;
+  results: {
+    studentId:         number;
+    admissionNumber:   string;
+    firstName:         string;
+    lastName:          string;
+    username:          string;
+    temporaryPassword: string;
+  }[];
+}
+
+/** Preview returned by GET /students/accounts/preview/:id */
+export interface GeneratePreview {
+  total:           number;
+  eligible:        number;
+  alreadyPersonal: number;
+}
+
 export interface ListStudentsParams extends PaginationParams {
   classroomId?: number;
   search?: string;

@@ -149,10 +149,20 @@ export class UserService {
     return users.map(toUserSummaryDto);
   }
 
-  async listUsers(query: ListUsersQuery): Promise<{ items: UserSummaryDto[]; meta: ReturnType<typeof buildPaginationMeta> }> {    const { skip, take } = getPaginationParams(query as PaginationQuery);
+  async listUsers(query: ListUsersQuery): Promise<{ items: UserSummaryDto[]; meta: ReturnType<typeof buildPaginationMeta> }> {
+    const { skip, take } = getPaginationParams(query as PaginationQuery);
+
+    // Staff Accounts must never include STUDENT or PARENT accounts.
+    // Those are managed through their own dedicated modules.
+    const STAFF_ROLES: RoleName[] = [RoleName.ADMIN, RoleName.DIRECTOR, RoleName.VICE_DIRECTOR, RoleName.TEACHER];
 
     const where: Prisma.UserWhereInput = {
-      ...(query.role && { role: { roleName: query.role } }),
+      // Always restrict to staff roles regardless of any query filters
+      role: {
+        roleName: {
+          in: query.role ? [query.role] : STAFF_ROLES,
+        },
+      },
       ...(query.status && { status: query.status }),
       ...(query.search && {
         OR: [

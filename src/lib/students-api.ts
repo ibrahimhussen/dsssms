@@ -8,6 +8,10 @@ import type {
   ListStudentsParams,
   StudentSummary,
   StudentEnrollmentRecord,
+  ClassroomCredentialItem,
+  GeneratedCredential,
+  BulkGenerateNewResult,
+  GeneratePreview,
   TransferOutInput,
   BulkImportResult,
 } from '../types/student';
@@ -33,6 +37,26 @@ export const studentsApi = {
 
   getEnrollmentHistory(studentId: number) {
     return unwrap(apiClient.get<ApiResponse<StudentEnrollmentRecord[]>>(`/students/${studentId}/enrollments`));
+  },
+
+  getClassroomCredentials(classroomId: number) {
+    return unwrap(apiClient.get<ApiResponse<ClassroomCredentialItem[]>>(`/students/credentials/classroom/${classroomId}`));
+  },
+
+  bulkGenerateClassroomPasswords(classroomId: number) {
+    return unwrap(apiClient.post<ApiResponse<BulkGenerateNewResult>>(`/students/accounts/generate/${classroomId}`));
+  },
+
+  bulkGenerateNewPasswords(classroomId: number) {
+    return unwrap(apiClient.post<ApiResponse<BulkGenerateNewResult>>(`/students/accounts/generate-new/${classroomId}`));
+  },
+
+  previewGeneratePasswords(classroomId: number) {
+    return unwrap(apiClient.get<ApiResponse<GeneratePreview>>(`/students/accounts/preview/${classroomId}`));
+  },
+
+  resetStudentPassword(studentId: number) {
+    return unwrap(apiClient.post<ApiResponse<{ username: string; temporaryPassword: string }>>(`/students/${studentId}/reset-password`));
   },
 
   getMyProfile() {

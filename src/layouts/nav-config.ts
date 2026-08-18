@@ -64,20 +64,24 @@ export const NAV_ENTRIES: NavEntry[] = [
 
   // ════════════════ ADMIN GROUPS ════════════════════════════════════════════════
 
-  group('System Management', MdManageAccounts, ['ADMIN'], [
+  group('User Management', MdManageAccounts, ['ADMIN'], [
     item('Staff Accounts',    '/users',           MdPeople),
     item('System Settings',   '/system-settings', MdSettings),
-    item('Audit Logs',        '/audit-logs',      MdHistory),
-    item('Backup & Restore',  '/backups',         MdBackup),
   ]),
 
-  group('Academic Configuration', MdFolder, ['ADMIN'], [
+  group('School Management', MdGroups, ['ADMIN'], [
+    item('Students', '/students', FaUserGraduate),
+  ]),
+
+  group('Academic Management', MdSchool, ['ADMIN'], [
     item('Grade Subject Config', '/grade-subject-config', MdAssignment),
+    item('Academic Register',    '/academic-register',    MdMenuBook),
+    item('Results Finalization', '/finalization',         MdFactCheck),
   ]),
 
-  group('Academic Records', MdSchool, ['ADMIN'], [
-    item('Academic Register',    '/academic-register', MdMenuBook),
-    item('Results Finalization', '/finalization',      MdFactCheck),
+  group('System Management', MdFolder, ['ADMIN'], [
+    item('Audit Logs',       '/audit-logs', MdHistory),
+    item('Backup & Restore', '/backups',    MdBackup),
   ]),
 
   group('Communication', MdCampaign, ['ADMIN'], [

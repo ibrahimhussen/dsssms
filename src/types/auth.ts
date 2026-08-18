@@ -7,12 +7,13 @@ export type RoleName = 'ADMIN' | 'DIRECTOR' | 'VICE_DIRECTOR' | 'TEACHER' | 'STU
 export type UserStatus = 'ACTIVE' | 'INACTIVE' | 'LOCKED';
 
 export interface AuthenticatedUser {
-  userId: number;
-  username: string;
-  email: string | null;
-  role: RoleName;
-  status: UserStatus;
-  permissions: string[];
+  userId:              number;
+  username:            string;
+  email:               string | null;
+  role:                RoleName;
+  status:              UserStatus;
+  permissions:         string[];
+  isTemporaryPassword: boolean;
 }
 
 export interface LoginResponse {

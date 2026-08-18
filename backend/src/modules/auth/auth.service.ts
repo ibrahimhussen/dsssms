@@ -17,6 +17,7 @@ function toAuthenticatedUserDto(user: {
   username: string;
   email: string | null;
   status: UserStatus;
+  isTemporaryPassword: boolean;
   role: { roleName: RoleName };
   permissions?: { permission: string; expiresAt: Date | null }[];
 }): AuthenticatedUserDto {
@@ -31,6 +32,7 @@ function toAuthenticatedUserDto(user: {
     role: user.role.roleName,
     status: user.status,
     permissions: activePermissions,
+    isTemporaryPassword: user.isTemporaryPassword,
   };
 }
 
@@ -197,7 +199,13 @@ export class AuthService {
 
     const newHash = await hashPassword(params.newPassword);
 
-    await prisma.user.update({ where: { userId: user.userId }, data: { passwordHash: newHash } });
+    await prisma.user.update({
+      where: { userId: user.userId },
+      data: {
+        passwordHash: newHash,
+        isTemporaryPassword: false, // password is now personal — no longer temporary
+      },
+    });
 
     // Force re-authentication on all devices after a password change.
     await this.logoutAllSessions(user.userId);

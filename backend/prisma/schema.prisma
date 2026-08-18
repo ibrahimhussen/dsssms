@@ -17,6 +17,7 @@ model User {
   failedLoginAttempts  Int                     @default(0)
   lockedUntil          DateTime?
   lastLoginAt          DateTime?
+  isTemporaryPassword  Boolean                 @default(true)
   createdAt            DateTime                @default(now())
   updatedAt            DateTime                @updatedAt
   administrator        Administrator?

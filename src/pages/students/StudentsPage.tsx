@@ -19,7 +19,11 @@ import { TransferAdmissionModal } from './TransferAdmissionModal';
 import { TransferOutModal } from './TransferOutModal';
 import { BulkImportModal } from './BulkImportModal';
 import { StudentDetailModal } from './StudentDetailModal';
-import type { StudentSummary, CreateStudentResult, ListStudentsParams, StudentStatus } from '../../types/student';
+import { ClassCredentialsModal } from './ClassCredentialsModal';
+import { ConfirmDialog } from '../../components/ui/ConfirmDialog';
+import { useAuth } from '../../context/AuthContext';
+import { Modal } from '../../components/ui/Modal';
+
 
 function admissionBadge(type: StudentSummary['admissionType']) {
   return type === 'TRANSFER' ? (
@@ -40,6 +44,8 @@ function statusBadge(status: StudentSummary['studentStatus']) {
 }
 
 export function StudentsPage() {
+  const { user } = useAuth();
+  const isAdmin = user?.role === 'ADMIN';
   const [filters, setFilters] = useState<ListStudentsParams>({
     page: 1,
     limit: 20,
@@ -50,6 +56,11 @@ export function StudentsPage() {
   const [isBulkOpen, setBulkOpen] = useState(false);
   const [transferOutTarget, setTransferOutTarget] = useState<StudentSummary | null>(null);
   const [detailTarget, setDetailTarget] = useState<StudentSummary | null>(null);
+  const [isCredentialsOpen, setCredentialsOpen] = useState(false);
+  const [resetTarget, setResetTarget] = useState<StudentSummary | null>(null);
+  const [resetResult, setResetResult] = useState<{ username: string; temporaryPassword: string } | null>(null);
+  const [resetError, setResetError] = useState<string | null>(null);
+  const [isResetting, setIsResetting] = useState(false);
   const [issuedCredentials, setIssuedCredentials] = useState<CredentialsItem[]>([]);
   const [isExporting, setIsExporting] = useState(false);
   const [exportError, setExportError] = useState<string | null>(null);
@@ -57,6 +68,26 @@ export function StudentsPage() {
 
   const { data, isLoading, error, refetch } = useStudents(filters);
   const { data: classroomsData } = useClassroomOptions();
+
+  async function handleResetPassword(student: StudentSummary) {
+    setResetTarget(student);
+    setResetResult(null);
+    setResetError(null);
+  }
+
+  async function confirmResetPassword() {
+    if (!resetTarget) return;
+    setIsResetting(true);
+    setResetError(null);
+    try {
+      const result = await studentsApi.resetStudentPassword(resetTarget.studentId);
+      setResetResult(result);
+    } catch (err) {
+      setResetError(err instanceof Error ? err.message : 'Reset failed. Please try again.');
+    } finally {
+      setIsResetting(false);
+    }
+  }
 
   async function handleExport() {
     setIsExporting(true);
@@ -116,6 +147,11 @@ export function StudentsPage() {
           {s.parents.length > 0 && (
             <Button variant="ghost" onClick={() => setMessageTarget(s)}>
               Message parents
+            </Button>
+          )}
+          {s.studentStatus === 'ACTIVE' && isAdmin && (
+            <Button variant="ghost" onClick={() => void handleResetPassword(s)}>
+              Reset password
             </Button>
           )}
           {s.studentStatus === 'ACTIVE' && (
@@ -190,6 +226,11 @@ export function StudentsPage() {
           <Button variant="secondary" onClick={() => void handleExport()} isLoading={isExporting}>
             Export to Excel
           </Button>
+          {filters.classroomId && isAdmin && (
+            <Button variant="secondary" onClick={() => setCredentialsOpen(true)}>
+              Class Credentials
+            </Button>
+          )}
           <Button variant="secondary" onClick={() => setBulkOpen(true)}>
             Bulk Import
           </Button>
@@ -221,9 +262,107 @@ export function StudentsPage() {
       <BulkImportModal isOpen={isBulkOpen} onClose={() => setBulkOpen(false)} />
       <TransferOutModal student={transferOutTarget} onClose={() => setTransferOutTarget(null)} />
       <StudentDetailModal student={detailTarget} onClose={() => setDetailTarget(null)} />
+      <ClassCredentialsModal
+        classroomId={isCredentialsOpen ? (filters.classroomId ?? null) : null}
+        classroomLabel={
+          classroomsData?.items.find((c) => c.classroomId === filters.classroomId)
+            ? `${classroomsData.items.find((c) => c.classroomId === filters.classroomId)!.className} ${classroomsData.items.find((c) => c.classroomId === filters.classroomId)!.section}`
+            : 'Class'
+        }
+        onClose={() => setCredentialsOpen(false)}
+      />
 
       <CredentialsDialog isOpen={issuedCredentials.length > 0} onClose={() => setIssuedCredentials([])} items={issuedCredentials} />
       <MessageParentsModal student={messageTarget} onClose={() => setMessageTarget(null)} />
+
+      {/* Reset password confirm */}
+      <ConfirmDialog
+        isOpen={Boolean(resetTarget) && !resetResult}
+        title="Reset student password"
+        message={resetTarget
+          ? `Reset the password for ${resetTarget.firstName} ${resetTarget.lastName} (${resetTarget.admissionNumber})?\n\nA new temporary password will be generated. Their current password will be invalidated and all active sessions will end. They must change the new password on first login.`
+          : ''}
+        confirmLabel="Reset Password"
+        isDangerous={false}
+        isLoading={isResetting}
+        onConfirm={() => void confirmResetPassword()}
+        onCancel={() => { setResetTarget(null); setResetError(null); }}
+      />
+
+      {/* Show reset result */}
+      {resetResult && resetTarget && (
+        <Modal
+          title="Password Reset Successful"
+          isOpen={true}
+          onClose={() => { setResetTarget(null); setResetResult(null); }}
+          widthClassName="max-w-[460px]"
+        >
+          <div className="flex flex-col gap-4">
+            <div className="rounded-xl border border-pine-200 bg-pine-50 p-4">
+              <p className="text-xs uppercase tracking-wide text-pine-600 mb-3 font-semibold">New credentials</p>
+              <div className="flex flex-col gap-2">
+                <div className="flex items-center justify-between">
+                  <span className="text-sm text-slate-600">Student</span>
+                  <span className="font-medium text-ink-900">{resetTarget.firstName} {resetTarget.lastName}</span>
+                </div>
+                <div className="flex items-center justify-between">
+                  <span className="text-sm text-slate-600">Student ID</span>
+                  <span className="font-mono text-sm font-semibold text-pine-700">{resetTarget.admissionNumber}</span>
+                </div>
+                <div className="flex items-center justify-between">
+                  <span className="text-sm text-slate-600">Username</span>
+                  <span className="font-mono text-sm font-semibold text-pine-700">{resetResult.username}</span>
+                </div>
+                <div className="flex items-center justify-between">
+                  <span className="text-sm text-slate-600">Temporary Password</span>
+                  <span className="font-mono text-base font-bold text-ink-900 tracking-wider bg-slate-100 rounded px-2 py-0.5">
+                    {resetResult.temporaryPassword}
+                  </span>
+                </div>
+              </div>
+            </div>
+            <p className="text-xs text-gold-700 bg-gold-50 border border-gold-200 rounded-lg px-3 py-2">
+              ⚠ This password will not be shown again. Give it to the student now and ask them to log in and change it immediately.
+            </p>
+            {resetError && (
+              <p className="text-sm text-danger-600">{resetError}</p>
+            )}
+            <div className="flex justify-end gap-2">
+              <Button
+                variant="secondary"
+                onClick={() => {
+                  const w = window.open('', '_blank');
+                  if (!w) return;
+                  w.document.write(`<!DOCTYPE html><html><head><title>Password Reset</title>
+                  <style>body{font-family:Arial,sans-serif;padding:24px;max-width:400px}
+                  h2{margin-bottom:16px}table{width:100%;border-collapse:collapse}
+                  td{padding:8px 0;border-bottom:1px solid #eee}
+                  .mono{font-family:monospace;font-weight:bold;font-size:14px}
+                  .warn{background:#fff3cd;border:1px solid #ffc107;padding:8px;border-radius:4px;font-size:11px;margin-top:16px}
+                  </style></head><body>
+                  <h2>Password Reset — DSSSMS</h2>
+                  <table>
+                    <tr><td>Student</td><td class="mono">${resetTarget.firstName} ${resetTarget.lastName}</td></tr>
+                    <tr><td>Student ID</td><td class="mono">${resetTarget.admissionNumber}</td></tr>
+                    <tr><td>Username</td><td class="mono">${resetResult.username}</td></tr>
+                    <tr><td>Temp Password</td><td class="mono">${resetResult.temporaryPassword}</td></tr>
+                  </table>
+                  <div class="warn">⚠ Change this password on first login. Do not share publicly.</div>
+                  </body></html>`);
+                  w.document.close();
+                  w.focus();
+                  setTimeout(() => w.print(), 300);
+                }}
+              >
+                Print
+              </Button>
+              <Button onClick={() => { setResetTarget(null); setResetResult(null); }}>
+                Done
+              </Button>
+            </div>
+          </div>
+        </Modal>
+      )}
     </div>
   );
 }

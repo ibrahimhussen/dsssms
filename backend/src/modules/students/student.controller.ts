@@ -91,6 +91,49 @@ export class StudentController {
     ApiResponse.success(res, { message: 'Student retrieved', data: student });
   });
 
+  exportClassroomCredentials = asyncHandler(async (req: Request, res: Response) => {
+    const { id } = req.params as unknown as StudentIdParam;
+    const credentials = await studentService.exportClassroomCredentials(id);
+    ApiResponse.success(res, { message: 'Classroom credentials retrieved', data: credentials });
+  });
+
+  previewGeneratePasswords = asyncHandler(async (req: Request, res: Response) => {
+    const { id } = req.params as unknown as StudentIdParam;
+    const result = await studentService.previewGeneratePasswords(id);
+    ApiResponse.success(res, { message: 'Preview retrieved', data: result });
+  });
+
+  bulkGenerateNewPasswords = asyncHandler(async (req: Request, res: Response) => {
+    if (!req.user) throw new UnauthorizedError();
+    const { id } = req.params as unknown as StudentIdParam;
+    const result = await studentService.bulkGenerateNewPasswords(id, req.user.userId, req.ip);
+    ApiResponse.success(res, {
+      message: `Processed ${result.total} student(s). ${result.generated} password(s) generated, ${result.skipped} skipped (already set personal password).`,
+      data: result,
+    });
+  });
+
+  bulkResetClassroomPasswords = asyncHandler(async (req: Request, res: Response) => {
+    if (!req.user) throw new UnauthorizedError();
+    const { id } = req.params as unknown as StudentIdParam;
+    const result = await studentService.bulkResetClassroomPasswords(id, req.user.userId, req.ip);
+    ApiResponse.success(res, {
+      statusCode: 200,
+      message: `Processed ${result.processed} student account(s)`,
+      data: result,
+    });
+  });
+
+  resetStudentPassword = asyncHandler(async (req: Request, res: Response) => {
+    if (!req.user) throw new UnauthorizedError();
+    const { id } = req.params as unknown as StudentIdParam;
+    const result = await studentService.resetStudentPassword(id, req.user.userId, req.ip);
+    ApiResponse.success(res, {
+      message: 'Student password reset successfully',
+      data: result,
+    });
+  });
+
   getEnrollmentHistory = asyncHandler(async (req: Request, res: Response) => {
     const { id } = req.params as unknown as StudentIdParam;
     const history = await studentService.getEnrollmentHistory(id);

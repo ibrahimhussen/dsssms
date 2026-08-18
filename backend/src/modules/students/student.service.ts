@@ -234,6 +234,304 @@ export class StudentService {
     return items.map(toStudentSummaryDto);
   }
 
+  async previewGeneratePasswords(classroomId: number): Promise<{
+    total: number;
+    eligible: number;
+    alreadyPersonal: number;
+  }> {
+    const classroom = await prisma.classroom.findUnique({ where: { classroomId } });
+    if (!classroom) throw new NotFoundError('Classroom');
+
+    const students = await prisma.student.findMany({
+      where: { classroomId, studentStatus: 'ACTIVE' },
+      include: { user: true },
+    });
+
+    const eligible        = students.filter((s) => s.user.isTemporaryPassword).length;
+    const alreadyPersonal = students.filter((s) => !s.user.isTemporaryPassword).length;
+
+    return { total: students.length, eligible, alreadyPersonal };
+  }
+
+  /**
+   * GENERATE (new/temporary only) — only processes students whose
+   * isTemporaryPassword is still true (never changed their password).
+   * Does NOT touch students who have already set a personal password.
+   * Safe to call multiple times — running twice produces 0 new entries
+   * for students already processed.
+   */
+  async bulkGenerateNewPasswords(
+    classroomId: number,
+    actorUserId: number,
+    actorIpAddress?: string
+  ): Promise<{
+    total:     number;
+    generated: number;
+    skipped:   number;
+    failed:    number;
+    results: {
+      studentId:         number;
+      admissionNumber:   string;
+      firstName:         string;
+      lastName:          string;
+      username:          string;
+      temporaryPassword: string;
+    }[];
+  }> {
+    const classroom = await prisma.classroom.findUnique({ where: { classroomId } });
+    if (!classroom) throw new NotFoundError('Classroom');
+
+    const students = await prisma.student.findMany({
+      where: { classroomId, studentStatus: 'ACTIVE' },
+      include: { user: true },
+      orderBy: [{ lastName: 'asc' }, { firstName: 'asc' }],
+    });
+
+    let generated = 0;
+    let skipped   = 0;
+    let failed    = 0;
+    const results: {
+      studentId: number; admissionNumber: string;
+      firstName: string; lastName: string;
+      username: string; temporaryPassword: string;
+    }[] = [];
+
+    for (const student of students) {
+      // Skip students who already changed their password (personal password set)
+      if (!student.user.isTemporaryPassword) {
+        skipped++;
+        continue;
+      }
+
+      try {
+        const temporaryPassword = generateTemporaryPassword();
+        const passwordHash = await hashPassword(temporaryPassword);
+
+        await prisma.user.update({
+          where: { userId: student.userId },
+          data: {
+            passwordHash,
+            isTemporaryPassword: true, // remains temporary until student changes it
+            failedLoginAttempts: 0,
+            lockedUntil: null,
+            status: 'ACTIVE',
+          },
+        });
+
+        // Revoke active sessions so the student must log in fresh with new credentials
+        await prisma.refreshToken.updateMany({
+          where: { userId: student.userId, revokedAt: null },
+          data: { revokedAt: new Date() },
+        });
+
+        results.push({
+          studentId:         student.studentId,
+          admissionNumber:   student.admissionNumber,
+          firstName:         student.firstName,
+          lastName:          student.lastName,
+          username:          student.user.username,
+          temporaryPassword,
+        });
+        generated++;
+      } catch {
+        failed++;
+      }
+    }
+
+    await prisma.auditLog.create({
+      data: {
+        userId:    actorUserId,
+        action:    'STUDENT_BULK_PASSWORD_GENERATION',
+        entity:    'Classroom',
+        entityId:  String(classroomId),
+        ipAddress: actorIpAddress,
+        metadata: {
+          classroomId,
+          className:    classroom.className,
+          section:      classroom.section,
+          academicYear: classroom.academicYear,
+          total:     students.length,
+          generated,
+          skipped,
+          failed,
+          // NO passwords in audit log
+        },
+      },
+    });
+
+    return { total: students.length, generated, skipped, failed, results };
+  }
+
+  /**
+   * BULK RESET — resets ALL active students' passwords regardless of whether
+   * they previously changed them. This is the "forgot password, need new temp"
+   * operation. Kept separate from bulkGenerateNewPasswords.
+   */
+  async bulkResetClassroomPasswords(
+    classroomId: number,
+    actorUserId: number,
+    actorIpAddress?: string
+  ): Promise<{
+    processed:  number;
+    results: {
+      studentId:         number;
+      admissionNumber:   string;
+      firstName:         string;
+      lastName:          string;
+      username:          string;
+      temporaryPassword: string;
+      isNew:             boolean;
+    }[];
+  }> {
+    const classroom = await prisma.classroom.findUnique({ where: { classroomId } });
+    if (!classroom) throw new NotFoundError('Classroom');
+
+    const students = await prisma.student.findMany({
+      where: { classroomId, studentStatus: 'ACTIVE' },
+      include: { user: true },
+      orderBy: [{ lastName: 'asc' }, { firstName: 'asc' }],
+    });
+
+    const results = [];
+
+    for (const student of students) {
+      const temporaryPassword = generateTemporaryPassword();
+      const passwordHash = await hashPassword(temporaryPassword);
+
+      if (student.user) {
+        // Account exists — reset password and revoke all sessions
+        await prisma.user.update({
+          where: { userId: student.userId },
+          data: { passwordHash, failedLoginAttempts: 0, lockedUntil: null, status: 'ACTIVE', isTemporaryPassword: true },
+        });
+        await prisma.refreshToken.updateMany({
+          where: { userId: student.userId, revokedAt: null },
+          data: { revokedAt: new Date() },
+        });
+
+        results.push({
+          studentId:         student.studentId,
+          admissionNumber:   student.admissionNumber,
+          firstName:         student.firstName,
+          lastName:          student.lastName,
+          username:          student.user.username,
+          temporaryPassword,
+          isNew:             false,
+        });
+      } else {
+        // Edge case: student record exists but no User account yet — create one
+        // (Should not happen in normal flow but handled defensively)
+        const role = await prisma.role.findUnique({ where: { roleName: 'STUDENT' } });
+        if (!role) continue;
+        const newUser = await prisma.user.create({
+          data: {
+            username: student.admissionNumber,
+            passwordHash,
+            roleId: role.roleId,
+          },
+        });
+        await prisma.student.update({
+          where: { studentId: student.studentId },
+          data: { userId: newUser.userId },
+        });
+
+        results.push({
+          studentId:         student.studentId,
+          admissionNumber:   student.admissionNumber,
+          firstName:         student.firstName,
+          lastName:          student.lastName,
+          username:          student.admissionNumber,
+          temporaryPassword,
+          isNew:             true,
+        });
+      }
+    }
+
+    // Audit — no plaintext passwords in the log
+    await prisma.auditLog.create({
+      data: {
+        userId:   actorUserId,
+        action:   'STUDENT_ACCOUNT_BULK_GENERATED',
+        entity:   'Classroom',
+        entityId: String(classroomId),
+        ipAddress: actorIpAddress,
+        metadata: {
+          classroomId,
+          className: classroom.className,
+          section:   classroom.section,
+          academicYear: classroom.academicYear,
+          totalProcessed: results.length,
+          newAccounts: results.filter((r) => r.isNew).length,
+        },
+      },
+    });
+
+    return { processed: results.length, results };
+  }
+
+  /**
+   * Reset password for one student. Returns the new temporary password once.
+   * Reuses the same secure generation and revocation logic as bulk reset.
+   */
+  async resetStudentPassword(
+    studentId: number,
+    actorUserId: number,
+    actorIpAddress?: string
+  ): Promise<{ username: string; temporaryPassword: string }> {
+    const student = await prisma.student.findUnique({
+      where: { studentId },
+      include: { user: true },
+    });
+    if (!student) throw new NotFoundError('Student');
+    if (!student.user) throw new NotFoundError('Student account');
+
+    const temporaryPassword = generateTemporaryPassword();
+    const passwordHash = await hashPassword(temporaryPassword);
+
+    await prisma.user.update({
+      where: { userId: student.userId },
+      data: { passwordHash, failedLoginAttempts: 0, lockedUntil: null, status: 'ACTIVE', isTemporaryPassword: true },
+    });
+
+    await prisma.refreshToken.updateMany({
+      where: { userId: student.userId, revokedAt: null },
+      data: { revokedAt: new Date() },
+    });
+
+    await prisma.auditLog.create({
+      data: {
+        userId:   actorUserId,
+        action:   'STUDENT_PASSWORD_RESET',
+        entity:   'Student',
+        entityId: String(studentId),
+        ipAddress: actorIpAddress,
+        metadata: { studentId, username: student.user.username },
+      },
+    });
+
+    return { username: student.user.username, temporaryPassword };
+  }
+
+  async exportClassroomCredentials(classroomId: number): Promise<{ studentId: number; admissionNumber: string; firstName: string; lastName: string; username: string }[]> {
+    const classroom = await prisma.classroom.findUnique({ where: { classroomId } });
+    if (!classroom) throw new NotFoundError('Classroom');
+
+    const students = await prisma.student.findMany({
+      where: { classroomId, studentStatus: 'ACTIVE' },
+      include: { user: true },
+      orderBy: [{ lastName: 'asc' }, { firstName: 'asc' }],
+    });
+
+    return students.map((s) => ({
+      studentId:       s.studentId,
+      admissionNumber: s.admissionNumber,
+      firstName:       s.firstName,
+      lastName:        s.lastName,
+      // username = admissionNumber (Student ID = Username per system design)
+      username:        s.user.username,
+    }));
+  }
+
   async getStudentById(studentId: number): Promise<StudentSummaryDto> {
     const student = await prisma.student.findUnique({ where: { studentId }, include: STUDENT_INCLUDE });
     if (!student) throw new NotFoundError('Student');

@@ -20,8 +20,10 @@ const router = Router();
 
 router.use(authenticate);
 
-const MANAGE_ROLES = [RoleName.DIRECTOR, RoleName.VICE_DIRECTOR];
-const READ_ROLES = [...MANAGE_ROLES, RoleName.TEACHER];
+const MANAGE_ROLES   = [RoleName.ADMIN, RoleName.DIRECTOR, RoleName.VICE_DIRECTOR];
+const READ_ROLES     = [...MANAGE_ROLES, RoleName.TEACHER];
+// Credential management is Admin-only — Director/Vice Director manage students but not accounts
+const CREDENTIAL_ROLES = [RoleName.ADMIN];
 
 // Student's own profile — must be declared before the generic '/:id' route.
 router.get('/me', authorize(RoleName.STUDENT), studentController.getMyProfile);
@@ -32,6 +34,19 @@ router.post('/:id/transfer-out', authorizeWithPermissions(MANAGE_ROLES, ['studen
 
 router.get('/', authorizeWithPermissions(READ_ROLES, ['students:view']), validate(listStudentsQuerySchema, 'query'), studentController.list);
 router.get('/export', authorizeWithPermissions(READ_ROLES, ['students:view']), validate(listStudentsQuerySchema, 'query'), studentController.export);
+router.get('/credentials/classroom/:id', authorizeWithPermissions(CREDENTIAL_ROLES, ['students:view']), validate(studentIdParamSchema, 'params'), studentController.exportClassroomCredentials);
+
+// Preview: how many students need passwords generated (haven't set personal password)
+router.get('/accounts/preview/:id', authorizeWithPermissions(CREDENTIAL_ROLES, ['students:view']), validate(studentIdParamSchema, 'params'), studentController.previewGeneratePasswords);
+
+// Bulk generate passwords ONLY for students who haven't set a personal password yet
+router.post('/accounts/generate-new/:id', authorizeWithPermissions(CREDENTIAL_ROLES, ['students:update']), validate(studentIdParamSchema, 'params'), studentController.bulkGenerateNewPasswords);
+
+// Bulk reset ALL passwords for a classroom — Admin only
+router.post('/accounts/generate/:id', authorizeWithPermissions(CREDENTIAL_ROLES, ['students:update']), validate(studentIdParamSchema, 'params'), studentController.bulkResetClassroomPasswords);
+
+// Reset one student's password — Admin only
+router.post('/:id/reset-password', authorizeWithPermissions(CREDENTIAL_ROLES, ['students:update']), validate(studentIdParamSchema, 'params'), studentController.resetStudentPassword);
 router.get('/:id', authorizeWithPermissions(READ_ROLES, ['students:view']), validate(studentIdParamSchema, 'params'), studentController.getById);
 router.get('/:id/enrollments', authorizeWithPermissions(READ_ROLES, ['students:view']), validate(studentIdParamSchema, 'params'), studentController.getEnrollmentHistory);
 

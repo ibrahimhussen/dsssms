@@ -7,6 +7,7 @@ export interface AuthenticatedUserDto {
   role: RoleName;
   status: string;
   permissions: string[];
+  isTemporaryPassword: boolean;
 }
 
 export interface LoginResponseDto {
