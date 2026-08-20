@@ -14,6 +14,7 @@ export interface AuthenticatedUser {
   status:              UserStatus;
   permissions:         string[];
   isTemporaryPassword: boolean;
+  profilePicture:      string | null;
 }
 
 export interface LoginResponse {

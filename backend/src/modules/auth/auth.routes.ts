@@ -13,6 +13,8 @@ router.post('/refresh', validate(refreshTokenSchema), authController.refresh);
 router.post('/logout', validate(refreshTokenSchema), authController.logout);
 
 router.get('/me', authenticate, authController.me);
+router.get('/profile', authenticate, authController.getProfile);
+router.patch('/profile', authenticate, authController.updateProfile);
 router.post(
   '/change-password',
   authenticate,

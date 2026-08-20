@@ -18,6 +18,7 @@ model User {
   lockedUntil          DateTime?
   lastLoginAt          DateTime?
   isTemporaryPassword  Boolean                 @default(true)
+  profilePicture       String?                 @db.VarChar(500)  // URL or base64 data URL
   createdAt            DateTime                @default(now())
   updatedAt            DateTime                @updatedAt
   administrator        Administrator?

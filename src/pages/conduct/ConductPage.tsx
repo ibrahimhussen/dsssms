@@ -40,7 +40,6 @@ export function ConductPage() {
   const updateConduct = useUpdateConduct();
   const deleteConduct = useDeleteConduct();
 
-  const [saveError, setSaveError] = useState<string | null>(null);
   const [deleteError, setDeleteError] = useState<string | null>(null);
 
   const handleSaveConduct = async (rating: string, notes?: string) => {

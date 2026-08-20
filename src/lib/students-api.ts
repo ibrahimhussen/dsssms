@@ -9,7 +9,6 @@ import type {
   StudentSummary,
   StudentEnrollmentRecord,
   ClassroomCredentialItem,
-  GeneratedCredential,
   BulkGenerateNewResult,
   GeneratePreview,
   TransferOutInput,

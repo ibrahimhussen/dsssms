@@ -74,7 +74,7 @@ export function CreateClassroomModal({ isOpen, onClose, onCreated }: CreateClass
         <SelectField label="Homeroom teacher (optional)" error={errors.homeroomTeacherId?.message} {...register('homeroomTeacherId')}>
           <option value="">None assigned</option>
           {teachersData?.items.filter(t => t.teacherId).map((t) => (
-            <option key={t.teacherId} value={t.teacherId}>
+            <option key={t.teacherId ?? t.userId} value={t.teacherId ?? ''}>
               {t.fullName}
             </option>
           ))}

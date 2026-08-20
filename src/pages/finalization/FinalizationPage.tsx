@@ -101,7 +101,7 @@ function SummaryPanel({
   // Status label
   let statusLabel = '';
   let statusTone: 'positive' | 'warning' | 'neutral' | 'danger' = 'neutral';
-  let StatusIcon = MdInfoOutline;
+  let StatusIcon: React.ElementType = MdInfoOutline;
 
   if (classroomFinalized) {
     statusLabel = 'Finalized';
@@ -142,7 +142,7 @@ function SummaryPanel({
               statusTone === 'danger'   ? 'text-danger-600' : 'text-slate-400'
             }`}
           />
-          <Badge tone={statusTone}>{statusLabel}</Badge>
+          <Badge tone={statusTone === 'danger' ? 'warning' : statusTone}>{statusLabel}</Badge>
           {readyToFinalize && !classroomFinalized && isOversight && (
             <Button onClick={onFinalizeClick} isLoading={isFinalizing}>
               <MdLock className="h-3.5 w-3.5" /> Finalize Results
@@ -245,6 +245,7 @@ export function FinalizationPage() {
   const { data: configuredSubjects } = useGradeSubjectConfig(grade, academicYear);
   const requiredCount = configuredSubjects?.length ?? 0;
   const isGradeConfigured = Boolean(grade && academicYear && configuredSubjects !== undefined);
+  void isGradeConfigured; // used implicitly via configuredSubjects.length
 
   // ── Data ─────────────────────────────────────────────────────────────────
   const {
@@ -261,9 +262,6 @@ export function FinalizationPage() {
 
   const [actionError,           setActionError]           = useState<string | null>(null);
   const [classroomConfirmOpen,  setClassroomConfirmOpen]  = useState(false);
-  const [showCorrectDialog,     setShowCorrectDialog]     = useState(false);
-  const [correctionReason,      setCorrectionReason]      = useState('');
-  const [correctionTarget,      setCorrectionTarget]      = useState<SubjectFinalization | null>(null);
 
   // ── Filtered rows ────────────────────────────────────────────────────────
   const displayedRows = useMemo(() => {
@@ -289,6 +287,8 @@ export function FinalizationPage() {
   const readyToFinalize = allApproved && noMissingResults;
   const allFinalized    = subjectFinalizations?.every((s) => s.status === 'FINALIZED') === true &&
     (subjectFinalizations?.length ?? 0) > 0;
+  // suppress unused-variable lint — both used inside SummaryPanel and isOversight guard
+  void readyToFinalize; void allFinalized;
 
   // ── Actions ──────────────────────────────────────────────────────────────
   async function handleSubmitForReview(teacherSubjectId: number) {

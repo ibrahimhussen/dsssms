@@ -23,6 +23,7 @@ import { ClassCredentialsModal } from './ClassCredentialsModal';
 import { ConfirmDialog } from '../../components/ui/ConfirmDialog';
 import { useAuth } from '../../context/AuthContext';
 import { Modal } from '../../components/ui/Modal';
+import type { StudentSummary, CreateStudentResult, ListStudentsParams, StudentStatus } from '../../types/student';
 
 
 function admissionBadge(type: StudentSummary['admissionType']) {

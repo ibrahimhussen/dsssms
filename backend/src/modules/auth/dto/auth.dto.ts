@@ -8,6 +8,7 @@ export interface AuthenticatedUserDto {
   status: string;
   permissions: string[];
   isTemporaryPassword: boolean;
+  profilePicture: string | null;
 }
 
 export interface LoginResponseDto {

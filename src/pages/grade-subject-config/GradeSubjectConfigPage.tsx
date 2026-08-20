@@ -537,7 +537,6 @@ export function GradeSubjectConfigPage() {
   // New grade setup form
   const [newClassName, setNewClassName] = useState('Grade 9');
   const [newAcademicYear, setNewAcademicYear] = useState(defaultYear);
-  const upsert = useUpsertGradeSubjectConfig();
   const [setupError, setSetupError] = useState<string | null>(null);
 
   function handleSelect(className: string, academicYear: string) {

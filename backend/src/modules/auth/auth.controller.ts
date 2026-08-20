@@ -5,6 +5,8 @@ import { authService } from './auth.service';
 import { LoginInput, RefreshTokenInput, ChangePasswordInput } from './validation/auth.validation';
 import { UnauthorizedError } from '../../core/errors/app-error';
 
+import { getFullProfile } from './profile.service';
+
 export class AuthController {
   login = asyncHandler(async (req: Request, res: Response) => {
     const input = req.body as LoginInput;
@@ -41,6 +43,19 @@ export class AuthController {
     });
 
     ApiResponse.success(res, { message: 'Password changed successfully. Please log in again.', data: null });
+  });
+
+  getProfile = asyncHandler(async (req: Request, res: Response) => {
+    if (!req.user) throw new UnauthorizedError();
+    const profile = await getFullProfile(req.user.userId);
+    ApiResponse.success(res, { message: 'Profile retrieved', data: profile });
+  });
+
+  updateProfile = asyncHandler(async (req: Request, res: Response) => {
+    if (!req.user) throw new UnauthorizedError();
+    const { email, profilePicture } = req.body as { email?: string; profilePicture?: string | null };
+    const updated = await authService.updateProfile(req.user.userId, { email, profilePicture });
+    ApiResponse.success(res, { message: 'Profile updated', data: updated });
   });
 
   me = asyncHandler(async (req: Request, res: Response) => {

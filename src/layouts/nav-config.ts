@@ -6,7 +6,7 @@ import {
   MdSchedule, MdFactCheck, MdAssessment, MdDescription,
   MdTrendingUp, MdGavel, MdCampaign, MdNotifications,
   MdAccountCircle, MdLogout, MdUpgrade, MdFolder,
-  MdManageAccounts, MdSchool, MdAccessTime, MdGroups,
+  MdManageAccounts, MdSchool, MdGroups,
 } from 'react-icons/md';
 import { FaUserGraduate, FaChalkboardTeacher, FaUsers } from 'react-icons/fa';
 
@@ -33,7 +33,7 @@ export interface NavGroup {
 export type NavEntry = NavItem | NavGroup;
 
 // ── Shared role sets ──────────────────────────────────────────────────────────
-
+// Note: SCHOOL_MGMT is kept for Director/Vice Director groups below
 const SCHOOL_MGMT: RoleName[] = ['DIRECTOR', 'VICE_DIRECTOR'];
 
 // ── Helpers ───────────────────────────────────────────────────────────────────

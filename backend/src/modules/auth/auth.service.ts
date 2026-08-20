@@ -18,6 +18,7 @@ function toAuthenticatedUserDto(user: {
   email: string | null;
   status: UserStatus;
   isTemporaryPassword: boolean;
+  profilePicture: string | null;
   role: { roleName: RoleName };
   permissions?: { permission: string; expiresAt: Date | null }[];
 }): AuthenticatedUserDto {
@@ -33,6 +34,7 @@ function toAuthenticatedUserDto(user: {
     status: user.status,
     permissions: activePermissions,
     isTemporaryPassword: user.isTemporaryPassword,
+    profilePicture: user.profilePicture,
   };
 }
 
@@ -179,6 +181,46 @@ export class AuthService {
       where: { userId, revokedAt: null },
       data: { revokedAt: new Date() },
     });
+  }
+
+  /** Update profile fields the user is allowed to edit themselves. */
+  async updateProfile(userId: number, input: {
+    email?: string | null;
+    profilePicture?: string | null;
+  }): Promise<AuthenticatedUserDto> {
+    const user = await prisma.user.findUnique({ where: { userId } });
+    if (!user) throw new UnauthorizedError();
+
+    // Validate profile picture — must be a URL or a base64 data URL (JPEG/PNG/WebP)
+    if (input.profilePicture !== undefined && input.profilePicture !== null) {
+      const isDataUrl = /^data:image\/(jpeg|jpg|png|webp);base64,/.test(input.profilePicture);
+      const isUrl     = /^https?:\/\//.test(input.profilePicture);
+      if (!isDataUrl && !isUrl) {
+        throw new BadRequestError('Profile picture must be a valid image URL or JPEG/PNG/WebP data URL');
+      }
+      // Limit data URL size to ~2 MB (base64 ~2.7 MB raw)
+      if (input.profilePicture.length > 3_000_000) {
+        throw new BadRequestError('Profile picture is too large (max 2 MB)');
+      }
+    }
+
+    if (input.email !== undefined && input.email !== null && input.email !== '') {
+      const conflict = await prisma.user.findFirst({
+        where: { email: input.email, NOT: { userId } },
+      });
+      if (conflict) throw new BadRequestError('This email address is already in use');
+    }
+
+    const updated = await prisma.user.update({
+      where: { userId },
+      data: {
+        ...(input.email !== undefined     && { email: input.email || null }),
+        ...(input.profilePicture !== undefined && { profilePicture: input.profilePicture }),
+      },
+      include: { role: true, permissions: true },
+    });
+
+    return toAuthenticatedUserDto(updated);
   }
 
   async changePassword(params: {
