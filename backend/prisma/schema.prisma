@@ -41,6 +41,7 @@ model User {
   preparedBatches      PromotionBatch[]        @relation("BatchPreparer")
   approvedBatches      PromotionBatch[]        @relation("BatchApprover")
   rejectedBatches      PromotionBatch[]        @relation("BatchRejecter")
+  reportedDisciplineRecords DisciplineRecord[] @relation("DisciplineReporter")
 
   @@index([roleId])
   @@map("users")
@@ -235,6 +236,7 @@ model Student {
   enrollments               StudentEnrollment[]
   promotionEntries          PromotionEntry[]
   attendanceRecords         Attendance[]
+  disciplineRecords         DisciplineRecord[]
   classroom                 Classroom              @relation(fields: [classroomId], references: [classroomId])
   user                      User                   @relation(fields: [userId], references: [userId], onDelete: Cascade)
 
@@ -788,4 +790,40 @@ enum BatchStatus {
   APPROVED
   REJECTED
   COMPLETED
+}
+
+enum DisciplineSeverity {
+  LOW
+  MEDIUM
+  HIGH
+  CRITICAL
+}
+
+enum DisciplineStatus {
+  OPEN
+  UNDER_REVIEW
+  RESOLVED
+  DISMISSED
+}
+
+/// Persistent discipline incident records logged by teachers and vice directors.
+model DisciplineRecord {
+  id              Int                @id @default(autoincrement())
+  studentId       Int
+  incidentDate    String             @db.VarChar(10)   // ISO date "YYYY-MM-DD"
+  title           String             @db.VarChar(200)
+  description     String             @db.Text
+  severity        DisciplineSeverity @default(MEDIUM)
+  status          DisciplineStatus   @default(OPEN)
+  actionTaken     String?            @db.Text
+  reportedByUserId Int
+  createdAt       DateTime           @default(now())
+  updatedAt       DateTime           @updatedAt
+
+  student        Student @relation(fields: [studentId],       references: [studentId])
+  reportedBy     User    @relation("DisciplineReporter", fields: [reportedByUserId], references: [userId])
+
+  @@index([studentId])
+  @@index([reportedByUserId])
+  @@map("discipline_records")
 }
