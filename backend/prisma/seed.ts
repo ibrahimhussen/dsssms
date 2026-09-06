@@ -480,7 +480,84 @@ async function main(): Promise<void> {
     create: { year: 2026, lastSequence: 6 }, // 6 demo students already seeded
   });
 
+  // --- Historical academic reports + enrollments for Grade 9A students (transcript demo) -----
+  // Seeds AcademicReport rows AND StudentEnrollment rows for prior years so the
+  // transcript shows Grade 9→10→11→12 all on one page.
+  console.log('Seeding historical academic reports + enrollments (multi-year transcript demo)...');
+
+  // Look up the Grade 10A, 11A, 12A classrooms (already seeded for 2026/27)
+  const gr10a = await prisma.classroom.findFirst({ where: { className: 'Grade 10', section: 'A', academicYear: CURRENT_ACADEMIC_YEAR } });
+  const gr11a = await prisma.classroom.findFirst({ where: { className: 'Grade 11', section: 'A', academicYear: CURRENT_ACADEMIC_YEAR } });
+  const gr12a = await prisma.classroom.findFirst({ where: { className: 'Grade 12', section: 'A', academicYear: CURRENT_ACADEMIC_YEAR } });
+
+  // Map: academicYear → classroomId for historical enrollments
+  // 2023/24 = Grade 9 (use existing Grade 9A classroom)
+  // 2024/25 = Grade 10
+  // 2025/26 = Grade 11
+  // 2026/27 = Grade 12 (demo: show full Grade 9→12 progression)
+  const historicalEnrollments: { academicYear: string; classroomId: number }[] = [
+    { academicYear: '2023/24', classroomId: classroom.classroomId },   // Grade 9 A
+    { academicYear: '2024/25', classroomId: gr10a?.classroomId ?? classroom.classroomId },
+    { academicYear: '2025/26', classroomId: gr11a?.classroomId ?? classroom.classroomId },
+    { academicYear: CURRENT_ACADEMIC_YEAR, classroomId: gr12a?.classroomId ?? classroom.classroomId }, // Grade 12 A
+  ];
+
+  // Seed enrollments for each Grade 9A student for each historical year
+  for (const student of grade9AStudents) {
+    for (const { academicYear, classroomId } of historicalEnrollments) {
+      await prisma.studentEnrollment.upsert({
+        where: { studentId_academicYear: { studentId: student.studentId, academicYear } },
+        update: { classroomId },
+        create: {
+          studentId:    student.studentId,
+          classroomId,
+          academicYear,
+          decision:     'ACTIVE',
+        },
+      });
+    }
+  }
+  console.log('  Seeded historical enrollments for Grade 9A students (Gr9→Gr10→Gr11)');
+
+  const historicalYears = [
+    { academicYear: '2023/24', rank9a: [2, 1, 3] },   // chaltu 1st, husen 2nd, selam 3rd
+    { academicYear: '2024/25', rank9a: [1, 2, 3] },   // husen 1st
+    { academicYear: '2025/26', rank9a: [3, 1, 2] },   // selam 1st
+  ];
+
+  // Base averages per student per year (realistic variation)
+  const historicalAverages: Record<string, number[]> = {
+    '2023/24': [66.4, 68.5, 65.2],   // [husen, chaltu, selam]
+    '2024/25': [72.1, 70.8, 69.5],
+    '2025/26': [74.3, 73.1, 75.0],
+  };
+
+  const grade9AStudentIds = grade9AStudents.map((s) => s.studentId);
+
+  for (const { academicYear, rank9a } of historicalYears) {
+    const avgs = historicalAverages[academicYear];
+    for (const sem of [Semester.SEMESTER_1, Semester.SEMESTER_2] as Semester[]) {
+      // Slight variation between semesters
+      const semOffset = sem === Semester.SEMESTER_1 ? -1.5 : 1.5;
+      for (let i = 0; i < grade9AStudentIds.length; i++) {
+        const studentId = grade9AStudentIds[i];
+        const average = Math.round((avgs[i] + semOffset) * 100) / 100;
+        const rank = rank9a[i];
+        await prisma.academicReport.upsert({
+          where: { studentId_semester_academicYear: { studentId, semester: sem, academicYear } },
+          update: { averageMark: average, rank, generatedDate: new Date() },
+          create: { studentId, semester: sem, academicYear, averageMark: average, rank },
+        });
+      }
+      console.log(`  Seeded reports for ${academicYear} ${sem}`);
+    }
+  }
+
   console.log('\nSeeding complete. All demo accounts use the password: ' + DEFAULT_PASSWORD);
+  console.log('  admin / director.demo / vicedirector.demo / abebe.kebede');
+  console.log('  Students: husen.ahmed, chaltu.sani, selam.mulugeta (Grade 9A)');
+  console.log('            abdi.bekele, meron.tesfaye, dawit.haile (Grade 9B)');
+  console.log('  Classrooms: 12 classrooms across Grade 9–12, Sections A–C');
   console.log('  admin / director.demo / vicedirector.demo / abebe.kebede');
   console.log('  Students: husen.ahmed, chaltu.sani, selam.mulugeta (Grade 9A)');
   console.log('            abdi.bekele, meron.tesfaye, dawit.haile (Grade 9B)');

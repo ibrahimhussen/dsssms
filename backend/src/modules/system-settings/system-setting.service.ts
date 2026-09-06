@@ -12,9 +12,12 @@ function toDto(row: SettingWithUpdatedBy): SystemSettingDto {
   return {
     schoolName: row.schoolName,
     schoolAddress: row.schoolAddress,
+    schoolZone: row.schoolZone ?? null,
+    schoolWereda: row.schoolWereda ?? null,
     contactEmail: row.contactEmail,
     contactPhone: row.contactPhone,
     currentAcademicYear: row.currentAcademicYear,
+    schoolLogo: row.schoolLogo ?? null,
     promotionPassMark: Number(row.promotionPassMark),
     minimumSubjectPassMark: Number(row.minimumSubjectPassMark),
     updatedAt: row.updatedAt.toISOString(),

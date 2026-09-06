@@ -96,7 +96,6 @@ function buildPrintHtml(
       <td class="center mono">${s.average != null ? s.average.toFixed(2) : '—'}</td>
       <td class="center">${s.sectionRank != null ? `${s.sectionRank}/${s.totalStudentsInSection}` : '—'}</td>
       <td class="center">${s.gradeRank != null ? `${s.gradeRank}/${s.totalStudentsInGrade}` : '—'}</td>
-      <td class="center small">${conductLabel(s.conduct)}</td>
       <td class="center small ${s.failedSubjects.length > 0 ? 'fail' : ''}">${s.failedSubjects.length > 0 ? s.failedSubjects.join(', ') : '—'}</td>
       <td class="center ${stCls}">${s.academicStatus}</td>
     </tr>`;
@@ -106,7 +105,7 @@ function buildPrintHtml(
     `<div class="draft-banner">⚠ DRAFT — Not yet finalized. Does not represent official results.</div>`;
 
   return `<!DOCTYPE html><html lang="en"><head><meta charset="UTF-8"/>
-  <title>Academic Register — ${metadata.classroomLabel}</title>
+  <title>Roster — ${metadata.classroomLabel}</title>
   <style>
     *{margin:0;padding:0;box-sizing:border-box}
     body{font-family:Arial,sans-serif;font-size:9pt;color:#111;padding:16px}
@@ -130,7 +129,7 @@ function buildPrintHtml(
   </style></head><body>
   ${draftBanner}
   <div class="school-name">Dinsho Secondary School</div>
-  <div class="register-title">Class Academic Register</div>
+  <div class="register-title">Class Roster</div>
   <div class="meta-grid">
     <div class="meta-item">Grade/Class: <span>${metadata.classroomLabel}</span></div>
     <div class="meta-item">Academic Year: <span>${metadata.academicYear}</span></div>
@@ -140,7 +139,7 @@ function buildPrintHtml(
   <table><thead><tr>
     <th>#</th><th>Adm. No.</th><th>Full Name</th><th>Sex</th><th>Age</th>
     ${subjectHeaders}
-    <th>Total</th><th>Average</th><th>Sec.Rank</th><th>Grade Rank</th><th>Conduct</th><th>Failed Subjects</th><th>Status</th>
+    <th>Total</th><th>Average</th><th>Sec.Rank</th><th>Grade Rank</th><th>Failed Subjects</th><th>Status</th>
   </tr></thead><tbody>${rows}</tbody></table>
   <div class="summary-row">
     <div class="summary-item">Total: <span>${metadata.totalStudents}</span></div>
@@ -484,7 +483,7 @@ export function AcademicRegisterPage() {
     <div className="max-w-full">
       {/* ── Page header ── */}
       <div className="mb-1 flex items-center justify-between flex-wrap gap-3">
-        <h1 className="text-2xl">Academic Register</h1>
+        <h1 className="text-2xl">Roster</h1>
         {sectionData && registerType === 'section' && (
           <div className="flex gap-2 flex-wrap">
             <Button variant="secondary" onClick={handlePrint}>
@@ -501,7 +500,7 @@ export function AcademicRegisterPage() {
       {/* ── Filter card ── */}
       <div className="mb-5 rounded-2xl border border-slate-200 bg-white p-5 shadow-sm">
         <p className="mb-4 text-xs font-semibold uppercase tracking-wider text-slate-400">
-          Select Register
+          Select Roster
         </p>
 
         {/* Register type toggle */}
@@ -516,7 +515,7 @@ export function AcademicRegisterPage() {
             }`}
           >
             <MdTableRows className="h-4 w-4" />
-            Section Register
+            Section Roster
           </button>
           <button
             type="button"
@@ -625,7 +624,7 @@ export function AcademicRegisterPage() {
           <p className="font-semibold text-slate-600">No register selected</p>
           <p className="mt-1 text-sm text-slate-500 max-w-sm mx-auto">
             Select a grade, academic year
-            {registerType === 'section' ? ', and section' : ''} to generate the academic register.
+            {registerType === 'section' ? ', and section' : ''} to generate the roster.
             Required subjects are determined by Grade Subject Configuration.
           </p>
         </div>
@@ -721,7 +720,6 @@ export function AcademicRegisterPage() {
                   <th className="register-th">Avg</th>
                   <th className="register-th whitespace-nowrap">Sec.Rank</th>
                   <th className="register-th whitespace-nowrap">Grade Rank</th>
-                  <th className="register-th">Conduct</th>
                   <th className="register-th whitespace-nowrap">Failed Subjects</th>
                   <th className="register-th">Status</th>
                 </tr>
@@ -778,7 +776,6 @@ export function AcademicRegisterPage() {
                         ? `${student.gradeRank}/${student.totalStudentsInGrade}`
                         : '—'}
                     </td>
-                    <td className="register-td text-center">{conductLabel(student.conduct)}</td>
                     <td className="register-td text-center">
                       {student.failedSubjects.length === 0
                         ? <span className="text-slate-300">—</span>

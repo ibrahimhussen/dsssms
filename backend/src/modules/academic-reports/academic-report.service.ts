@@ -5,6 +5,7 @@ import { assertCanAccessStudentRecords } from '../../core/authorization/student-
 import { AuthenticatedUser } from '../../middlewares/authenticate.middleware';
 import { studentService } from '../students/student.service';
 import { gradeService } from '../grades/grade.service';
+import { systemSettingService } from '../system-settings/system-setting.service';
 import { GenerateClassroomReportsInput } from './validation/academic-report.validation';
 import { AcademicReportDto, TranscriptDto, TranscriptPeriodDto } from './dto/academic-report.dto';
 
@@ -173,16 +174,41 @@ export class AcademicReportService {
   /**
    * The full, cumulative multi-year academic record — every semester the
    * student has a generated report for, each broken down subject-by-subject,
-   * plus a cumulative average across all of them. Distinct from a single
-   * semester's report card: this is the "whole school career" document.
+   * plus academic status, grade/section per period, promotion decision,
+   * and school name. Distinct from a single semester's report card.
    */
   async getStudentTranscript(actor: AuthenticatedUser, studentId: number): Promise<TranscriptDto> {
     await assertCanAccessStudentRecords(actor, studentId);
 
-    const [student, reports] = await Promise.all([
+    const [student, reports, enrollments, settings] = await Promise.all([
       studentService.getStudentById(studentId),
       this.listStudentReports(actor, studentId),
+      // Fetch all enrollment records so we can look up grade/section per academic year
+      prisma.studentEnrollment.findMany({
+        where: { studentId },
+        include: { classroom: true },
+        orderBy: { academicYear: 'asc' },
+      }),
+      systemSettingService.get(),
     ]);
+
+    // Build a lookup: academicYear → classroom (grade+section) for this student
+    const enrollmentByYear = new Map(
+      enrollments.map((e) => [e.academicYear, e.classroom])
+    );
+
+    // Fetch completed promotion entries for this student (gives PROMOTED/REPEATED/GRADUATED)
+    const promotionEntries = await prisma.promotionEntry.findMany({
+      where: { studentId },
+      include: { batch: true },
+    });
+    // Key: sourceAcademicYear → decision
+    const promotionByYear = new Map<string, 'PROMOTED' | 'REPEATED' | 'GRADUATED'>();
+    for (const entry of promotionEntries) {
+      if (entry.batch.status === 'COMPLETED') {
+        promotionByYear.set(entry.batch.sourceAcademicYear, entry.decision);
+      }
+    }
 
     // Chronological order (oldest first) reads naturally as a school career.
     const orderedReports = [...reports].sort(
@@ -196,17 +222,42 @@ export class AcademicReportService {
         academicYear: report.academicYear,
       });
 
+      // Grade/section for this academic year from enrollment records
+      const classroom = enrollmentByYear.get(report.academicYear);
+      const className = classroom?.className ?? student.classroom.className;
+      const section   = classroom?.section   ?? student.classroom.section;
+
+      // Period totals from released subjects only
+      const totalObtained = subjectBreakdown.reduce((sum, s) => sum + s.totalScore, 0);
+      const totalMaxMarks  = subjectBreakdown.reduce((sum, s) => sum + s.totalMaxMarks, 0);
+
+      // Academic status: PASS if average meets threshold, FAIL otherwise.
+      // Uses the same simple threshold as generateClassroomReports.
+      // For a full grade-specific rule check we use the same promotionPassMark.
+      const academicStatus: 'PASS' | 'FAIL' | 'PENDING' =
+        subjectBreakdown.length === 0
+          ? 'PENDING'
+          : report.averageMark >= Number(settings.promotionPassMark)
+          ? 'PASS'
+          : 'FAIL';
+
       periods.push({
         semester: report.semester,
         academicYear: report.academicYear,
+        className,
+        section,
         subjects: subjectBreakdown.map((s) => ({
-          subjectName: s.subject.subjectName,
-          totalScore: s.totalScore,
+          subjectName:   s.subject.subjectName,
+          totalScore:    s.totalScore,
           totalMaxMarks: s.totalMaxMarks,
-          percentage: s.totalMaxMarks > 0 ? Math.round((s.totalScore / s.totalMaxMarks) * 1000) / 10 : 0,
+          percentage:    s.totalMaxMarks > 0 ? Math.round((s.totalScore / s.totalMaxMarks) * 1000) / 10 : 0,
         })),
-        periodAverage: report.averageMark,
-        rank: report.rank,
+        totalObtained,
+        totalMaxMarks,
+        periodAverage:     report.averageMark,
+        rank:              report.rank,
+        academicStatus,
+        promotionDecision: promotionByYear.get(report.academicYear) ?? null,
       });
     }
 
@@ -216,13 +267,15 @@ export class AcademicReportService {
         : Math.round((periods.reduce((sum, p) => sum + p.periodAverage, 0) / periods.length) * 10) / 10;
 
     return {
-      studentId: student.studentId,
-      studentName: `${student.firstName} ${student.lastName}`,
+      studentId:       student.studentId,
+      studentName:     `${student.firstName} ${student.lastName}`,
       admissionNumber: student.admissionNumber,
-      gender: student.gender,
-      dateOfBirth: student.dateOfBirth.toISOString(),
-      classroomLabel: `${student.classroom.className} ${student.classroom.section}`,
-      enrolledAt: student.enrolledAt.toISOString(),
+      gender:          student.gender,
+      dateOfBirth:     student.dateOfBirth.toISOString(),
+      classroomLabel:  `${student.classroom.className} ${student.classroom.section}`,
+      enrolledAt:      student.enrolledAt.toISOString(),
+      dateOfLeavingAt: student.transferredOutAt?.toISOString() ?? null,
+      schoolName:      settings.schoolName,
       periods,
       cumulativeAverage,
       generatedDate: new Date().toISOString(),

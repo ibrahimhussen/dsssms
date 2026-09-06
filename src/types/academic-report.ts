@@ -32,9 +32,15 @@ export interface TranscriptSubjectRow {
 export interface TranscriptPeriod {
   semester: Semester;
   academicYear: string;
+  className: string;
+  section: string;
   subjects: TranscriptSubjectRow[];
+  totalObtained: number;
+  totalMaxMarks: number;
   periodAverage: number;
   rank: number | null;
+  academicStatus: 'PASS' | 'FAIL' | 'PENDING';
+  promotionDecision: 'PROMOTED' | 'REPEATED' | 'GRADUATED' | null;
 }
 
 export interface Transcript {
@@ -45,6 +51,8 @@ export interface Transcript {
   dateOfBirth: string;
   classroomLabel: string;
   enrolledAt: string;
+  dateOfLeavingAt: string | null;
+  schoolName: string;
   periods: TranscriptPeriod[];
   cumulativeAverage: number | null;
   generatedDate: string;

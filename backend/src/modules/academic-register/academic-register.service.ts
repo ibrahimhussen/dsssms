@@ -196,12 +196,65 @@ async function loadSemesterResults(
   return result;
 }
 
+// ── Grade-specific pass rules ─────────────────────────────────────────────────
+
+/**
+ * Extracts the numeric grade level from a className string.
+ * "Grade 9" → 9, "Grade 11" → 11, unknown → null
+ */
+function gradeLevel(className: string): number | null {
+  const m = className.match(/\d+/);
+  return m ? parseInt(m[0], 10) : null;
+}
+
+/**
+ * Returns the minimum average required to PASS given the number of failed
+ * subjects, according to the school's grade-specific rules.
+ *
+ * Grade 9–10:
+ *   0 failed → normal promotionPassMark applies
+ *   1 failed → avg ≥ 52
+ *   2 failed → avg ≥ 53
+ *   3 failed → avg ≥ 54
+ *   4+       → FAIL regardless
+ *
+ * Grade 11–12:
+ *   0 failed → normal promotionPassMark applies
+ *   1 failed → avg ≥ 53
+ *   2 failed → avg ≥ 55
+ *   3 failed → avg ≥ 58
+ *   4+       → FAIL regardless
+ *
+ * Returns null to signal "FAIL regardless" (4+ failed subjects).
+ */
+function minimumAverageForGrade(
+  gradeNum: number | null,
+  failedCount: number,
+  basePassMark: number
+): number | null {
+  if (failedCount === 0) return basePassMark;
+  if (failedCount >= 4)  return null;               // FAIL regardless
+
+  // Grade 9 or 10
+  if (gradeNum !== null && gradeNum <= 10) {
+    if (failedCount === 1) return 52;
+    if (failedCount === 2) return 53;
+    if (failedCount === 3) return 54;
+  }
+
+  // Grade 11 or 12 (and any other grade — apply 11-12 rules as default)
+  if (failedCount === 1) return 53;
+  if (failedCount === 2) return 55;
+  /* failedCount === 3 */ return 58;
+}
+
 // ── Academic status determination ─────────────────────────────────────────────
 
 function determineAcademicStatus(
   subjectResults: SubjectRawResult[],
   settings: { promotionPassMark: number; minimumSubjectPassMark: number },
-  allFinalized: boolean
+  allFinalized: boolean,
+  className: string
 ): AcademicStatus {
   const hasAnyData = subjectResults.some((r) => r.finalResult !== null);
 
@@ -215,12 +268,20 @@ function determineAcademicStatus(
 
   if (!allFinalized) return AcademicStatus.PENDING;
 
-  // All subjects have results and are finalized — determine pass/fail
+  // All subjects have results and are finalized — apply grade-specific pass rules
   const avg = subjectResults.reduce((s, r) => s + r.finalResult!, 0) / subjectResults.length;
-  const failsAverage = avg < settings.promotionPassMark;
-  const failsSubject = subjectResults.some((r) => r.finalResult! < settings.minimumSubjectPassMark);
 
-  return failsAverage || failsSubject ? AcademicStatus.FAIL : AcademicStatus.PASS;
+  const failedSubjectCount = subjectResults.filter(
+    (r) => r.finalResult! < settings.minimumSubjectPassMark
+  ).length;
+
+  const grade = gradeLevel(className);
+  const minAvg = minimumAverageForGrade(grade, failedSubjectCount, settings.promotionPassMark);
+
+  // null → 4+ failed subjects → unconditional FAIL
+  if (minAvg === null) return AcademicStatus.FAIL;
+
+  return avg >= minAvg ? AcademicStatus.PASS : AcademicStatus.FAIL;
 }
 
 // ── Main service ──────────────────────────────────────────────────────────────
@@ -408,7 +469,8 @@ export class AcademicRegisterService {
           hasAssignment: r.hasAssignment,
         })),
         settings,
-        allFinalized
+        allFinalized,
+        classroom.className
       );
 
       // Calculate total/average only for students with complete, finalized results
