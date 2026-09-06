@@ -2,7 +2,6 @@ import { FinalizationStatus, Prisma, RoleName, Semester } from '@prisma/client';
 import { prisma } from '../../database/prisma-client';
 import {
   BadRequestError,
-  ConflictError,
   ForbiddenError,
   NotFoundError,
 } from '../../core/errors/app-error';
@@ -348,28 +347,66 @@ export class FinalizationService {
     input: FinalizeClassroomInput,
     ipAddress?: string
   ): Promise<ClassroomFinalizationDto> {
-    await assertCanAccessClassroom(actor, input.classroomId);
+    const classroom = await assertCanAccessClassroom(actor, input.classroomId);
 
-    // Check that all subjects for this classroom are finalized
+    // ── 1. Get the authoritative required-subject list from GradeSubjectConfig ──
+    const configuredSubjects = await prisma.gradeSubjectConfig.findMany({
+      where: { className: classroom.className, academicYear: input.academicYear },
+      include: { subject: true },
+      orderBy: [{ sortOrder: 'asc' }, { subject: { subjectName: 'asc' } }],
+    });
+
+    if (configuredSubjects.length === 0) {
+      throw new BadRequestError(
+        `No subjects have been configured for ${classroom.className} in ${input.academicYear}. ` +
+        `Configure grade subjects before finalizing.`
+      );
+    }
+
+    // ── 2. Get all TeacherSubject assignments for this classroom ──────────────
     const teacherSubjects = await prisma.teacherSubject.findMany({
       where: { classroomId: input.classroomId },
+      include: { subject: true },
     });
+    const tsBySubjectId = new Map(teacherSubjects.map((ts) => [ts.subjectId, ts]));
 
-    const subjectFinalizations = await prisma.subjectFinalization.findMany({
-      where: {
-        teacherSubjectId: { in: teacherSubjects.map((ts) => ts.id) },
-        semester: input.semester,
-        academicYear: input.academicYear,
-      },
-    });
+    // ── 3. Check every required subject ──────────────────────────────────────
+    const unassigned: string[] = [];
+    const notFinalized: string[] = [];
 
-    const notFinalized = subjectFinalizations.filter(
-      (sf) => sf.status !== FinalizationStatus.FINALIZED
-    );
+    for (const config of configuredSubjects) {
+      const ts = tsBySubjectId.get(config.subjectId);
+      if (!ts) {
+        unassigned.push(config.subject.subjectName);
+        continue;
+      }
+
+      const fin = await prisma.subjectFinalization.findUnique({
+        where: {
+          teacherSubjectId_semester_academicYear: {
+            teacherSubjectId: ts.id,
+            semester: input.semester,
+            academicYear: input.academicYear,
+          },
+        },
+      });
+
+      if (!fin || fin.status !== FinalizationStatus.FINALIZED) {
+        notFinalized.push(config.subject.subjectName);
+      }
+    }
+
+    if (unassigned.length > 0) {
+      throw new BadRequestError(
+        `${unassigned.length} required subject(s) have no teacher assigned: ` +
+        `${unassigned.join(', ')}. Assign teachers before finalizing.`
+      );
+    }
 
     if (notFinalized.length > 0) {
       throw new BadRequestError(
-        `${notFinalized.length} subject(s) are not yet finalized. All subjects must be finalized before the classroom can be finalized.`
+        `${notFinalized.length} required subject(s) are not yet finalized: ` +
+        `${notFinalized.join(', ')}. All required subjects must be FINALIZED before the classroom can be finalized.`
       );
     }
 

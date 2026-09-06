@@ -38,6 +38,8 @@ export interface AcademicRegisterStudent {
   conduct:         string | null;   // ConductRating enum value
   academicStatus:  AcademicStatus;
   hasUnfinalizedSubjects: boolean;
+  /** Subject names below the configured minimum subject pass mark (finalized only) */
+  failedSubjects: string[];
 }
 
 // ── Register metadata ─────────────────────────────────────────────────────────

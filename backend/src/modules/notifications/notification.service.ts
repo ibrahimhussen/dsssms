@@ -326,9 +326,27 @@ export class NotificationService {
           category:     input.category ?? NotificationCategory.ANNOUNCEMENT,
           title:        input.title,
           message:      input.message,
+          relatedEntity:   input.audience,
+          relatedEntityId: input.classroomId ? String(input.classroomId) : null,
         })),
       });
     }
+
+    // Create one broadcast-summary row (recipientUserId = null) so the sender
+    // can see a single "sent announcement" entry rather than one row per recipient.
+    await prisma.notification.create({
+      data: {
+        recipientUserId:  null,
+        senderUserId:     actor.userId,
+        category:         input.category ?? NotificationCategory.ANNOUNCEMENT,
+        title:            input.title,
+        message:          input.message,
+        relatedEntity:    input.audience,
+        relatedEntityId:  input.classroomId ? String(input.classroomId) : null,
+        // Store recipient count in deduplicationKey for display purposes
+        deduplicationKey: `broadcast:${actor.userId}:${Date.now()}`,
+      },
+    });
 
     await recordAudit({
       userId:   actor.userId,
@@ -426,10 +444,12 @@ export class NotificationService {
     const { skip, take } = getPaginationParams(query as PaginationQuery);
 
     const where: Prisma.NotificationWhereInput = {
-      ...(query.status          && { status:          query.status }),
-      ...(query.category        && { category:        query.category }),
-      ...(query.recipientUserId && { recipientUserId: query.recipientUserId }),
-      ...(query.studentId       && { studentId:       query.studentId }),
+      ...(query.status               && { status:          query.status }),
+      ...(query.category             && { category:        query.category }),
+      ...(query.recipientUserId      && { recipientUserId: query.recipientUserId }),
+      ...(query.senderUserId         && { senderUserId:    query.senderUserId }),
+      ...(query.studentId            && { studentId:       query.studentId }),
+      ...(query.broadcastSummaryOnly === 'true' && { recipientUserId: null }),
     };
 
     const [items, totalItems] = await Promise.all([

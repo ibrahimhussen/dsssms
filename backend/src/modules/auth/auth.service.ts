@@ -12,7 +12,12 @@ import { durationToFutureDate, hashToken } from '../../core/utils/token.util';
 import { recordAudit } from '../../core/audit/audit-recorder';
 import { LoginResponseDto, RefreshResponseDto, AuthenticatedUserDto } from './dto/auth.dto';
 
-function toAuthenticatedUserDto(user: {
+// ── Resolves full name from the role-specific join ────────────────────────────
+// The User row itself has no fullName column — each role stores it in its own
+// table (Administrator, Director, ViceDirector, Teacher, Student, Parent).
+// We include those relations wherever we fetch users for auth purposes.
+
+type UserWithRoleRelations = {
   userId: number;
   username: string;
   email: string | null;
@@ -21,20 +26,58 @@ function toAuthenticatedUserDto(user: {
   profilePicture: string | null;
   role: { roleName: RoleName };
   permissions?: { permission: string; expiresAt: Date | null }[];
-}): AuthenticatedUserDto {
+  administrator?: { firstName: string; lastName: string } | null;
+  director?:      { firstName: string; lastName: string } | null;
+  viceDirector?:  { firstName: string; lastName: string } | null;
+  teacher?:       { firstName: string; lastName: string } | null;
+  student?:       { firstName: string; lastName: string } | null;
+  parent?:        { fullName: string } | null;
+};
+
+function resolveFullName(user: UserWithRoleRelations): string | null {
+  switch (user.role.roleName) {
+    case RoleName.ADMIN:
+      return user.administrator
+        ? `${user.administrator.firstName} ${user.administrator.lastName}`
+        : null;
+    case RoleName.DIRECTOR:
+      return user.director
+        ? `${user.director.firstName} ${user.director.lastName}`
+        : null;
+    case RoleName.VICE_DIRECTOR:
+      return user.viceDirector
+        ? `${user.viceDirector.firstName} ${user.viceDirector.lastName}`
+        : null;
+    case RoleName.TEACHER:
+      return user.teacher
+        ? `${user.teacher.firstName} ${user.teacher.lastName}`
+        : null;
+    case RoleName.STUDENT:
+      return user.student
+        ? `${user.student.firstName} ${user.student.lastName}`
+        : null;
+    case RoleName.PARENT:
+      return user.parent?.fullName ?? null;
+    default:
+      return null;
+  }
+}
+
+function toAuthenticatedUserDto(user: UserWithRoleRelations): AuthenticatedUserDto {
   const activePermissions = (user.permissions || [])
     .filter(p => !p.expiresAt || p.expiresAt > new Date())
     .map(p => p.permission);
 
   return {
-    userId: user.userId,
-    username: user.username,
-    email: user.email,
-    role: user.role.roleName,
-    status: user.status,
-    permissions: activePermissions,
+    userId:              user.userId,
+    username:            user.username,
+    email:               user.email,
+    role:                user.role.roleName,
+    status:              user.status,
+    permissions:         activePermissions,
     isTemporaryPassword: user.isTemporaryPassword,
-    profilePicture: user.profilePicture,
+    profilePicture:      user.profilePicture,
+    fullName:            resolveFullName(user),
   };
 }
 
@@ -47,7 +90,7 @@ export class AuthService {
   async login(input: { username: string; password: string; ipAddress?: string }): Promise<LoginResponseDto> {
     const user = await prisma.user.findUnique({
       where: { username: input.username },
-      include: { role: true, permissions: true },
+      include: { role: true, permissions: true, administrator: true, director: true, viceDirector: true, teacher: true, student: true, parent: true },
     });
 
     // Deliberately identical error message whether the username doesn't
@@ -141,7 +184,7 @@ export class AuthService {
       throw new UnauthorizedError('Refresh token could not be verified');
     }
 
-    const user = await prisma.user.findUnique({ where: { userId: stored.userId }, include: { role: true, permissions: true } });
+    const user = await prisma.user.findUnique({ where: { userId: stored.userId }, include: { role: true, permissions: true, administrator: true, director: true, viceDirector: true, teacher: true, student: true, parent: true } });
 
     if (!user || user.status !== UserStatus.ACTIVE) {
       throw new UnauthorizedError('Account is no longer active');
@@ -217,7 +260,7 @@ export class AuthService {
         ...(input.email !== undefined     && { email: input.email || null }),
         ...(input.profilePicture !== undefined && { profilePicture: input.profilePicture }),
       },
-      include: { role: true, permissions: true },
+      include: { role: true, permissions: true, administrator: true, director: true, viceDirector: true, teacher: true, student: true, parent: true },
     });
 
     return toAuthenticatedUserDto(updated);
@@ -255,10 +298,11 @@ export class AuthService {
     await recordAudit({ userId: user.userId, action: 'PASSWORD_CHANGED' });
   }
   async getCurrentUser(userId: number): Promise<AuthenticatedUserDto> {
-    const user = await prisma.user.findUnique({ where: { userId }, include: { role: true, permissions: true } });
-    if (!user) {
-      throw new UnauthorizedError();
-    }
+    const user = await prisma.user.findUnique({
+      where: { userId },
+      include: { role: true, permissions: true, administrator: true, director: true, viceDirector: true, teacher: true, student: true, parent: true },
+    });
+    if (!user) throw new UnauthorizedError();
     return toAuthenticatedUserDto(user);
   }
 

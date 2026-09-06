@@ -439,6 +439,16 @@ export class AcademicRegisterService {
         rankableStudents.push({ studentId: student.studentId, average });
       }
 
+      // Subjects below the minimum subject pass mark (finalized results only)
+      const failedSubjects = subjectResults
+        .filter(
+          (r) =>
+            r.finalResult !== null &&
+            r.isFinalized &&
+            r.finalResult < settings.minimumSubjectPassMark
+        )
+        .map((r) => r.subjectName);
+
       registerStudents.push({
         studentId: student.studentId,
         studentName: `${student.firstName} ${student.lastName}`,
@@ -456,6 +466,7 @@ export class AcademicRegisterService {
         conduct,
         academicStatus,
         hasUnfinalizedSubjects: subjectResults.some((r) => !r.isFinalized),
+        failedSubjects,
       });
     }
 

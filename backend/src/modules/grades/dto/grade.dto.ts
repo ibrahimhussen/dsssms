@@ -8,6 +8,7 @@ export interface GradeComponentDto {
   category: GradeCategory;
   name: string;
   maxMarks: number;
+  isReleased: boolean;
 }
 
 export interface GradeSchemeDto {
@@ -46,7 +47,9 @@ export interface SubjectGradeComponentBreakdownDto {
   category: GradeCategory;
   name: string;
   maxMarks: number;
+  /** null when not released to students — set to the actual score only when isReleased = true */
   score: number | null;
+  isReleased: boolean;
 }
 
 export interface SubjectGradeBreakdownDto {

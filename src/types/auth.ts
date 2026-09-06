@@ -15,6 +15,8 @@ export interface AuthenticatedUser {
   permissions:         string[];
   isTemporaryPassword: boolean;
   profilePicture:      string | null;
+  /** Full name from the role-specific record. Null when not yet populated. */
+  fullName:            string | null;
 }
 
 export interface LoginResponse {

@@ -10,6 +10,7 @@ export interface GradeComponent {
   category: GradeCategory;
   name: string;
   maxMarks: number;
+  isReleased: boolean;
 }
 
 export interface GradeScheme {
@@ -63,6 +64,7 @@ export interface SubjectGradeComponentBreakdown {
   name: string;
   maxMarks: number;
   score: number | null;
+  isReleased: boolean;
 }
 
 export interface SubjectGradeBreakdown {

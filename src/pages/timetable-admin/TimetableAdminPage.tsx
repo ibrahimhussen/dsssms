@@ -56,17 +56,24 @@ export function TimetableAdminPage() {
     return years.sort().reverse();
   }, [classrooms]);
 
-  // Available sections (e.g. A, B, C, D) from classrooms
+  // Available sections — all sections for the selected year (session is a timetable view filter,
+  // not a classroom identity — the same classroom can have both morning and afternoon entries)
   const availableSections = useMemo(() => {
-    const sections = Array.from(new Set(classrooms?.items.map((c) => c.section.trim().toUpperCase()).filter(Boolean) ?? []));
+    const sections = Array.from(new Set(
+      (classrooms?.items ?? [])
+        .filter((c) => !selectedAcademicYear || c.academicYear === selectedAcademicYear)
+        .map((c) => c.section.trim().toUpperCase())
+        .filter(Boolean)
+    ));
     return sections.sort();
-  }, [classrooms]);
+  }, [classrooms, selectedAcademicYear]);
 
-  // Filter classrooms by selected academic year and section if chosen
+  // Filter classrooms by academic year and section only.
+  // Session is a timetable-data filter (controls which period rows show), not a classroom filter.
   const filteredClassrooms = useMemo(() => {
     if (!classrooms?.items) return [];
     return classrooms.items.filter((c) => {
-      const matchesYear = !selectedAcademicYear || c.academicYear === selectedAcademicYear;
+      const matchesYear    = !selectedAcademicYear || c.academicYear === selectedAcademicYear;
       const matchesSection = !selectedSection || c.section.trim().toUpperCase() === selectedSection.toUpperCase();
       return matchesYear && matchesSection;
     });
@@ -92,16 +99,15 @@ export function TimetableAdminPage() {
     const semesterLabel = semester === 'SEMESTER_1' ? 'Semester 1' : 'Semester 2';
     const classLabel = `${selectedClassroom.className} — Section ${selectedClassroom.section}`;
     const yearLabel = selectedClassroom.academicYear;
-    const sessionLabel = classroomSession === 'MORNING' ? 'Morning Session (2:00 – 6:45)' : 'Afternoon Session (6:30 – 11:15)';
-    const sessionIcon = classroomSession === 'MORNING' ? '☀️' : '🌤️';
-    const sessionColor = classroomSession === 'MORNING' ? '#f59e0b' : '#6366f1';
-    const sessionBgLight = classroomSession === 'MORNING' ? '#fffbeb' : '#eef2ff';
+    const sessionLabel = schoolSession === 'MORNING' ? 'Morning Session (2:00 – 6:45)' : 'Afternoon Session (6:30 – 11:15)';
+    const sessionIcon = schoolSession === 'MORNING' ? '☀️' : '🌤️';
+    const sessionColor = schoolSession === 'MORNING' ? '#f59e0b' : '#6366f1';
+    const sessionBgLight = schoolSession === 'MORNING' ? '#fffbeb' : '#eef2ff';
 
-    // Build periods for this session
+    // Build periods for the selected session
     const periods = DEFAULT_PERIODS.filter((p) => {
-      if (!classroomSession) return true;
-      if (p.session === 'Break') return p.id.startsWith(classroomSession === 'MORNING' ? 'm-' : 'a-');
-      return p.session === (classroomSession === 'MORNING' ? 'Morning' : 'Afternoon');
+      if (p.session === 'Break') return p.id.startsWith(schoolSession === 'MORNING' ? 'm-' : 'a-');
+      return p.session === (schoolSession === 'MORNING' ? 'Morning' : 'Afternoon');
     });
 
     const days: DayOfWeek[] = ['MONDAY', 'TUESDAY', 'WEDNESDAY', 'THURSDAY', 'FRIDAY'];
@@ -540,7 +546,7 @@ export function TimetableAdminPage() {
             <option value="">Select a classroom…</option>
             {filteredClassrooms.map((c) => (
               <option key={c.classroomId} value={c.classroomId}>
-                {c.className} — Sec {c.section} ({c.academicYear}) [{c.session === 'MORNING' ? '☀️ Morning' : '🌤️ Afternoon'}]
+                {c.className} — Sec {c.section} ({c.academicYear})
               </option>
             ))}
           </SelectField>
@@ -548,18 +554,15 @@ export function TimetableAdminPage() {
 
         {classroomId && (
           <div className="flex items-center gap-3">
-            {classroomSession && (
-              <span
-                className={`inline-flex items-center gap-1.5 rounded-full px-3 py-1 text-xs font-semibold ${
-                  classroomSession === 'MORNING'
-                    ? 'bg-amber-100 text-amber-900'
-                    : 'bg-indigo-100 text-indigo-900'
-                }`}
-              >
-                {classroomSession === 'MORNING' ? '☀️' : '🌤️'}
-                {classroomSession === 'MORNING' ? 'Morning Session' : 'Afternoon Session'}
-              </span>
-            )}
+            <span
+              className={`inline-flex items-center gap-1.5 rounded-full px-3 py-1 text-xs font-semibold ${
+                schoolSession === 'MORNING'
+                  ? 'bg-amber-100 text-amber-900'
+                  : 'bg-indigo-100 text-indigo-900'
+              }`}
+            >
+              {schoolSession === 'MORNING' ? '☀️ Morning Session' : '🌤️ Afternoon Session'}
+            </span>
 
             <div className="flex rounded-lg border border-slate-200 bg-slate-100 p-0.5 text-xs font-medium">
               <button
@@ -613,7 +616,10 @@ export function TimetableAdminPage() {
       </div>
 
       {!classroomId ? (
-        <EmptyState title="Select a classroom above" description="Choose a classroom to view or build its weekly timetable." />
+        <EmptyState
+          title="Select a classroom above"
+          description="Choose a classroom to view or build its weekly timetable."
+        />
       ) : teachingAssignments && teachingAssignments.items.length === 0 ? (
         <EmptyState
           title="No teaching assignments for this classroom"

@@ -9,6 +9,8 @@ export interface AuthenticatedUserDto {
   permissions: string[];
   isTemporaryPassword: boolean;
   profilePicture: string | null;
+  /** Full name from the role-specific record (e.g. Teacher.firstName + lastName). Null when not yet set. */
+  fullName: string | null;
 }
 
 export interface LoginResponseDto {

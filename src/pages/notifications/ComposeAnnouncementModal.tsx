@@ -8,55 +8,95 @@ import { SelectField } from '../../components/ui/SelectField';
 import { TextField } from '../../components/ui/TextField';
 import { TextAreaField } from '../../components/ui/TextAreaField';
 import { Button } from '../../components/ui/Button';
-import type { BroadcastAudience } from '../../types/notification';
+import type { BroadcastAudience, NotificationCategory } from '../../types/notification';
+
+// ── Audience options ──────────────────────────────────────────────────────────
 
 const OVERSIGHT_AUDIENCE_OPTIONS: { value: BroadcastAudience; label: string }[] = [
-  { value: 'ALL_STAFF', label: 'All staff' },
-  { value: 'ALL_TEACHERS', label: 'All teachers' },
-  { value: 'ALL_PARENTS', label: 'All parents' },
-  { value: 'ALL_STUDENTS', label: 'All students' },
+  { value: 'ALL_STAFF',          label: 'All staff' },
+  { value: 'ALL_TEACHERS',       label: 'All teachers' },
+  { value: 'ALL_PARENTS',        label: 'All parents' },
+  { value: 'ALL_STUDENTS',       label: 'All students' },
   { value: 'CLASSROOM_STUDENTS', label: 'A classroom — students' },
-  { value: 'CLASSROOM_PARENTS', label: 'A classroom — parents' },
+  { value: 'CLASSROOM_PARENTS',  label: 'A classroom — parents' },
 ];
 
 const TEACHER_AUDIENCE_OPTIONS: { value: BroadcastAudience; label: string }[] = [
   { value: 'CLASSROOM_STUDENTS', label: 'My class — students' },
-  { value: 'CLASSROOM_PARENTS', label: 'My class — parents' },
+  { value: 'CLASSROOM_PARENTS',  label: 'My class — parents' },
 ];
 
 const CLASSROOM_AUDIENCES: BroadcastAudience[] = ['CLASSROOM_STUDENTS', 'CLASSROOM_PARENTS'];
 
-export function ComposeAnnouncementModal({ isOpen, onClose }: { isOpen: boolean; onClose: () => void }) {
+// ── Category options — the sender picks the actual type of communication ──────
+// This ensures the recipient sees the correct category in their inbox filter.
+
+const CATEGORY_OPTIONS: { value: NotificationCategory; label: string }[] = [
+  { value: 'ANNOUNCEMENT', label: 'Announcement — general school communication' },
+  { value: 'ACADEMIC',     label: 'Academic — grades, results, curriculum' },
+  { value: 'ATTENDANCE',   label: 'Attendance — attendance reminders or alerts' },
+  { value: 'PROMOTION',    label: 'Promotion — promotion / end-of-year notices' },
+  { value: 'REGISTRATION', label: 'Registration — enrollment or registration' },
+  { value: 'SYSTEM',       label: 'System — technical or administrative' },
+];
+
+// ── Component ─────────────────────────────────────────────────────────────────
+
+export function ComposeAnnouncementModal({
+  isOpen,
+  onClose,
+}: {
+  isOpen: boolean;
+  onClose: () => void;
+}) {
   const { user } = useAuth();
-  const isOversight = user?.role === 'ADMIN' || user?.role === 'DIRECTOR' || user?.role === 'VICE_DIRECTOR';
+  const isOversight =
+    user?.role === 'ADMIN' ||
+    user?.role === 'DIRECTOR' ||
+    user?.role === 'VICE_DIRECTOR';
 
   const { data: allClassrooms } = useClassroomOptions();
   const { data: myAssignments } = useMyTeachingAssignments();
 
   const classroomOptions = isOversight
-    ? (allClassrooms?.items ?? []).map((c) => ({ classroomId: c.classroomId, label: `${c.className} ${c.section}` }))
+    ? (allClassrooms?.items ?? []).map((c) => ({
+        classroomId: c.classroomId,
+        label: `${c.className} ${c.section}`,
+      }))
     : Array.from(
         new Map(
           (myAssignments ?? []).map((a) => [
             a.classroom.classroomId,
-            { classroomId: a.classroom.classroomId, label: `${a.classroom.className} ${a.classroom.section}` },
+            {
+              classroomId: a.classroom.classroomId,
+              label: `${a.classroom.className} ${a.classroom.section}`,
+            },
           ])
         ).values()
       );
 
-  const [audience, setAudience] = useState<BroadcastAudience>(isOversight ? 'ALL_STAFF' : 'CLASSROOM_STUDENTS');
+  const [audience,    setAudience]    = useState<BroadcastAudience>(
+    isOversight ? 'ALL_STAFF' : 'CLASSROOM_STUDENTS'
+  );
   const [classroomId, setClassroomId] = useState<number | undefined>(undefined);
-  const [title, setTitle] = useState('');
-  const [message, setMessage] = useState('');
-  const [feedback, setFeedback] = useState<{ type: 'success' | 'error'; message: string } | null>(null);
+  // Default to ANNOUNCEMENT — the most common use case for this modal.
+  // The sender can change it to Attendance, Academic, etc. as appropriate.
+  const [category,    setCategory]    = useState<NotificationCategory>('ANNOUNCEMENT');
+  const [title,       setTitle]       = useState('');
+  const [message,     setMessage]     = useState('');
+  const [feedback,    setFeedback]    = useState<{
+    type: 'success' | 'error';
+    message: string;
+  } | null>(null);
 
-  const broadcast = useBroadcastNotification();
+  const broadcast    = useBroadcastNotification();
   const needsClassroom = CLASSROOM_AUDIENCES.includes(audience);
 
   function handleClose() {
     setTitle('');
     setMessage('');
     setClassroomId(undefined);
+    setCategory('ANNOUNCEMENT');
     setFeedback(null);
     onClose();
   }
@@ -74,20 +114,31 @@ export function ComposeAnnouncementModal({ isOpen, onClose }: { isOpen: boolean;
       const result = await broadcast.mutateAsync({
         audience,
         classroomId: needsClassroom ? classroomId : undefined,
+        category,   // ← pass the selected category so it is stored correctly in DB
         title,
         message,
       });
-      setFeedback({ type: 'success', message: `Sent to ${result.notificationsSent} recipient(s).` });
+      setFeedback({
+        type: 'success',
+        message: `Sent to ${result.notificationsSent} recipient(s).`,
+      });
       setTitle('');
       setMessage('');
+      setCategory('ANNOUNCEMENT');
     } catch (err) {
-      setFeedback({ type: 'error', message: err instanceof Error ? err.message : 'Could not send the announcement.' });
+      setFeedback({
+        type: 'error',
+        message:
+          err instanceof Error ? err.message : 'Could not send the notification.',
+      });
     }
   }
 
   return (
-    <Modal title="Send announcement" isOpen={isOpen} onClose={handleClose}>
-      <form onSubmit={(e) => void handleSubmit(e)} noValidate>
+    <Modal title="Send notification" isOpen={isOpen} onClose={handleClose}>
+      <form onSubmit={(e) => void handleSubmit(e)} noValidate className="flex flex-col gap-3">
+
+        {/* Audience */}
         <SelectField
           label="Send to"
           value={audience}
@@ -96,18 +147,23 @@ export function ComposeAnnouncementModal({ isOpen, onClose }: { isOpen: boolean;
             setClassroomId(undefined);
           }}
         >
-          {(isOversight ? OVERSIGHT_AUDIENCE_OPTIONS : TEACHER_AUDIENCE_OPTIONS).map((opt) => (
-            <option key={opt.value} value={opt.value}>
-              {opt.label}
-            </option>
-          ))}
+          {(isOversight ? OVERSIGHT_AUDIENCE_OPTIONS : TEACHER_AUDIENCE_OPTIONS).map(
+            (opt) => (
+              <option key={opt.value} value={opt.value}>
+                {opt.label}
+              </option>
+            )
+          )}
         </SelectField>
 
+        {/* Classroom picker — only when audience is classroom-scoped */}
         {needsClassroom && (
           <SelectField
             label="Classroom"
             value={classroomId ?? ''}
-            onChange={(e) => setClassroomId(e.target.value ? Number(e.target.value) : undefined)}
+            onChange={(e) =>
+              setClassroomId(e.target.value ? Number(e.target.value) : undefined)
+            }
           >
             <option value="">Select a classroom…</option>
             {classroomOptions.map((c) => (
@@ -118,7 +174,27 @@ export function ComposeAnnouncementModal({ isOpen, onClose }: { isOpen: boolean;
           </SelectField>
         )}
 
-        <TextField label="Title" value={title} onChange={(e) => setTitle(e.target.value)} maxLength={150} required />
+        {/* Category — determines how the notification is labelled in the recipient's inbox */}
+        <SelectField
+          label="Category"
+          value={category}
+          onChange={(e) => setCategory(e.target.value as NotificationCategory)}
+        >
+          {CATEGORY_OPTIONS.map((opt) => (
+            <option key={opt.value} value={opt.value}>
+              {opt.label}
+            </option>
+          ))}
+        </SelectField>
+
+        <TextField
+          label="Title"
+          value={title}
+          onChange={(e) => setTitle(e.target.value)}
+          maxLength={150}
+          required
+        />
+
         <TextAreaField
           label="Message"
           value={message}
@@ -130,8 +206,10 @@ export function ComposeAnnouncementModal({ isOpen, onClose }: { isOpen: boolean;
 
         {feedback && (
           <p
-            className={`mb-4 rounded-lg px-3 py-2.5 text-sm ${
-              feedback.type === 'success' ? 'bg-pine-100 text-pine-800' : 'bg-danger-100 text-danger-600'
+            className={`rounded-lg px-3 py-2.5 text-sm ${
+              feedback.type === 'success'
+                ? 'bg-pine-100 text-pine-800'
+                : 'bg-danger-100 text-danger-600'
             }`}
             role={feedback.type === 'error' ? 'alert' : 'status'}
           >
@@ -139,7 +217,7 @@ export function ComposeAnnouncementModal({ isOpen, onClose }: { isOpen: boolean;
           </p>
         )}
 
-        <div className="mt-2 flex justify-end gap-3">
+        <div className="flex justify-end gap-3">
           <Button type="button" variant="ghost" onClick={handleClose}>
             Close
           </Button>

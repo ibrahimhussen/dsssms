@@ -81,3 +81,13 @@ export function useStudentGrades(studentId: number | undefined, params: StudentG
     enabled: Boolean(studentId),
   });
 }
+
+export function useReleaseGradeComponent() {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: (gradeComponentId: number) => gradesApi.releaseComponent(gradeComponentId),
+    onSuccess: () => {
+      void queryClient.invalidateQueries({ queryKey: ['grades'] });
+    },
+  });
+}

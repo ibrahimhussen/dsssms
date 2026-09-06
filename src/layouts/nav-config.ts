@@ -5,7 +5,7 @@ import {
   MdBackup, MdMeetingRoom, MdMenuBook, MdAssignment,
   MdSchedule, MdFactCheck, MdAssessment, MdDescription,
   MdTrendingUp, MdGavel, MdCampaign, MdNotifications,
-  MdAccountCircle, MdLogout, MdUpgrade, MdFolder,
+  MdLogout, MdUpgrade, MdFolder,
   MdManageAccounts, MdSchool, MdGroups,
 } from 'react-icons/md';
 import { FaUserGraduate, FaChalkboardTeacher, FaUsers } from 'react-icons/fa';
@@ -168,20 +168,19 @@ export const NAV_ENTRIES: NavEntry[] = [
   item('Enter Grades',     '/grades',        MdDescription,  { allowedRoles: ['TEACHER'] }),
   item('Assignments',      '/homework',      MdAssignment,   { allowedRoles: ['TEACHER'] }),
   item('Discipline Records', '/discipline-records', MdGavel, { allowedRoles: ['TEACHER'] }),
-  item('Results Finalization', '/finalization', MdFactCheck, { allowedRoles: ['TEACHER'] }),
 
   // ════════════════ STUDENT (flat — no groups) ══════════════════════════════════
 
   item('My Timetable',  '/timetable',     MdSchedule,    { allowedRoles: ['STUDENT'] }),
   item('My Attendance', '/my-attendance', MdFactCheck,   { allowedRoles: ['STUDENT'] }),
-  item('My Grades',     '/my-grades',     MdDescription, { allowedRoles: ['STUDENT'] }),
+  item('Assessments',   '/my-grades',     MdDescription, { allowedRoles: ['STUDENT'] }),
   item('Transcript',    '/transcript',    MdMenuBook,    { allowedRoles: ['STUDENT'] }),
   item('Assignments',   '/my-homework',   MdAssignment,  { allowedRoles: ['STUDENT'] }),
 
   // ════════════════ UNIVERSAL BOTTOM ════════════════════════════════════════════
 
   item('Notifications', '/notifications', MdNotifications),
-  item('My Profile',    '/profile',       MdAccountCircle),
+  // My Profile is rendered by AppLayout's bottom section — not as a nav entry
   item('Logout',        '#logout',        MdLogout, { isLogout: true }),
 ];
 
@@ -200,7 +199,7 @@ export function getNavEntries(role: RoleName, userPermissions: string[] = []): N
   const useGroups = GROUPED_ROLES.includes(role);
 
   // Universal bottom items shown to everyone
-  const UNIVERSAL_PATHS = new Set(['/notifications', '/profile', '#logout']);
+  const UNIVERSAL_PATHS = new Set(['/notifications', '#logout']);
 
   return NAV_ENTRIES.filter((entry): boolean => {
     // Groups: show if this role is in the group's allowedRoles

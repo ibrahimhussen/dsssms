@@ -268,8 +268,8 @@ async function main(): Promise<void> {
 
   // Students split across Grade 9 A and Grade 9 B to demonstrate multi-section
   const studentSeed = [
-    { firstName: 'husen',   lastName: 'Ahmed',    gender: Gender.F, dob: '2010-03-14', guardianName: 'Tesfaye Alemu',   classroomKey: 'Grade 9-A' },
-    { firstName: 'chaltu',  lastName: 'sani',     gender: Gender.M, dob: '2010-07-02', guardianName: 'Getachew Worku',  classroomKey: 'Grade 9-A' },
+    { firstName: 'Husen',   lastName: 'Ahmed',    gender: Gender.M, dob: '2010-03-14', guardianName: 'Tesfaye Alemu',   classroomKey: 'Grade 9-A' },
+    { firstName: 'Chaltu',  lastName: 'Sani',     gender: Gender.F, dob: '2010-07-02', guardianName: 'Getachew Worku',  classroomKey: 'Grade 9-A' },
     { firstName: 'Selam',   lastName: 'Mulugeta', gender: Gender.F, dob: '2010-01-22', guardianName: 'Mulugeta Bekele', classroomKey: 'Grade 9-A' },
     { firstName: 'Abdi',    lastName: 'Bekele',   gender: Gender.M, dob: '2010-05-10', guardianName: 'Bekele Girma',    classroomKey: 'Grade 9-B' },
     { firstName: 'Meron',   lastName: 'Tesfaye',  gender: Gender.F, dob: '2010-09-18', guardianName: 'Tesfaye Lemma',   classroomKey: 'Grade 9-B' },
@@ -418,27 +418,38 @@ async function main(): Promise<void> {
     }
   }
 
-  // --- Grade Subject Config (Grade 9 / 2026/27) --------------------------------
-  console.log('Seeding Grade Subject Config for Grade 9...');
-  for (const [sortOrder, subject] of subjects.entries()) {
-    await prisma.gradeSubjectConfig.upsert({
-      where: {
-        className_academicYear_subjectId: {
-          className: 'Grade 9',
+  // --- Grade Subject Config (all grades / 2026/27) --------------------------------
+  console.log('Seeding Grade Subject Config for all grades...');
+
+  // Grade 9: Mathematics, English, Biology, Physics
+  // Grade 10: Mathematics, English, Biology, Physics (same subjects for demo)
+  // Grade 11: Mathematics, English, Biology, Physics
+  // Grade 12: Mathematics, English, Biology, Physics
+  const gradeSubjectDefs = [
+    'Grade 9', 'Grade 10', 'Grade 11', 'Grade 12',
+  ];
+
+  for (const className of gradeSubjectDefs) {
+    for (const [sortOrder, subject] of subjects.entries()) {
+      await prisma.gradeSubjectConfig.upsert({
+        where: {
+          className_academicYear_subjectId: {
+            className,
+            academicYear: CURRENT_ACADEMIC_YEAR,
+            subjectId: subject.subjectId,
+          },
+        },
+        update: {},
+        create: {
+          className,
           academicYear: CURRENT_ACADEMIC_YEAR,
           subjectId: subject.subjectId,
+          sortOrder,
         },
-      },
-      update: {},
-      create: {
-        className: 'Grade 9',
-        academicYear: CURRENT_ACADEMIC_YEAR,
-        subjectId: subject.subjectId,
-        sortOrder,
-      },
-    });
+      });
+    }
+    console.log(`  Configured ${subjects.length} subjects for ${className} ${CURRENT_ACADEMIC_YEAR}`);
   }
-  console.log(`  Configured ${subjects.length} subjects for Grade 9 ${CURRENT_ACADEMIC_YEAR}`);
 
   // --- Sample assignment ------------------------------------------------------
   console.log('Seeding a sample assignment...');

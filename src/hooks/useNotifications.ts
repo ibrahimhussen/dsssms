@@ -52,3 +52,12 @@ export function useBroadcastNotification() {
     mutationFn: (input: BroadcastNotificationInput) => notificationsApi.broadcast(input),
   });
 }
+
+export function useSentAnnouncements(senderUserId: number, params: ListNotificationsParams) {
+  return useQuery({
+    queryKey: ['notifications', 'sent', senderUserId, params],
+    queryFn: () => notificationsApi.getSentAnnouncements({ ...params, senderUserId }),
+    enabled: senderUserId > 0,
+    placeholderData: (previousData) => previousData,
+  });
+}

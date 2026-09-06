@@ -16,6 +16,7 @@ import { useClassroomOptions } from '../../hooks/useClassrooms';
 import { useConfiguredGrades } from '../../hooks/useGradeSubjectConfig';
 import { useAcademicRegister, useGradeRegister } from '../../hooks/useAcademicRegister';
 import { useClassroomFinalization, useFinalizeClassroom } from '../../hooks/useFinalization';
+import { useAuth } from '../../context/AuthContext';
 import { academicRegisterApi } from '../../lib/academic-register-api';
 import { SelectField } from '../../components/ui/SelectField';
 import { Button } from '../../components/ui/Button';
@@ -32,7 +33,8 @@ import type {
 
 // ── Constants ─────────────────────────────────────────────────────────────────
 
-const GRADE_OPTIONS = ['Grade 9', 'Grade 10', 'Grade 11', 'Grade 12'];
+// Fallback grade list — overridden at runtime by classrooms data
+const FALLBACK_GRADE_OPTIONS = ['Grade 9', 'Grade 10', 'Grade 11', 'Grade 12'];
 
 type RegisterType = 'section' | 'grade';
 
@@ -95,6 +97,7 @@ function buildPrintHtml(
       <td class="center">${s.sectionRank != null ? `${s.sectionRank}/${s.totalStudentsInSection}` : '—'}</td>
       <td class="center">${s.gradeRank != null ? `${s.gradeRank}/${s.totalStudentsInGrade}` : '—'}</td>
       <td class="center small">${conductLabel(s.conduct)}</td>
+      <td class="center small ${s.failedSubjects.length > 0 ? 'fail' : ''}">${s.failedSubjects.length > 0 ? s.failedSubjects.join(', ') : '—'}</td>
       <td class="center ${stCls}">${s.academicStatus}</td>
     </tr>`;
   }).join('');
@@ -137,7 +140,7 @@ function buildPrintHtml(
   <table><thead><tr>
     <th>#</th><th>Adm. No.</th><th>Full Name</th><th>Sex</th><th>Age</th>
     ${subjectHeaders}
-    <th>Total</th><th>Average</th><th>Sec.Rank</th><th>Grade Rank</th><th>Conduct</th><th>Status</th>
+    <th>Total</th><th>Average</th><th>Sec.Rank</th><th>Grade Rank</th><th>Conduct</th><th>Failed Subjects</th><th>Status</th>
   </tr></thead><tbody>${rows}</tbody></table>
   <div class="summary-row">
     <div class="summary-item">Total: <span>${metadata.totalStudents}</span></div>
@@ -331,6 +334,7 @@ function GradeSummaryPanel({ data }: { data: ReturnType<typeof useGradeRegister>
 
 export function AcademicRegisterPage() {
   const navigate = useNavigate();
+  const { user } = useAuth();
 
   // ── Filter state ────────────────────────────────────────────────────────────
   const [grade, setGrade]             = useState('');
@@ -354,6 +358,14 @@ export function AcademicRegisterPage() {
     const years = new Set<string>();
     allClassrooms?.items.forEach((c) => years.add(c.academicYear));
     return Array.from(years).sort().reverse();
+  }, [allClassrooms]);
+
+  // Derive grade options from classrooms (sorted); fall back to static list
+  const gradeOptions = useMemo(() => {
+    const grades = new Set<string>();
+    allClassrooms?.items.forEach((c) => grades.add(c.className));
+    const derived = Array.from(grades).sort();
+    return derived.length > 0 ? derived : FALLBACK_GRADE_OPTIONS;
   }, [allClassrooms]);
 
   // Classrooms filtered to selected grade + year
@@ -530,7 +542,7 @@ export function AcademicRegisterPage() {
             onChange={(e) => handleGradeChange(e.target.value)}
           >
             <option value="">Select grade…</option>
-            {GRADE_OPTIONS.map((g) => (
+            {gradeOptions.map((g) => (
               <option key={g} value={g}>{g}</option>
             ))}
           </SelectField>
@@ -566,7 +578,7 @@ export function AcademicRegisterPage() {
               </option>
               {filteredClassrooms.map((c) => (
                 <option key={c.classroomId} value={c.classroomId}>
-                  {c.section}{c.homeroomTeacher ? ` — ${c.homeroomTeacher.firstName} ${c.homeroomTeacher.lastName}` : ''}
+                  {c.className} {c.section}{c.homeroomTeacher ? ` — ${c.homeroomTeacher.firstName} ${c.homeroomTeacher.lastName}` : ''}
                 </option>
               ))}
             </SelectField>
@@ -662,7 +674,7 @@ export function AcademicRegisterPage() {
             finalizedAt={finalization?.finalizedAt ?? null}
             onFinalizeClick={() => setFinalizeConfirmOpen(true)}
             isFinalizing={finalizeClassroom.isPending}
-            userRole="ADMIN"
+            userRole={user?.role ?? ''}
           />
 
           {/* Draft warning */}
@@ -710,6 +722,7 @@ export function AcademicRegisterPage() {
                   <th className="register-th whitespace-nowrap">Sec.Rank</th>
                   <th className="register-th whitespace-nowrap">Grade Rank</th>
                   <th className="register-th">Conduct</th>
+                  <th className="register-th whitespace-nowrap">Failed Subjects</th>
                   <th className="register-th">Status</th>
                 </tr>
               </thead>
@@ -766,6 +779,14 @@ export function AcademicRegisterPage() {
                         : '—'}
                     </td>
                     <td className="register-td text-center">{conductLabel(student.conduct)}</td>
+                    <td className="register-td text-center">
+                      {student.failedSubjects.length === 0
+                        ? <span className="text-slate-300">—</span>
+                        : <span className="text-danger-600 font-medium text-xs">
+                            {student.failedSubjects.join(', ')}
+                          </span>
+                      }
+                    </td>
                     <td className="register-td text-center">{statusBadge(student.academicStatus)}</td>
                   </tr>
                 ))}

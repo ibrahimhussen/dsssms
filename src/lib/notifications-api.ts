@@ -54,4 +54,31 @@ export const notificationsApi = {
   broadcast(input: BroadcastNotificationInput) {
     return unwrap(apiClient.post<ApiResponse<BroadcastResult>>('/notifications/broadcast', input));
   },
+
+  /** Fetches ANNOUNCEMENT notifications sent by a specific user — used by the Announcements page. */
+  async getSentAnnouncements(
+    params: ListNotificationsParams & { senderUserId: number }
+  ): Promise<{ items: NotificationRecord[]; meta: PaginationMeta }> {
+    const { data } = await apiClient.get<ApiResponse<NotificationRecord[]>>(
+      '/notifications',
+      {
+        params: cleanParams({
+          ...params,
+          senderUserId:         params.senderUserId,
+          category:             'ANNOUNCEMENT',
+          broadcastSummaryOnly: 'true',
+        }),
+      }
+    );
+    if (!data.success) throw new Error(data.message);
+    return {
+      items: data.data,
+      meta:  data.pagination ?? {
+        page:       params.page ?? 1,
+        limit:      params.limit ?? 20,
+        totalItems: data.data.length,
+        totalPages: 1,
+      },
+    };
+  },
 };

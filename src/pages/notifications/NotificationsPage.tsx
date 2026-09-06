@@ -19,9 +19,25 @@ import type {
   NotificationStatus,
 } from '../../types/notification';
 
-// Only oversight roles can send school-wide announcements.
-// Teachers can send to classroom only — handled inside ComposeAnnouncementModal.
-const COMPOSE_ROLES = ['ADMIN', 'DIRECTOR', 'VICE_DIRECTOR', 'TEACHER'];
+// Only oversight roles can send school-wide announcements from the Notifications page.
+// Teachers do NOT publish official announcements — they receive event notifications.
+const COMPOSE_ROLES = ['ADMIN', 'DIRECTOR', 'VICE_DIRECTOR'];
+
+// Categories visible in the Notifications inbox filter per role.
+// Oversight roles can receive any category in their inbox.
+// Teachers, Students, and Parents receive the categories relevant to their activities.
+const CATEGORIES_BY_ROLE: Partial<Record<string, NotificationCategory[]>> = {
+  TEACHER:       ['ACADEMIC', 'ATTENDANCE', 'ANNOUNCEMENT'],
+  STUDENT:       ['ACADEMIC', 'ATTENDANCE', 'ANNOUNCEMENT'],
+  PARENT:        ['ACADEMIC', 'ATTENDANCE', 'ANNOUNCEMENT'],
+  ADMIN:         ['SYSTEM', 'ACADEMIC', 'ATTENDANCE', 'REGISTRATION', 'PROMOTION', 'ANNOUNCEMENT'],
+  DIRECTOR:      ['SYSTEM', 'ACADEMIC', 'ATTENDANCE', 'REGISTRATION', 'PROMOTION', 'ANNOUNCEMENT'],
+  VICE_DIRECTOR: ['SYSTEM', 'ACADEMIC', 'ATTENDANCE', 'REGISTRATION', 'PROMOTION', 'ANNOUNCEMENT'],
+};
+
+const ALL_CATEGORIES: NotificationCategory[] = [
+  'SYSTEM', 'ACADEMIC', 'ATTENDANCE', 'REGISTRATION', 'PROMOTION', 'ANNOUNCEMENT',
+];
 
 const CATEGORY_LABELS: Record<NotificationCategory, string> = {
   SYSTEM:       'System',
@@ -47,10 +63,17 @@ function categoryBadge(category: NotificationCategory) {
 export function NotificationsPage() {
   const { user } = useAuth();
   const canCompose = Boolean(user && COMPOSE_ROLES.includes(user.role));
+  const visibleCategories = (user ? CATEGORIES_BY_ROLE[user.role] : undefined) ?? ALL_CATEGORIES;
   const [isComposeOpen, setComposeOpen] = useState(false);
   const [filters, setFilters] = useState<ListNotificationsParams>({ page: 1, limit: 20 });
 
-  const { data, isLoading } = useMyInbox(filters);
+  // If the current category filter is no longer in visibleCategories, clear it
+  const safeCategory = filters.category && visibleCategories.includes(filters.category)
+    ? filters.category
+    : undefined;
+  const activeFilters: ListNotificationsParams = { ...filters, category: safeCategory };
+
+  const { data, isLoading } = useMyInbox(activeFilters);
   const markRead          = useMarkNotificationRead();
   const markAllRead       = useMarkAllNotificationsRead();
   const deleteNotification = useDeleteNotification();
@@ -89,7 +112,7 @@ export function NotificationsPage() {
           )}
         </h1>
         {canCompose && (
-          <Button onClick={() => setComposeOpen(true)}>Send announcement</Button>
+          <Button onClick={() => setComposeOpen(true)}>Send Notification</Button>
         )}
       </div>
       <LedgerRule />
@@ -127,7 +150,7 @@ export function NotificationsPage() {
             }
           >
             <option value="">All categories</option>
-            {(Object.keys(CATEGORY_LABELS) as NotificationCategory[]).map((c) => (
+            {visibleCategories.map((c) => (
               <option key={c} value={c}>{CATEGORY_LABELS[c]}</option>
             ))}
           </SelectField>

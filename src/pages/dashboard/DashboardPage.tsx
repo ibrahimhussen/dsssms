@@ -14,7 +14,7 @@ export function DashboardPage() {
 
   return (
     <div className="max-w-full">
-      <h1 className="text-2xl">Welcome, {user.username}</h1>
+      <h1 className="text-2xl">Welcome, {user.fullName ?? user.username}</h1>
       <p className="mb-1 text-[0.9375rem] text-ink-700">
         Signed in as <strong>{getRoleLabel(user.role)}</strong>
       </p>

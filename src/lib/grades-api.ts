@@ -52,4 +52,8 @@ export const gradesApi = {
       apiClient.get<ApiResponse<SubjectGradeBreakdown[]>>(`/grades/student/${studentId}`, { params: cleanParams(params) })
     );
   },
+
+  releaseComponent(gradeComponentId: number) {
+    return unwrap(apiClient.post<ApiResponse<GradeComponent>>(`/grades/components/${gradeComponentId}/release`, {}));
+  },
 };

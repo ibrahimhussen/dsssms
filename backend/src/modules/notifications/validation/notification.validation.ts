@@ -45,8 +45,11 @@ export const listNotificationsQuerySchema = paginationQuerySchema.extend({
 });
 
 export const listAllNotificationsQuerySchema = listNotificationsQuerySchema.extend({
-  recipientUserId: z.coerce.number().int().positive().optional(),
-  studentId:       z.coerce.number().int().positive().optional(),
+  recipientUserId:     z.coerce.number().int().positive().optional(),
+  senderUserId:        z.coerce.number().int().positive().optional(),
+  studentId:           z.coerce.number().int().positive().optional(),
+  /** When "true", returns only broadcast-summary rows (recipientUserId IS NULL) */
+  broadcastSummaryOnly: z.enum(['true', 'false']).optional(),
 });
 
 export const notificationIdParamSchema = z.object({

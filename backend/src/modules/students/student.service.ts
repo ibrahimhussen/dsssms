@@ -1,6 +1,6 @@
 import { Prisma, RoleName } from '@prisma/client';
 import { prisma } from '../../database/prisma-client';
-import { ConflictError, NotFoundError, ValidationError } from '../../core/errors/app-error';
+import { ConflictError, ForbiddenError, NotFoundError, ValidationError } from '../../core/errors/app-error';
 import { hashPassword } from '../../core/utils/password.util';
 import {
   generateStudentId,
@@ -181,12 +181,15 @@ export class StudentService {
   }
 
   async listStudents(
-    query: ListStudentsQuery
+    query: ListStudentsQuery & { classroomIds?: number[] }
   ): Promise<{ items: StudentSummaryDto[]; meta: ReturnType<typeof buildPaginationMeta> }> {
     const { skip, take } = getPaginationParams(query as PaginationQuery);
 
     const where: Prisma.StudentWhereInput = {
-      ...(query.classroomId   && { classroomId: query.classroomId }),
+      // Single classroomId filter (normal case) — classroomIds overrides if present
+      ...(query.classroomIds
+        ? { classroomId: { in: query.classroomIds } }
+        : query.classroomId && { classroomId: query.classroomId }),
       ...(query.admissionType && { admissionType: query.admissionType }),
       ...(query.studentStatus && { studentStatus: query.studentStatus }),
       ...(query.search && {
@@ -665,6 +668,50 @@ export class StudentService {
     const student = await prisma.student.findUnique({ where: { studentId } });
     if (!student) throw new NotFoundError('Student');
     return student;
+  }
+  /**
+   * Verifies the authenticated teacher is assigned to the given classroom.
+   * Throws ForbiddenError if not — prevents cross-classroom browsing via direct URL/API manipulation.
+   */
+  async assertTeacherOwnsClassroom(userId: number, classroomId: number): Promise<void> {
+    const teacher = await prisma.teacher.findUnique({ where: { userId } });
+    if (!teacher) throw new ForbiddenError('Teacher profile not found');
+
+    const assignment = await prisma.teacherSubject.findFirst({
+      where: { teacherId: teacher.teacherId, classroomId },
+    });
+
+    if (!assignment) {
+      throw new ForbiddenError('You are not assigned to this classroom');
+    }
+  }
+
+  /**
+   * Returns students for all classrooms assigned to this teacher.
+   * Used when a teacher calls GET /students without a classroomId.
+   */
+  async listStudentsForTeacher(
+    userId: number,
+    query: ListStudentsQuery
+  ): Promise<{ items: StudentSummaryDto[]; meta: ReturnType<typeof buildPaginationMeta> }> {
+    const teacher = await prisma.teacher.findUnique({ where: { userId } });
+    if (!teacher) throw new ForbiddenError('Teacher profile not found');
+
+    const assignments = await prisma.teacherSubject.findMany({
+      where: { teacherId: teacher.teacherId },
+      select: { classroomId: true },
+      distinct: ['classroomId'],
+    });
+
+    const classroomIds = assignments.map((a) => a.classroomId);
+    if (classroomIds.length === 0) {
+      return {
+        items: [],
+        meta: buildPaginationMeta({ page: query.page, limit: query.limit, totalItems: 0 }),
+      };
+    }
+
+    return this.listStudents({ ...query, classroomIds });
   }
 }
 

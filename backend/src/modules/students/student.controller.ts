@@ -49,7 +49,20 @@ export class StudentController {
   });
 
   list = asyncHandler(async (req: Request, res: Response) => {
+    if (!req.user) throw new UnauthorizedError();
     const query: ListStudentsQuery = listStudentsQuerySchema.parse(req.query);
+
+    // When a Teacher queries students they must supply a classroomId and it must
+    // be one of their own assigned classrooms — prevents cross-classroom browsing.
+    if (req.user.role === 'TEACHER') {
+      if (!query.classroomId) {
+        const { items, meta } = await studentService.listStudentsForTeacher(req.user.userId, query);
+        ApiResponse.success(res, { message: 'Students retrieved', data: items, pagination: meta });
+        return;
+      }
+      await studentService.assertTeacherOwnsClassroom(req.user.userId, query.classroomId);
+    }
+
     const { items, meta } = await studentService.listStudents(query);
     ApiResponse.success(res, { message: 'Students retrieved', data: items, pagination: meta });
   });

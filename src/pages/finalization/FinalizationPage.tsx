@@ -30,7 +30,7 @@ import type { SubjectFinalization } from '../../types/finalization';
 
 // ── Constants ─────────────────────────────────────────────────────────────────
 
-const GRADE_OPTIONS = ['Grade 9', 'Grade 10', 'Grade 11', 'Grade 12'];
+const FALLBACK_GRADE_OPTIONS = ['Grade 9', 'Grade 10', 'Grade 11', 'Grade 12'];
 
 // ── Helpers ───────────────────────────────────────────────────────────────────
 
@@ -229,6 +229,14 @@ export function FinalizationPage() {
     const s = new Set<string>();
     classroomsData?.items.forEach((c) => s.add(c.academicYear));
     return Array.from(s).sort().reverse();
+  }, [classroomsData]);
+
+  // Grade options derived from classrooms; fall back to static list
+  const gradeOptions = useMemo(() => {
+    const grades = new Set<string>();
+    classroomsData?.items.forEach((c) => grades.add(c.className));
+    const derived = Array.from(grades).sort();
+    return derived.length > 0 ? derived : FALLBACK_GRADE_OPTIONS;
   }, [classroomsData]);
 
   // Sections filtered to grade + year
@@ -476,7 +484,7 @@ export function FinalizationPage() {
             onChange={(e) => handleGradeChange(e.target.value)}
           >
             <option value="">Select grade…</option>
-            {GRADE_OPTIONS.map((g) => (
+            {gradeOptions.map((g) => (
               <option key={g} value={g}>{g}</option>
             ))}
           </SelectField>
@@ -497,7 +505,7 @@ export function FinalizationPage() {
             </option>
             {filteredClassrooms.map((c) => (
               <option key={c.classroomId} value={c.classroomId}>
-                {c.section}
+                {c.className} {c.section}
                 {c.homeroomTeacher
                   ? ` — ${c.homeroomTeacher.firstName} ${c.homeroomTeacher.lastName}`
                   : ''}

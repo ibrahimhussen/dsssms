@@ -85,11 +85,16 @@ export function MyClassesPage() {
           </div>
 
           {!selectedClassroomId ? (
-            <EmptyState title="Select a class above" description="Choose one of your classes to view its roster." />
+            <EmptyState title="Select a class above" description="Choose one of your classes to view its student list." />
           ) : (
             <>
               <h2 className="mb-3 text-lg">
-                Roster — {selectedClassroom?.className} {selectedClassroom?.section}
+                Class Student List — {selectedClassroom?.className} {selectedClassroom?.section}
+                {selectedClassroom?.academicYear && (
+                  <span className="ml-2 text-sm font-normal text-slate-500">
+                    {selectedClassroom.academicYear}
+                  </span>
+                )}
               </h2>
               <Table
                 columns={columns}

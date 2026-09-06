@@ -308,6 +308,7 @@ model GradeComponent {
   category         GradeCategory
   name             String         @db.VarChar(100)
   maxMarks         Decimal        @db.Decimal(5, 2)
+  isReleased       Boolean        @default(false)
   createdAt        DateTime       @default(now())
   updatedAt        DateTime       @updatedAt
   teacherSubject   TeacherSubject @relation(fields: [teacherSubjectId], references: [id], onDelete: Cascade)

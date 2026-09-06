@@ -68,7 +68,13 @@ router.get(
   gradeController.getClassroomTotals
 );
 
-// Fine-grained access enforced inside GradeService via assertCanAccessStudentRecords.
+// Release a component's results to students — teacher owner only.
+router.post(
+  '/components/:id/release',
+  authorize(RoleName.TEACHER),
+  validate(gradeComponentIdParamSchema, 'params'),
+  gradeController.releaseComponent
+);
 router.get(
   '/student/:studentId',
   validate(studentIdParamSchema, 'params'),

@@ -46,6 +46,8 @@ export interface AcademicRegisterStudent {
   academicStatus:  AcademicStatus;
   /** Whether at least one subject is unfinalized (affects display warning) */
   hasUnfinalizedSubjects: boolean;
+  /** Subject names that are below the configured minimumSubjectPassMark (finalized only) */
+  failedSubjects: string[];
 }
 
 // ── Register metadata ─────────────────────────────────────────────────────────

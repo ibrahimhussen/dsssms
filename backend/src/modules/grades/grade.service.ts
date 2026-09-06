@@ -21,7 +21,7 @@ import {
 const OVERSIGHT_ROLES: RoleName[] = [RoleName.ADMIN, RoleName.DIRECTOR, RoleName.VICE_DIRECTOR];
 const SCHEME_MAX_TOTAL = 100;
 
-function toComponentDto(c: { gradeComponentId: number; teacherSubjectId: number; semester: Semester; academicYear: string; category: GradeCategory; name: string; maxMarks: Prisma.Decimal }): GradeComponentDto {
+function toComponentDto(c: { gradeComponentId: number; teacherSubjectId: number; semester: Semester; academicYear: string; category: GradeCategory; name: string; maxMarks: Prisma.Decimal; isReleased: boolean }): GradeComponentDto {
   return {
     gradeComponentId: c.gradeComponentId,
     teacherSubjectId: c.teacherSubjectId,
@@ -30,6 +30,7 @@ function toComponentDto(c: { gradeComponentId: number; teacherSubjectId: number;
     category: c.category,
     name: c.name,
     maxMarks: Number(c.maxMarks),
+    isReleased: c.isReleased,
   };
 }
 
@@ -271,16 +272,19 @@ export class GradeService {
         const [semester, academicYear] = key.split('|') as [Semester, string];
         const componentBreakdown = comps.map((c) => ({
           gradeComponentId: c.gradeComponentId,
-          category: c.category,
-          name: c.name,
-          maxMarks: Number(c.maxMarks),
-          score: c.entries[0] ? Number(c.entries[0].score) : null,
+          category:   c.category,
+          name:       c.name,
+          maxMarks:   Number(c.maxMarks),
+          isReleased: c.isReleased,
+          // Only expose the actual score when the teacher has released this component.
+          // Before release: score is null so the student sees "— / maxMarks" (Not Released).
+          score: c.isReleased ? (c.entries[0] ? Number(c.entries[0].score) : null) : null,
         }));
 
         results.push({
           teacherSubjectId: ts.id,
           subject: {
-            subjectId: ts.subject.subjectId,
+            subjectId:   ts.subject.subjectId,
             subjectCode: ts.subject.subjectCode,
             subjectName: ts.subject.subjectName,
           },
@@ -288,8 +292,10 @@ export class GradeService {
           semester,
           academicYear,
           components: componentBreakdown,
-          totalScore: componentBreakdown.reduce((sum, c) => sum + (c.score ?? 0), 0),
-          totalMaxMarks: componentBreakdown.reduce((sum, c) => sum + c.maxMarks, 0),
+          // Both numerator and denominator only count released components —
+          // unreleased components should not inflate the denominator.
+          totalScore:    componentBreakdown.reduce((sum, c) => sum + (c.isReleased && c.score !== null ? c.score : 0), 0),
+          totalMaxMarks: componentBreakdown.reduce((sum, c) => sum + (c.isReleased ? c.maxMarks : 0), 0),
         });
       }
     }
@@ -297,6 +303,46 @@ export class GradeService {
     return results.sort(
       (a, b) => b.academicYear.localeCompare(a.academicYear) || a.subject.subjectName.localeCompare(b.subject.subjectName)
     );
+  }
+  /**
+   * Releases a component's results to students.
+   * Only the owning teacher can release. Once released, students see their score.
+   * Requires all enrolled students to have a score entered first.
+   */
+  async releaseComponent(
+    actor: AuthenticatedUser,
+    gradeComponentId: number
+  ): Promise<GradeComponentDto> {
+    const teacherId = await getTeacherIdForUser(actor.userId);
+    const component = await prisma.gradeComponent.findUnique({
+      where: { gradeComponentId },
+      include: { teacherSubject: { include: { classroom: true } } },
+    });
+    if (!component) throw new NotFoundError('Grade component');
+    if (component.teacherSubject.teacherId !== teacherId) {
+      throw new ForbiddenError('You may only release grades for subjects you teach');
+    }
+    if (component.isReleased) {
+      throw new ConflictError('Results for this component are already released');
+    }
+
+    // Require every enrolled student to have a score before release
+    const [enrolledCount, entryCount] = await Promise.all([
+      prisma.student.count({ where: { classroomId: component.teacherSubject.classroomId } }),
+      prisma.gradeEntry.count({ where: { gradeComponentId } }),
+    ]);
+    if (entryCount < enrolledCount) {
+      throw new BadRequestError(
+        `${enrolledCount - entryCount} student(s) are missing a score. ` +
+        `Enter all scores before releasing results.`
+      );
+    }
+
+    const updated = await prisma.gradeComponent.update({
+      where: { gradeComponentId },
+      data:  { isReleased: true },
+    });
+    return toComponentDto(updated);
   }
 }
 export const gradeService = new GradeService();

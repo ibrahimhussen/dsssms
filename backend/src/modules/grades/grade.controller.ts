@@ -65,7 +65,13 @@ export class GradeController {
     ApiResponse.success(res, { message: 'Student grades retrieved', data: breakdown });
   });
 
-  /** Convenience endpoint: the logged-in student's own grades. */
+  /** Releases a component's scores to students — teacher-only, owner only. */
+  releaseComponent = asyncHandler(async (req: Request, res: Response) => {
+    if (!req.user) throw new UnauthorizedError();
+    const { id } = req.params as unknown as GradeComponentIdParam;
+    const component = await gradeService.releaseComponent(req.user, id);
+    ApiResponse.success(res, { message: 'Results released to students', data: component });
+  });
   getMyGrades = asyncHandler(async (req: Request, res: Response) => {
     if (!req.user) throw new UnauthorizedError();
     const me = await studentService.getStudentByUserId(req.user.userId);

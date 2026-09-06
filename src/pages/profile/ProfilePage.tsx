@@ -1,4 +1,5 @@
 import { useRef, useState } from 'react';
+import { useSearchParams } from 'react-router-dom';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import {
   MdPerson,
@@ -251,8 +252,12 @@ export function ProfilePage() {
   const { user } = useAuth();
   const qc = useQueryClient();
   const fileRef = useRef<HTMLInputElement>(null);
+  const [searchParams] = useSearchParams();
 
-  const [activeTab,    setActiveTab]    = useState<'profile' | 'password'>('profile');
+  // Allow the header dropdown's "Change Password" to open directly on the password tab
+  const [activeTab, setActiveTab] = useState<'profile' | 'password'>(
+    searchParams.get('tab') === 'password' ? 'password' : 'profile'
+  );
   const [editingEmail, setEditingEmail] = useState(false);
   const [emailValue,   setEmailValue]   = useState('');
   const [saveError,    setSaveError]    = useState<string | null>(null);

@@ -19,6 +19,24 @@ export interface MyClassroomGroup {
 }
 
 /**
+ * Normalises an academic year string to the "YYYY/YY" format used throughout
+ * the system. If the DB has a bare "2026" it becomes "2026/27". Already-
+ * correct values like "2026/27" are returned unchanged.
+ */
+function normaliseAcademicYear(raw: string): string {
+  const trimmed = raw.trim();
+  // Already in the right format e.g. "2026/27"
+  if (/^\d{4}\/\d{2}$/.test(trimmed)) return trimmed;
+  // Bare 4-digit year e.g. "2026" → "2026/27"
+  if (/^\d{4}$/.test(trimmed)) {
+    const year = parseInt(trimmed, 10);
+    return `${year}/${String(year + 1).slice(2)}`;
+  }
+  // Unknown format — return as-is so no data is silently lost
+  return trimmed;
+}
+
+/**
  * Groups the logged-in teacher's assignments by classroom (a teacher may
  * teach several subjects in the same classroom) and merges in each
  * classroom's enrolled-student count. Powers the teacher dashboard's
@@ -45,11 +63,11 @@ export function useMyClassrooms() {
       } else {
         const classroomInfo = classrooms.data?.items.find((c) => c.classroomId === a.classroom.classroomId);
         byClassroom.set(a.classroom.classroomId, {
-          classroomId: a.classroom.classroomId,
-          className: a.classroom.className,
-          section: a.classroom.section,
-          academicYear: a.classroom.academicYear,
-          studentCount: classroomInfo?.studentCount ?? 0,
+          classroomId:  a.classroom.classroomId,
+          className:    a.classroom.className,
+          section:      a.classroom.section,
+          academicYear: normaliseAcademicYear(a.classroom.academicYear),
+          studentCount:    classroomInfo?.studentCount ?? 0,
           homeroomTeacher: classroomInfo?.homeroomTeacher ?? null,
           subjects: [subject],
         });

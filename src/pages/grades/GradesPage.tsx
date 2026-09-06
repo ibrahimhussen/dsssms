@@ -1,6 +1,6 @@
 import { useState } from 'react';
 import { useMyTeachingAssignments } from '../../hooks/useDashboardData';
-import { useClassroomTotals, useDeleteGradeComponent, useGradeScheme } from '../../hooks/useGrades';
+import { useClassroomTotals, useDeleteGradeComponent, useGradeScheme, useReleaseGradeComponent } from '../../hooks/useGrades';
 import { SelectField } from '../../components/ui/SelectField';
 import { TextField } from '../../components/ui/TextField';
 import { Button } from '../../components/ui/Button';
@@ -43,6 +43,7 @@ export function GradesPage() {
   const { data: scheme, isLoading: isSchemeLoading } = useGradeScheme(hasScope ? scope : {});
   const { data: totals, isLoading: isTotalsLoading } = useClassroomTotals(hasScope ? scope : {});
   const deleteComponent = useDeleteGradeComponent();
+  const releaseComponent = useReleaseGradeComponent();
 
   async function handleConfirmDelete() {
     if (!pendingDelete) return;
@@ -109,16 +110,32 @@ export function GradesPage() {
                 <Card key={c.gradeComponentId}>
                   <div className="mb-2 flex items-center justify-between gap-2">
                     <Badge>{CATEGORY_LABELS[c.category]}</Badge>
-                    <span className="text-sm font-semibold text-ink-900">/ {c.maxMarks}</span>
+                    <div className="flex items-center gap-2">
+                      <Badge tone={c.isReleased ? 'positive' : 'neutral'}>
+                        {c.isReleased ? 'Released' : 'Not Released'}
+                      </Badge>
+                      <span className="text-sm font-semibold text-ink-900">/ {c.maxMarks}</span>
+                    </div>
                   </div>
                   <p className="mb-3 font-display text-lg font-semibold text-ink-900">{c.name}</p>
-                  <div className="flex gap-2">
+                  <div className="flex flex-wrap gap-2">
                     <Button variant="ghost" onClick={() => setEntryComponentId(c.gradeComponentId)}>
                       Enter scores
                     </Button>
-                    <Button variant="danger" onClick={() => setPendingDelete(c)}>
-                      Delete
-                    </Button>
+                    {!c.isReleased && (
+                      <Button
+                        variant="secondary"
+                        isLoading={releaseComponent.isPending && releaseComponent.variables === c.gradeComponentId}
+                        onClick={() => releaseComponent.mutate(c.gradeComponentId)}
+                      >
+                        Release results
+                      </Button>
+                    )}
+                    {!c.isReleased && (
+                      <Button variant="danger" onClick={() => setPendingDelete(c)}>
+                        Delete
+                      </Button>
+                    )}
                   </div>
                 </Card>
               ))}
