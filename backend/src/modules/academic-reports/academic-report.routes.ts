@@ -15,6 +15,7 @@ const router = Router();
 router.use(authenticate);
 
 const OVERSIGHT_ROLES = [RoleName.DIRECTOR, RoleName.VICE_DIRECTOR];
+const TRANSCRIPT_ROLES = [RoleName.ADMIN, RoleName.DIRECTOR, RoleName.VICE_DIRECTOR, RoleName.STUDENT, RoleName.PARENT];
 
 router.get('/me', authorize(RoleName.STUDENT), academicReportController.getMyReports);
 router.get('/me/transcript', authorize(RoleName.STUDENT), academicReportController.getMyTranscript);
@@ -26,9 +27,12 @@ router.post(
   academicReportController.generateForClassroom
 );
 
-// Fine-grained access enforced inside AcademicReportService via assertCanAccessStudentRecords.
+// Transcript endpoints — fine-grained per-student authorization enforced inside
+// AcademicReportService via assertCanAccessStudentRecords (student sees own only,
+// parent sees linked children only, oversight/admin see any).
 router.get(
   '/student/:studentId',
+  authorize(...TRANSCRIPT_ROLES),
   validate(studentIdParamSchema, 'params'),
   validate(reportPeriodQuerySchema, 'query'),
   academicReportController.getStudentReport
@@ -36,6 +40,7 @@ router.get(
 
 router.get(
   '/student/:studentId/pdf',
+  authorize(...TRANSCRIPT_ROLES),
   validate(studentIdParamSchema, 'params'),
   validate(reportPeriodQuerySchema, 'query'),
   academicReportController.getReportCardPdf
@@ -43,18 +48,21 @@ router.get(
 
 router.get(
   '/student/:studentId/history',
+  authorize(...TRANSCRIPT_ROLES),
   validate(studentIdParamSchema, 'params'),
   academicReportController.listStudentReports
 );
 
 router.get(
   '/student/:studentId/transcript',
+  authorize(...TRANSCRIPT_ROLES),
   validate(studentIdParamSchema, 'params'),
   academicReportController.getTranscript
 );
 
 router.get(
   '/student/:studentId/transcript/pdf',
+  authorize(...TRANSCRIPT_ROLES),
   validate(studentIdParamSchema, 'params'),
   academicReportController.getTranscriptPdf
 );

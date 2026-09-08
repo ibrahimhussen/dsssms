@@ -88,7 +88,7 @@ export const router = createBrowserRouter([
 
           { path: '/my-attendance', element: <ProtectedRoute allowedRoles={['STUDENT']}><MyAttendancePage /></ProtectedRoute> },
           { path: '/my-grades', element: <ProtectedRoute allowedRoles={['STUDENT']}><MyGradesPage /></ProtectedRoute> },
-          { path: '/transcript', element: <ProtectedRoute allowedRoles={['STUDENT']}><TranscriptPage /></ProtectedRoute> },
+          { path: '/transcript', element: <ProtectedRoute allowedRoles={['STUDENT', 'ADMIN', 'DIRECTOR', 'VICE_DIRECTOR']}><TranscriptPage /></ProtectedRoute> },
           { path: '/my-homework', element: <ProtectedRoute allowedRoles={['STUDENT']}><StudentHomeworkPage /></ProtectedRoute> },
 
           { path: '/timetable', element: <ProtectedRoute allowedRoles={['TEACHER', 'STUDENT']}><TimetablePage /></ProtectedRoute> },

@@ -1,12 +1,16 @@
 import { useMemo, useState } from 'react';
-import { MdSchool, MdPrint } from 'react-icons/md';
-import { useMyTranscript } from '../../hooks/useAcademicReports';
+import { MdSchool, MdPrint, MdSearch } from 'react-icons/md';
+import { useMyTranscript, useStudentTranscript } from '../../hooks/useAcademicReports';
 import { useQuery } from '@tanstack/react-query';
+import { useAuth } from '../../context/AuthContext';
 import { academicReportsApi } from '../../lib/academic-reports-api';
 import { authApi } from '../../lib/auth-api';
 import { systemSettingsApi } from '../../lib/system-settings-api';
+import { studentsApi } from '../../lib/students-api';
 import { Button } from '../../components/ui/Button';
+import { TextField } from '../../components/ui/TextField';
 import { LedgerRule } from '../../components/ui/LedgerRule';
+import { EmptyState } from '../../components/ui/EmptyState';
 import type { TranscriptPeriod } from '../../types/academic-report';
 
 // ── helpers ───────────────────────────────────────────────────────────────────
@@ -192,15 +196,15 @@ function buildPrint(params: {
   .header{
     background:#1a8fd1;
     border:2px solid #0e5fa0;
-    padding:14px 16px 12px;
+    padding:18px 18px 16px;
     display:grid;
-    grid-template-columns:72px 1fr 90px;
-    gap:12px;
+    grid-template-columns:80px 1fr 116px;
+    gap:14px;
     align-items:center;
     margin-bottom:0;
   }
   .seal-box{
-    width:68px;height:68px;border-radius:50%;
+    width:72px;height:72px;border-radius:50%;
     border:2.5px solid #fff;
     background:rgba(255,255,255,0.2);
     display:flex;align-items:center;justify-content:center;
@@ -214,7 +218,7 @@ function buildPrint(params: {
   .school-center .line4{font-size:8pt;margin-top:1px}
   .school-center .title{font-size:13pt;font-weight:900;text-decoration:underline;margin-top:8px;letter-spacing:0.5px}
   .photo-box{
-    width:88px;height:108px;
+    width:112px;height:148px;
     border:2.5px solid #fff;
     background:#e8f4ff;
     display:flex;align-items:center;justify-content:center;
@@ -346,7 +350,30 @@ function buildPrint(params: {
 // ── page ─────────────────────────────────────────────────────────────────────
 
 export function TranscriptPage() {
-  const { data: transcript, isLoading } = useMyTranscript();
+  const { user } = useAuth();
+  const isOversight = user?.role === 'ADMIN' || user?.role === 'DIRECTOR' || user?.role === 'VICE_DIRECTOR';
+
+  // Oversight users search for a student first; students see their own transcript
+  const [searchQuery, setSearchQuery] = useState('');
+  const [selectedStudentId, setSelectedStudentId] = useState<number | null>(null);
+
+  // Search results for oversight roles
+  const { data: searchResults, isLoading: searchLoading } = useQuery({
+    queryKey: ['students', 'search', searchQuery],
+    queryFn: () => studentsApi.list({ search: searchQuery, limit: 10 }),
+    enabled: isOversight && searchQuery.trim().length >= 2,
+    staleTime: 30_000,
+  });
+
+  // Transcript data — own for students, selected student for oversight
+  const { data: myTranscript, isLoading: myLoading } = useMyTranscript();
+  const { data: studentTranscript, isLoading: studentLoading } = useStudentTranscript(
+    isOversight ? (selectedStudentId ?? undefined) : undefined
+  );
+
+  const transcript = isOversight ? studentTranscript : myTranscript;
+  const isLoading  = isOversight ? studentLoading : myLoading;
+
   const [isDownloading, setIsDownloading] = useState(false);
 
   const { data: profile } = useQuery({
@@ -424,7 +451,59 @@ export function TranscriptPage() {
 
   const hasPeriods = transcript && transcript.periods.length > 0;
 
-  if (isLoading) {
+  // ── Oversight: student search panel ──────────────────────────────────────
+  if (isOversight && !selectedStudentId) {
+    return (
+      <div className="max-w-2xl">
+        <h1 className="text-2xl font-semibold text-ink-900">Student Transcripts</h1>
+        <p className="mt-0.5 text-sm text-slate-500">
+          Search for a student to view their official Grade 9–12 transcript.
+        </p>
+        <LedgerRule />
+        <div className="mb-4 flex gap-2">
+          <TextField
+            label="Search by name or admission number"
+            className="flex-1"
+            value={searchQuery}
+            onChange={(e) => setSearchQuery(e.target.value)}
+            placeholder="e.g. Chaltu or DSH-2026-00002"
+          />
+        </div>
+        {searchLoading && (
+          <div className="flex items-center gap-2 py-4 text-slate-400">
+            <span className="h-3.5 w-3.5 animate-spin rounded-full border-2 border-slate-200 border-t-pine-700" />
+            <span className="text-sm">Searching…</span>
+          </div>
+        )}
+        {searchResults && searchResults.items.length === 0 && searchQuery.length >= 2 && (
+          <EmptyState title="No students found" description="Try a different name or admission number." />
+        )}
+        {searchResults && searchResults.items.length > 0 && (
+          <div className="flex flex-col divide-y divide-slate-100 rounded-xl border border-slate-200 bg-white shadow-sm overflow-hidden">
+            {searchResults.items.map((s) => (
+              <button
+                key={s.studentId}
+                type="button"
+                className="flex items-center justify-between px-5 py-3 hover:bg-paper-100 text-left transition-colors"
+                onClick={() => setSelectedStudentId(s.studentId)}
+              >
+                <div>
+                  <p className="font-semibold text-ink-900">{s.firstName} {s.lastName}</p>
+                  <p className="text-xs text-slate-500 font-mono">{s.admissionNumber}</p>
+                </div>
+                <span className="text-xs text-pine-700 font-semibold">View Transcript →</span>
+              </button>
+            ))}
+          </div>
+        )}
+        {!searchQuery && (
+          <EmptyState title="Search for a student" description="Enter at least 2 characters to search." />
+        )}
+      </div>
+    );
+  }
+
+  if (isLoading && (!isOversight || selectedStudentId !== null)) {
     return (
       <div className="max-w-4xl">
         <h1 className="text-2xl font-semibold text-ink-900">Transcript</h1>
@@ -468,6 +547,11 @@ export function TranscriptPage() {
           </p>
         </div>
         <div className="flex gap-2">
+          {isOversight && (
+            <Button variant="ghost" onClick={() => { setSelectedStudentId(null); setSearchQuery(''); }}>
+              ← Back to search
+            </Button>
+          )}
           <Button onClick={handlePrint}>
             <MdPrint className="h-4 w-4" /> Print Transcript
           </Button>
@@ -481,34 +565,38 @@ export function TranscriptPage() {
       {/* Preview — mirrors the print form */}
       <div className="overflow-hidden rounded-xl border-2 border-slate-300 bg-white shadow-sm">
 
-        {/* Blue header */}
-        <div className="grid grid-cols-[64px_1fr_84px] items-center gap-3 bg-sky-500 px-5 py-4">
-          {/* Seal */}
-          {/* Seal / Logo */}
-          <div className="flex h-16 w-16 shrink-0 items-center justify-center overflow-hidden rounded-full border-2 border-white/60 bg-white/20">
-            {settings?.schoolLogo ? (
-              <img src={settings.schoolLogo} alt="School Logo" className="h-full w-full object-contain p-1" />
-            ) : (
-              <span className="text-center text-[0.55rem] font-bold leading-tight text-white/80 px-1">SCHOOL<br/>SEAL</span>
-            )}
-          </div>
-          {/* School info */}
-          <div className="text-center text-white">
-            <p className="text-[0.75rem] font-bold underline tracking-wide">OROMIA EDUCATION BUREAU</p>
-            <p className="text-[0.7rem] font-semibold">
-              ZONE: {settings?.schoolZone ?? '_______________'}
-            </p>
-            <p className="text-[0.7rem] font-semibold">
-              WEREDA: {settings?.schoolWereda ?? '_______________'}
-            </p>
-            <p className="text-[0.8125rem] font-extrabold underline uppercase">{transcript.schoolName}</p>
-            <p className="mt-1.5 text-[1rem] font-black underline tracking-widest">STUDENT TRANSCRIPT</p>
-          </div>
-          {/* Photo */}
-          <div className="flex h-[108px] w-[88px] shrink-0 items-center justify-center border-2 border-white/70 bg-white/20 overflow-hidden">
-            {profile?.profilePicture
-              ? <img src={profile.profilePicture} alt="Photo" className="h-full w-full object-cover" />
-              : <span className="text-xs font-bold text-white/80">Photo</span>}
+        {/* Blue header — photo column is flush: no outer padding, stretches full height */}
+        <div className="overflow-hidden rounded-t-xl">
+          <div className="grid bg-sky-500" style={{gridTemplateColumns:'88px 1fr 120px',minHeight:'164px'}}>
+
+            {/* Logo — padded cell */}
+            <div className="flex items-center justify-center p-4">
+              <div className="flex h-20 w-20 items-center justify-center overflow-hidden rounded-full border-2 border-white/60 bg-white/20">
+                {settings?.schoolLogo
+                  ? <img src={settings.schoolLogo} alt="Logo" className="h-full w-full object-contain p-1" />
+                  : <span className="text-center text-[0.5rem] font-bold leading-tight text-white/80">SCHOOL<br/>SEAL</span>}
+              </div>
+            </div>
+
+            {/* School info — padded cell */}
+            <div className="flex flex-col items-center justify-center py-5 text-center text-white">
+              <p className="text-[0.75rem] font-bold underline tracking-wide">OROMIA EDUCATION BUREAU</p>
+              <p className="mt-1 text-[0.7rem] font-semibold">ZONE: {settings?.schoolZone ?? '_______________'}</p>
+              <p className="text-[0.7rem] font-semibold">WEREDA: {settings?.schoolWereda ?? '_______________'}</p>
+              <p className="mt-1 text-[0.8125rem] font-extrabold underline uppercase">{transcript.schoolName}</p>
+              <p className="mt-2 text-[1rem] font-black underline tracking-widest">STUDENT TRANSCRIPT</p>
+            </div>
+
+            {/* Photo — NO padding, NO margin, flush top/right/bottom */}
+            <div className="relative border-l-2 border-white/50">
+              {profile?.profilePicture
+                ? <img src={profile.profilePicture} alt="Photo"
+                    className="absolute inset-0 h-full w-full object-cover" />
+                : <div className="absolute inset-0 flex items-center justify-center">
+                    <span className="text-sm font-bold text-white/80">Photo</span>
+                  </div>}
+            </div>
+
           </div>
         </div>
 

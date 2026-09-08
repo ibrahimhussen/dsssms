@@ -389,6 +389,16 @@ export function AcademicRegisterPage() {
       ? { classroomId, academicYear, viewMode }
       : null;
 
+  // Parallel S1 + S2 queries for the combined I | II | Av master-sheet view
+  const s1Query: AcademicRegisterQuery | null =
+    registerType === 'section' && classroomId > 0 && academicYear
+      ? { classroomId, academicYear, viewMode: 'SEMESTER_1' }
+      : null;
+  const s2Query: AcademicRegisterQuery | null =
+    registerType === 'section' && classroomId > 0 && academicYear
+      ? { classroomId, academicYear, viewMode: 'SEMESTER_2' }
+      : null;
+
   const gradeQuery: GradeRegisterQuery | null =
     registerType === 'grade' && grade && academicYear
       ? { grade, academicYear, viewMode }
@@ -396,6 +406,10 @@ export function AcademicRegisterPage() {
 
   const { data: sectionData, isLoading: sectionLoading, error: sectionError, refetch: sectionRefetch } =
     useAcademicRegister(sectionQuery);
+
+  // Parallel semester fetches for combined I | II | Av master-sheet columns
+  const { data: s1Data } = useAcademicRegister(s1Query);
+  const { data: s2Data } = useAcademicRegister(s2Query);
 
   const { data: gradeData, isLoading: gradeLoading, error: gradeError, refetch: gradeRefetch } =
     useGradeRegister(gradeQuery);
@@ -710,7 +724,7 @@ export function AcademicRegisterPage() {
                   <th className="register-th w-8">Sex</th>
                   <th className="register-th w-8">Age</th>
                   {sectionData.subjects.map((s) => (
-                    <th key={s.subjectId} className="register-th min-w-[60px] max-w-[80px]">
+                    <th key={s.subjectId} colSpan={3} className="register-th min-w-[90px]">
                       <span className="block truncate" title={s.subjectName}>
                         {s.subjectName.length > 8 ? s.subjectName.slice(0, 7) + '.' : s.subjectName}
                       </span>
@@ -720,8 +734,21 @@ export function AcademicRegisterPage() {
                   <th className="register-th">Avg</th>
                   <th className="register-th whitespace-nowrap">Sec.Rank</th>
                   <th className="register-th whitespace-nowrap">Grade Rank</th>
-                  <th className="register-th whitespace-nowrap">Failed Subjects</th>
+                  <th className="register-th whitespace-nowrap">Absent</th>
+                  <th className="register-th whitespace-nowrap">Failed Subj.</th>
                   <th className="register-th">Status</th>
+                </tr>
+                {/* Sub-header: I | II | Av per subject */}
+                <tr>
+                  <th className="register-th" colSpan={5} />
+                  {sectionData.subjects.map((s) => (
+                    <>
+                      <th key={`${s.subjectId}-i`}  className="register-th text-[0.6rem]">I</th>
+                      <th key={`${s.subjectId}-ii`} className="register-th text-[0.6rem]">II</th>
+                      <th key={`${s.subjectId}-av`} className="register-th text-[0.6rem] bg-slate-100">Av</th>
+                    </>
+                  ))}
+                  <th className="register-th" colSpan={7} />
                 </tr>
               </thead>
               <tbody>
@@ -738,24 +765,22 @@ export function AcademicRegisterPage() {
                     <td className="register-td text-center">{student.gender}</td>
                     <td className="register-td text-center">{student.age}</td>
                     {sectionData.subjects.map((sub) => {
-                      const r = student.subjectResults.find((sr) => sr.subjectId === sub.subjectId);
-                      const val = r?.finalResult != null ? r.finalResult.toFixed(2) : '—';
-                      const isUnfinalized = r && !r.isFinalized;
-                      const noAssignment = r && !r.hasAssignment;
+                      const r  = student.subjectResults.find((sr) => sr.subjectId === sub.subjectId);
+                      // S1/S2 from parallel fetches
+                      const s1Student = s1Data?.students.find((st) => st.studentId === student.studentId);
+                      const s2Student = s2Data?.students.find((st) => st.studentId === student.studentId);
+                      const r1 = s1Student?.subjectResults.find((sr) => sr.subjectId === sub.subjectId);
+                      const r2 = s2Student?.subjectResults.find((sr) => sr.subjectId === sub.subjectId);
+                      const v1 = r1?.finalResult != null ? r1.finalResult.toFixed(1) : '—';
+                      const v2 = r2?.finalResult != null ? r2.finalResult.toFixed(1) : '—';
+                      const av = r?.finalResult  != null ? r.finalResult.toFixed(1)  : '—';
+                      const isUnfin = r && !r.isFinalized;
                       return (
-                        <td
-                          key={sub.subjectId}
-                          className={`register-td text-center font-mono ${
-                            noAssignment ? 'text-slate-300' :
-                            isUnfinalized ? 'text-gold-600 italic' : ''
-                          }`}
-                          title={
-                            noAssignment ? 'No teacher assigned' :
-                            isUnfinalized ? 'Not yet finalized' : undefined
-                          }
-                        >
-                          {val}
-                        </td>
+                        <>
+                          <td key={`${sub.subjectId}-i`}  className={`register-td text-center font-mono ${isUnfin ? 'text-gold-600 italic' : ''}`}>{v1}</td>
+                          <td key={`${sub.subjectId}-ii`} className={`register-td text-center font-mono ${isUnfin ? 'text-gold-600 italic' : ''}`}>{v2}</td>
+                          <td key={`${sub.subjectId}-av`} className={`register-td text-center font-mono bg-slate-50 font-semibold ${isUnfin ? 'text-gold-600 italic' : ''}`}>{av}</td>
+                        </>
                       );
                     })}
                     <td className="register-td text-center font-mono font-semibold">
@@ -780,9 +805,12 @@ export function AcademicRegisterPage() {
                       {student.failedSubjects.length === 0
                         ? <span className="text-slate-300">—</span>
                         : <span className="text-danger-600 font-medium text-xs">
-                            {student.failedSubjects.join(', ')}
+                            {student.failedSubjects.length}
                           </span>
                       }
+                    </td>
+                    <td className="register-td text-center font-mono">
+                      {'absent' in student ? (student as {absent: number}).absent : '—'}
                     </td>
                     <td className="register-td text-center">{statusBadge(student.academicStatus)}</td>
                   </tr>

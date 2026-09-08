@@ -35,11 +35,12 @@ export interface AcademicRegisterStudent {
   gradeRank:       number | null;
   totalStudentsInSection: number;
   totalStudentsInGrade:   number;
-  conduct:         string | null;   // ConductRating enum value
+  conduct:         string | null;
   academicStatus:  AcademicStatus;
   hasUnfinalizedSubjects: boolean;
-  /** Subject names below the configured minimum subject pass mark (finalized only) */
   failedSubjects: string[];
+  /** Total absent days for this student in this classroom/period */
+  absent: number;
 }
 
 // ── Register metadata ─────────────────────────────────────────────────────────

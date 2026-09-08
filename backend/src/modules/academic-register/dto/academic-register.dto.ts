@@ -48,6 +48,8 @@ export interface AcademicRegisterStudent {
   hasUnfinalizedSubjects: boolean;
   /** Subject names that are below the configured minimumSubjectPassMark (finalized only) */
   failedSubjects: string[];
+  /** Total absent days for this student in this classroom/period */
+  absent: number;
 }
 
 // ── Register metadata ─────────────────────────────────────────────────────────

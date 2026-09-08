@@ -77,6 +77,7 @@ export const NAV_ENTRIES: NavEntry[] = [
     item('Grade Subject Config', '/grade-subject-config', MdAssignment),
     item('Roster',               '/academic-register',    MdMenuBook),
     item('Results Finalization', '/finalization',         MdFactCheck),
+    item('Student Transcripts',  '/transcript',           MdDescription),
   ]),
 
   group('System Management', MdFolder, ['ADMIN'], [
@@ -104,6 +105,7 @@ export const NAV_ENTRIES: NavEntry[] = [
     item('Results Finalization', '/finalization',         MdFactCheck),
     item('Academic Reports',     '/academic-reports',     MdDescription),
     item('Grade Subject Config', '/grade-subject-config', MdAssignment),
+    item('Student Transcripts',  '/transcript',           MdMenuBook),
   ]),
 
   group('Attendance', MdFactCheck, ['DIRECTOR'], [
@@ -138,6 +140,7 @@ export const NAV_ENTRIES: NavEntry[] = [
     item('Results Finalization', '/finalization',         MdFactCheck),
     item('Grade Subject Config', '/grade-subject-config', MdAssignment),
     item('Academic Reports',     '/academic-reports',     MdDescription),
+    item('Student Transcripts',  '/transcript',           MdMenuBook),
   ]),
 
   group('Attendance', MdFactCheck, ['VICE_DIRECTOR'], [

@@ -332,7 +332,26 @@ export class AcademicRegisterService {
     });
     const studentIds = students.map((s) => s.studentId);
 
-    // ── Conduct records ───────────────────────────────────────────────────────
+    // ── Bulk-load absence counts ──────────────────────────────────────────────
+    const attendanceSemesters =
+      query.viewMode === 'FULL_YEAR'
+        ? undefined  // all records for the year
+        : [query.viewMode as Semester];
+
+    const absenceCounts = await prisma.attendance.groupBy({
+      by: ['studentId'],
+      where: {
+        studentId:    { in: studentIds },
+        classroomId:  query.classroomId,
+        status:       'ABSENT',
+        ...(attendanceSemesters
+          ? {}  // Full-Year: all absences for the year (no semester filter on attendance)
+          : {}),
+      },
+      _count: { _all: true },
+    });
+    const absentMap = new Map<number, number>();
+    for (const a of absenceCounts) absentMap.set(a.studentId, a._count._all);
     // For Full-Year, pull both semesters and take the better/latest rating
     const conductSemesters =
       query.viewMode === 'FULL_YEAR'
@@ -521,14 +540,15 @@ export class AcademicRegisterService {
         totalObtained,
         totalPossible,
         average,
-        sectionRank: null,      // filled below
-        gradeRank: null,        // filled below
+        sectionRank: null,
+        gradeRank: null,
         totalStudentsInSection: students.length,
-        totalStudentsInGrade: 0, // filled below
+        totalStudentsInGrade: 0,
         conduct,
         academicStatus,
         hasUnfinalizedSubjects: subjectResults.some((r) => !r.isFinalized),
         failedSubjects,
+        absent: absentMap.get(student.studentId) ?? 0,
       });
     }
 
