@@ -66,7 +66,6 @@ export const NAV_ENTRIES: NavEntry[] = [
 
   group('User Management', MdManageAccounts, ['ADMIN'], [
     item('Staff Accounts',    '/users',           MdPeople),
-    item('System Settings',   '/system-settings', MdSettings),
   ]),
 
   group('School Management', MdGroups, ['ADMIN'], [
@@ -81,8 +80,9 @@ export const NAV_ENTRIES: NavEntry[] = [
   ]),
 
   group('System Management', MdFolder, ['ADMIN'], [
-    item('Audit Logs',       '/audit-logs', MdHistory),
-    item('Backup & Restore', '/backups',    MdBackup),
+    item('System Settings',  '/system-settings', MdSettings),
+    item('Audit Logs',       '/audit-logs',       MdHistory),
+    item('Backup & Restore', '/backups',          MdBackup),
   ]),
 
   group('Communication', MdCampaign, ['ADMIN'], [

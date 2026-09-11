@@ -38,6 +38,13 @@ export const academicReportsApi = {
     return unwrap(apiClient.get<ApiResponse<Transcript>>(`/academic-reports/student/${studentId}/transcript`));
   },
 
+  async downloadMyTranscriptPdf(admissionNumber: string): Promise<void> {
+    const response = await apiClient.get<Blob>('/academic-reports/me/transcript/pdf', {
+      responseType: 'blob',
+    });
+    triggerBlobDownload(response.data, `transcript-student-copy-${admissionNumber}.pdf`);
+  },
+
   async downloadTranscriptPdf(studentId: number, admissionNumber: string): Promise<void> {
     const response = await apiClient.get<Blob>(`/academic-reports/student/${studentId}/transcript/pdf`, {
       responseType: 'blob',

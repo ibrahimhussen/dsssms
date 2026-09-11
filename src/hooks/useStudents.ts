@@ -8,7 +8,6 @@ export function useStudents(params: ListStudentsParams, options: { enabled?: boo
   return useQuery({
     queryKey: studentsQueryKey(params),
     queryFn: () => studentsApi.list(params),
-    placeholderData: (previousData) => previousData,
     enabled: options.enabled ?? true,
   });
 }

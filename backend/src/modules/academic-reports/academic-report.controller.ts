@@ -99,12 +99,31 @@ export class AcademicReportController {
     ApiResponse.success(res, { message: 'Your academic reports', data: reports });
   });
 
-  /** Convenience endpoint: the logged-in student's own transcript. */
+  /** Convenience endpoint: the logged-in student's own transcript (JSON). */
   getMyTranscript = asyncHandler(async (req: Request, res: Response) => {
     if (!req.user) throw new UnauthorizedError();
     const me = await studentService.getStudentByUserId(req.user.userId);
     const transcript = await academicReportService.getStudentTranscript(req.user, me.studentId);
     ApiResponse.success(res, { message: 'Your transcript', data: transcript });
+  });
+
+  /** Convenience endpoint: the logged-in student's own transcript PDF — always marked as STUDENT COPY.
+   *  studentId is derived exclusively from the authenticated session, never from URL params or body.
+   */
+  getMyTranscriptPdf = asyncHandler(async (req: Request, res: Response) => {
+    if (!req.user) throw new UnauthorizedError();
+    const me = await studentService.getStudentByUserId(req.user.userId);
+
+    const [transcript, settings] = await Promise.all([
+      academicReportService.getStudentTranscript(req.user, me.studentId),
+      systemSettingService.get(),
+    ]);
+
+    const buffer = await buildTranscriptPdf(settings.schoolName, transcript, { isStudentCopy: true });
+
+    res.setHeader('Content-Type', 'application/pdf');
+    res.setHeader('Content-Disposition', `attachment; filename="transcript-student-copy-${transcript.admissionNumber}.pdf"`);
+    res.send(buffer);
   });
 }
 

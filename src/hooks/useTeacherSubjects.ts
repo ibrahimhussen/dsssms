@@ -6,7 +6,6 @@ export function useAssignments(params: ListAssignmentsParams) {
   return useQuery({
     queryKey: ['teacher-subjects', params],
     queryFn: () => teacherSubjectsApi.list(params),
-    placeholderData: (previousData) => previousData,
   });
 }
 

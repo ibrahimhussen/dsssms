@@ -19,6 +19,7 @@ const TRANSCRIPT_ROLES = [RoleName.ADMIN, RoleName.DIRECTOR, RoleName.VICE_DIREC
 
 router.get('/me', authorize(RoleName.STUDENT), academicReportController.getMyReports);
 router.get('/me/transcript', authorize(RoleName.STUDENT), academicReportController.getMyTranscript);
+router.get('/me/transcript/pdf', authorize(RoleName.STUDENT), academicReportController.getMyTranscriptPdf);
 
 router.post(
   '/generate',
