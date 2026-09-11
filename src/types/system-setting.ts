@@ -3,6 +3,7 @@ export interface SystemSetting {
   schoolAddress: string | null;
   schoolZone: string | null;
   schoolWereda: string | null;
+  schoolRegion: string | null;
   contactEmail: string | null;
   contactPhone: string | null;
   currentAcademicYear: string;
@@ -16,6 +17,7 @@ export interface UpdateSystemSettingInput {
   schoolAddress?: string;
   schoolZone?: string;
   schoolWereda?: string;
+  schoolRegion?: string;
   contactEmail?: string;
   contactPhone?: string;
   currentAcademicYear: string;

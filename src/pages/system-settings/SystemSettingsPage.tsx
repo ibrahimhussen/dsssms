@@ -30,6 +30,7 @@ export function SystemSettingsPage() {
           schoolAddress: data.schoolAddress ?? '',
           schoolZone: data.schoolZone ?? '',
           schoolWereda: data.schoolWereda ?? '',
+          schoolRegion: data.schoolRegion ?? '',
           contactEmail: data.contactEmail ?? '',
           contactPhone: data.contactPhone ?? '',
           currentAcademicYear: data.currentAcademicYear,
@@ -46,6 +47,7 @@ export function SystemSettingsPage() {
         schoolAddress: values.schoolAddress || undefined,
         schoolZone: values.schoolZone || undefined,
         schoolWereda: values.schoolWereda || undefined,
+        schoolRegion: values.schoolRegion || undefined,
         contactEmail: values.contactEmail || undefined,
         contactPhone: values.contactPhone || undefined,
         currentAcademicYear: values.currentAcademicYear,
@@ -94,6 +96,7 @@ export function SystemSettingsPage() {
               <TextField label="Zone (optional)" placeholder="e.g. Bale" error={errors.schoolZone?.message} {...register('schoolZone')} />
               <TextField label="Wereda (optional)" placeholder="e.g. Dinsho" error={errors.schoolWereda?.message} {...register('schoolWereda')} />
             </div>
+            <TextField label="Region (optional)" placeholder="e.g. Oromia" error={errors.schoolRegion?.message} {...register('schoolRegion')} />
             <div className="grid grid-cols-2 gap-x-4">
               <TextField
                 label="Contact email (optional)"

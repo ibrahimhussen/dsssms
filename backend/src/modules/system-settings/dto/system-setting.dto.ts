@@ -3,6 +3,7 @@ export interface SystemSettingDto {
   schoolAddress: string | null;
   schoolZone: string | null;
   schoolWereda: string | null;
+  schoolRegion: string | null;
   contactEmail: string | null;
   contactPhone: string | null;
   currentAcademicYear: string;

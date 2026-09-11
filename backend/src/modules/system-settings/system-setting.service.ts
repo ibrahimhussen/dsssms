@@ -14,6 +14,7 @@ function toDto(row: SettingWithUpdatedBy): SystemSettingDto {
     schoolAddress: row.schoolAddress,
     schoolZone: row.schoolZone ?? null,
     schoolWereda: row.schoolWereda ?? null,
+    schoolRegion: row.schoolRegion ?? null,
     contactEmail: row.contactEmail,
     contactPhone: row.contactPhone,
     currentAcademicYear: row.currentAcademicYear,
@@ -56,7 +57,8 @@ export class SystemSettingService {
       entity: 'SystemSetting',
       entityId: String(SETTINGS_ROW_ID),
       ipAddress: actor.ipAddress,
-      metadata: { ...input },
+      // Exclude schoolLogo from audit metadata — it can be megabytes of base64
+      metadata: (({ schoolLogo: _logo, ...rest }) => rest)(input),
     });
 
     return toDto(row);

@@ -1,0 +1,10 @@
+import { PrismaMariaDb } from '@prisma/adapter-mariadb';
+import { PrismaClient } from '@prisma/client';
+const prisma = new PrismaClient({ adapter: new PrismaMariaDb({ host:'localhost', port:3306, user:'dsssms_user', password:'mudasir', database:'dsssms_db' }) });
+const subs = await prisma.subject.findMany({ orderBy: { subjectName: 'asc' } });
+console.log('Subjects:', JSON.stringify(subs.map(s => ({ id: s.subjectId, code: s.subjectCode, name: s.subjectName }))));
+const ts = await prisma.teacherSubject.findMany({ where: { classroomId: 1 }, include: { subject: true } });
+console.log('TeacherSubjects classroom 1:', JSON.stringify(ts.map(t => ({ id: t.id, subject: t.subject.subjectName }))));
+const enroll = await prisma.studentEnrollment.findMany({ where: { studentId: 2 }, include: { classroom: true }, orderBy: { academicYear: 'asc' } });
+console.log('Enrollments student 2:', JSON.stringify(enroll.map(e => ({ year: e.academicYear, classroom: e.classroomId, grade: e.classroom.className, section: e.classroom.section }))));
+await prisma.$disconnect();

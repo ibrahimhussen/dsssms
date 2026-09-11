@@ -5,6 +5,7 @@ export const updateSystemSettingSchema = z.object({
   schoolAddress: z.string().trim().max(255).optional(),
   schoolZone: z.string().trim().max(100).optional(),
   schoolWereda: z.string().trim().max(100).optional(),
+  schoolRegion: z.string().trim().max(100).optional(),
   contactEmail: z.string().trim().email('Invalid email address').max(150).optional(),
   contactPhone: z.string().trim().max(30).optional(),
   currentAcademicYear: z

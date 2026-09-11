@@ -553,6 +553,80 @@ async function main(): Promise<void> {
     }
   }
 
+  // --- Historical GradeComponent + GradeEntry for Grade 9A students (transcript subject demo) ---
+  // getStudentGrades() looks up TeacherSubjects by student.classroomId (Grade 9A).
+  // We create GradeComponent rows for prior academic years on the SAME teacherSubjectAssignments
+  // so historical periods show real subject breakdowns in the transcript.
+  console.log('Seeding historical grade components + entries for transcript demo (2023/24, 2024/25, 2025/26)...');
+
+  const historicalGradeYears: { academicYear: string; baseScores: number[][] }[] = [
+    // baseScores[studentIndex][componentIndex] — 4 components: quiz(10), assign(10), mid(30), final(50)
+    { academicYear: '2023/24', baseScores: [
+        [7, 8, 20, 32],   // Husen
+        [8, 9, 22, 35],   // Chaltu
+        [6, 7, 19, 31],   // Selam
+      ]
+    },
+    { academicYear: '2024/25', baseScores: [
+        [8, 8, 23, 37],
+        [7, 9, 21, 34],
+        [7, 8, 20, 33],
+      ]
+    },
+    { academicYear: '2025/26', baseScores: [
+        [9, 8, 25, 38],
+        [8, 9, 24, 37],
+        [9, 9, 26, 39],
+      ]
+    },
+  ];
+
+  for (const { academicYear, baseScores } of historicalGradeYears) {
+    for (const [tsIdx, teacherSubject] of teacherSubjectAssignments.entries()) {
+      for (const sem of [Semester.SEMESTER_1, Semester.SEMESTER_2] as Semester[]) {
+        const semOffset = sem === Semester.SEMESTER_1 ? 0 : 1; // S2 slightly different scores
+        const components = [];
+        for (const c of gradeComponentSeed) {
+          const component = await prisma.gradeComponent.upsert({
+            where: {
+              teacherSubjectId_semester_academicYear_name: {
+                teacherSubjectId: teacherSubject.id,
+                semester: sem,
+                academicYear,
+                name: c.name,
+              },
+            },
+            update: { isReleased: true },
+            create: {
+              teacherSubjectId: teacherSubject.id,
+              semester: sem,
+              academicYear,
+              category: c.category,
+              name: c.name,
+              maxMarks: c.maxMarks,
+              isReleased: true,
+            },
+          });
+          components.push(component);
+        }
+
+        for (const [studentIndex, student] of grade9AStudents.entries()) {
+          for (const [compIdx, component] of components.entries()) {
+            // Vary by subject (tsIdx), semester offset, and student
+            const raw = baseScores[studentIndex][compIdx];
+            const score = Math.min(Number(component.maxMarks), raw + tsIdx + semOffset);
+            await prisma.gradeEntry.upsert({
+              where: { gradeComponentId_studentId: { gradeComponentId: component.gradeComponentId, studentId: student.studentId } },
+              update: { score },
+              create: { gradeComponentId: component.gradeComponentId, studentId: student.studentId, score },
+            });
+          }
+        }
+        console.log(`  ${academicYear} ${sem} — subject ${tsIdx + 1}/${teacherSubjectAssignments.length} done`);
+      }
+    }
+  }
+
   console.log('\nSeeding complete. All demo accounts use the password: ' + DEFAULT_PASSWORD);
   console.log('  admin / director.demo / vicedirector.demo / abebe.kebede');
   console.log('  Students: husen.ahmed, chaltu.sani, selam.mulugeta (Grade 9A)');
@@ -570,11 +644,14 @@ async function seedSystemSettings(): Promise<void> {
     update: {},
     create: {
       id: 1,
-      schoolName: 'Dinsho Secondary School',
-      schoolAddress: 'Dinsho, Bale Zone, Oromia, Ethiopia',
-      contactEmail: 'info@dinsho-secondary.edu.et',
+      schoolName:          'Dinsho Secondary School',
+      schoolAddress:       'Dinsho, Bale Zone, Oromia, Ethiopia',
+      schoolRegion:        'Oromia',
+      schoolZone:          'Baale',
+      schoolWereda:        'Dinsho',
+      contactEmail:        'info@dinsho-secondary.edu.et',
       currentAcademicYear: CURRENT_ACADEMIC_YEAR,
-      promotionPassMark: 50,
+      promotionPassMark:   50,
     },
   });
   console.log('  SystemSetting seeded.');

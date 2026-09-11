@@ -636,12 +636,13 @@ model SystemSetting {
   id                     Int      @id @default(1)
   schoolName             String   @db.VarChar(150)
   schoolAddress          String?  @db.VarChar(255)
-  schoolZone             String?  @db.VarChar(100)   // e.g. "West Arsi" or "Bale"
+  schoolZone             String?  @db.VarChar(100)   // e.g. "Baale"
   schoolWereda           String?  @db.VarChar(100)   // e.g. "Dinsho"
+  schoolRegion           String?  @db.VarChar(100)   // e.g. "Oromia"
   contactEmail           String?  @db.VarChar(150)
   contactPhone           String?  @db.VarChar(30)
   currentAcademicYear    String   @db.VarChar(10)
-  schoolLogo             String?  @db.VarChar(500)  // URL or base64 data URL
+  schoolLogo             String?  @db.LongText     // URL or base64 data URL
   updatedAt              DateTime @updatedAt
   updatedByUserId        Int?
   minimumSubjectPassMark Decimal  @default(40.00) @db.Decimal(5, 2)
