@@ -5,8 +5,8 @@ import {
   MdBackup, MdMeetingRoom, MdMenuBook, MdAssignment,
   MdSchedule, MdFactCheck, MdAssessment, MdDescription,
   MdTrendingUp, MdGavel, MdCampaign, MdNotifications,
-  MdLogout, MdUpgrade, MdFolder,
-  MdManageAccounts, MdSchool, MdGroups,
+  MdLogout, MdUpgrade, MdFolder, MdMessage,
+  MdManageAccounts, MdSchool, MdGroups, MdChildCare,
 } from 'react-icons/md';
 import { FaUserGraduate, FaChalkboardTeacher, FaUsers } from 'react-icons/fa';
 
@@ -163,6 +163,25 @@ export const NAV_ENTRIES: NavEntry[] = [
     item('Notifications', '/notifications', MdNotifications),
   ]),
 
+  // ════════════════ PARENT GROUPS ══════════════════════════════════════════════
+
+  group('Academic', MdSchool, ['PARENT'], [
+    item('Academic Overview', '/parent/children',    MdGroups),
+    item('Assessment',        '/parent/assessment',  MdAssessment),
+    item('Report Card',       '/parent/report-card', MdDescription),
+    item('Results',           '/parent/results',     MdDescription),
+    item('Transcript',        '/parent/transcript',  MdMenuBook),
+  ]),
+
+  group('Attendance', MdFactCheck, ['PARENT'], [
+    item('Attendance', '/parent/attendance', MdFactCheck),
+  ]),
+
+  group('Communication', MdCampaign, ['PARENT'], [
+    item('Messages',      '/parent/messages', MdMessage),
+    item('Notifications', '/notifications',   MdNotifications),
+  ]),
+
   // ════════════════ TEACHER (flat — no groups) ══════════════════════════════════
 
   item('My Classes',       '/my-classes',    MdMeetingRoom,  { allowedRoles: ['TEACHER'] }),
@@ -170,6 +189,7 @@ export const NAV_ENTRIES: NavEntry[] = [
   item('Take Attendance',  '/attendance',    MdFactCheck,    { allowedRoles: ['TEACHER'] }),
   item('Enter Grades',     '/grades',        MdDescription,  { allowedRoles: ['TEACHER'] }),
   item('Assignments',      '/homework',      MdAssignment,   { allowedRoles: ['TEACHER'] }),
+  item('Messages',         '/messages',      MdMessage,      { allowedRoles: ['TEACHER'] }),
   item('Discipline Records', '/discipline-records', MdGavel, { allowedRoles: ['TEACHER'] }),
 
   // ════════════════ STUDENT (flat — no groups) ══════════════════════════════════
@@ -177,6 +197,7 @@ export const NAV_ENTRIES: NavEntry[] = [
   item('My Timetable',  '/timetable',     MdSchedule,    { allowedRoles: ['STUDENT'] }),
   item('My Attendance', '/my-attendance', MdFactCheck,   { allowedRoles: ['STUDENT'] }),
   item('Assessments',   '/my-grades',     MdDescription, { allowedRoles: ['STUDENT'] }),
+  item('Report Card',   '/report-card',   MdAssessment,  { allowedRoles: ['STUDENT'] }),
   item('Transcript',    '/transcript',    MdMenuBook,    { allowedRoles: ['STUDENT'] }),
   item('Assignments',   '/my-homework',   MdAssignment,  { allowedRoles: ['STUDENT'] }),
 
@@ -198,7 +219,7 @@ export const NAV_ENTRIES: NavEntry[] = [
  *   UNLESS the item is Notifications/Profile/Logout which are truly universal.
  */
 export function getNavEntries(role: RoleName, userPermissions: string[] = []): NavEntry[] {
-  const GROUPED_ROLES: RoleName[] = ['ADMIN', 'DIRECTOR', 'VICE_DIRECTOR'];
+  const GROUPED_ROLES: RoleName[] = ['ADMIN', 'DIRECTOR', 'VICE_DIRECTOR', 'PARENT'];
   const useGroups = GROUPED_ROLES.includes(role);
 
   // Universal bottom items shown to everyone

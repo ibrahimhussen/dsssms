@@ -1,4 +1,4 @@
-import { Prisma, Semester } from '@prisma/client';
+﻿import { Prisma, Semester } from '@prisma/client';
 import { prisma } from '../../database/prisma-client';
 import { NotFoundError } from '../../core/errors/app-error';
 import { assertCanAccessStudentRecords } from '../../core/authorization/student-access';
@@ -7,7 +7,7 @@ import { studentService } from '../students/student.service';
 import { gradeService } from '../grades/grade.service';
 import { systemSettingService } from '../system-settings/system-setting.service';
 import { GenerateClassroomReportsInput } from './validation/academic-report.validation';
-import { AcademicReportDto, TranscriptDto, TranscriptPeriodDto } from './dto/academic-report.dto';
+import { AcademicReportDto, ReportCardDto, TranscriptDto, TranscriptPeriodDto } from './dto/academic-report.dto';
 
 type ReportWithStudent = Prisma.AcademicReportGetPayload<{ include: { student: true } }>;
 
@@ -281,6 +281,113 @@ export class AcademicReportService {
       generatedDate: new Date().toISOString(),
     };
   }
+
+
+  async getStudentReportCard(
+    actor: AuthenticatedUser,
+    studentId: number,
+    semester: Semester,
+    academicYear: string
+  ): Promise<ReportCardDto> {
+    await assertCanAccessStudentRecords(actor, studentId);
+
+    const [student, report, subjectBreakdown, settings, enrollments] = await Promise.all([
+      studentService.getStudentById(studentId),
+      prisma.academicReport.findUnique({
+        where: { studentId_semester_academicYear: { studentId, semester, academicYear } },
+        include: { student: true },
+      }),
+      gradeService.getStudentGrades(actor, studentId, { semester, academicYear }),
+      systemSettingService.get(),
+      prisma.studentEnrollment.findMany({
+        where: { studentId },
+        include: { classroom: true },
+        orderBy: { academicYear: 'asc' },
+      }),
+    ]);
+
+    const enrollmentForYear = enrollments.find((e) => e.academicYear === academicYear);
+    const className  = enrollmentForYear?.classroom.className ?? student.classroom.className;
+    const section    = enrollmentForYear?.classroom.section   ?? student.classroom.section;
+    const classroomId = enrollmentForYear?.classroomId ?? student.classroom.classroomId;
+
+    // Attendance for this student in this classroom
+    const attendanceRecords = await prisma.attendance.findMany({
+      where: { studentId, classroomId },
+    });
+
+    let attendance = null;
+    if (attendanceRecords.length > 0) {
+      const present  = attendanceRecords.filter((r) => r.status === 'PRESENT').length;
+      const absent   = attendanceRecords.filter((r) => r.status === 'ABSENT').length;
+      const late     = attendanceRecords.filter((r) => r.status === 'LATE').length;
+      const excused  = attendanceRecords.filter((r) => r.status === 'EXCUSED').length;
+      const total    = attendanceRecords.length;
+      attendance = {
+        present, absent, late, excused,
+        totalDays:  total,
+        percentage: total > 0 ? Math.round(((present + late) / total) * 1000) / 10 : 0,
+      };
+    }
+
+    // Build subject rows from released grades
+    const passMark = Number(settings.minimumSubjectPassMark);
+    const subjects = subjectBreakdown.map((s) => {
+      const pct = s.totalMaxMarks > 0 ? Math.round((s.totalScore / s.totalMaxMarks) * 1000) / 10 : null;
+      return {
+        subjectName:   s.subject.subjectName,
+        totalScore:    s.totalMaxMarks > 0 ? s.totalScore : null,
+        totalMaxMarks: s.totalMaxMarks,
+        percentage:    pct,
+        status:        pct !== null ? (pct >= passMark ? 'PASS' as const : 'FAIL' as const) : null,
+      };
+    });
+
+    const totalObtained = subjectBreakdown.reduce((sum, s) => sum + s.totalScore, 0);
+    const totalMaxMarks = subjectBreakdown.reduce((sum, s) => sum + s.totalMaxMarks, 0);
+    const average       = report ? Number(report.averageMark) : (
+      subjectBreakdown.length > 0
+        ? Math.round((subjects.filter((s) => s.percentage !== null)
+            .reduce((sum, s) => sum + s.percentage!, 0) /
+            subjects.filter((s) => s.percentage !== null).length) * 10) / 10
+        : 0
+    );
+
+    const promotionPassMark = Number(settings.promotionPassMark);
+    const academicStatus: 'PASS' | 'FAIL' | 'PENDING' =
+      subjectBreakdown.length === 0
+        ? 'PENDING'
+        : average >= promotionPassMark
+        ? 'PASS'
+        : 'FAIL';
+
+    const failedSubjects = subjects
+      .filter((s) => s.status === 'FAIL')
+      .map((s) => s.subjectName);
+
+    return {
+      studentId:       student.studentId,
+      studentName:     `${student.firstName} ${student.lastName}`,
+      admissionNumber: student.admissionNumber,
+      gender:          student.gender,
+      dateOfBirth:     student.dateOfBirth.toISOString(),
+      className,
+      section,
+      semester,
+      academicYear,
+      schoolName:      settings.schoolName,
+      subjects,
+      totalObtained,
+      totalMaxMarks,
+      average,
+      rank:            report?.rank ?? null,
+      academicStatus,
+      failedSubjects,
+      attendance,
+      generatedDate:   new Date().toISOString(),
+    };
+  }
+
 }
 
 export const academicReportService = new AcademicReportService();

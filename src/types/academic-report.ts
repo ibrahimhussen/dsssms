@@ -11,6 +11,45 @@ export interface AcademicReport {
   generatedDate: string;
 }
 
+export interface ReportCardSubjectRow {
+  subjectName:   string;
+  totalScore:    number | null;
+  totalMaxMarks: number;
+  percentage:    number | null;
+  status:        'PASS' | 'FAIL' | null;
+}
+
+export interface ReportCardAttendance {
+  present:    number;
+  absent:     number;
+  late:       number;
+  excused:    number;
+  totalDays:  number;
+  percentage: number;
+}
+
+export interface ReportCard {
+  studentId:       number;
+  studentName:     string;
+  admissionNumber: string;
+  gender:          string;
+  dateOfBirth:     string;
+  className:       string;
+  section:         string;
+  semester:        Semester;
+  academicYear:    string;
+  schoolName:      string;
+  subjects:        ReportCardSubjectRow[];
+  totalObtained:   number;
+  totalMaxMarks:   number;
+  average:         number;
+  rank:            number | null;
+  academicStatus:  'PASS' | 'FAIL' | 'PENDING';
+  failedSubjects:  string[];
+  attendance:      ReportCardAttendance | null;
+  generatedDate:   string;
+}
+
 export interface GenerateClassroomReportsInput {
   classroomId: number;
   semester: Semester;

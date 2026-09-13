@@ -52,3 +52,44 @@ export interface TranscriptDto {
   cumulativeAverage: number | null;
   generatedDate: string;
 }
+
+export interface ReportCardSubjectRowDto {
+  subjectName:   string;
+  totalScore:    number | null;   // null = result not yet finalized
+  totalMaxMarks: number;
+  percentage:    number | null;
+  status:        'PASS' | 'FAIL' | null;  // null = no result
+}
+
+export interface ReportCardAttendanceDto {
+  present:    number;
+  absent:     number;
+  late:       number;
+  excused:    number;
+  totalDays:  number;
+  percentage: number;
+}
+
+export interface ReportCardDto {
+  studentId:       number;
+  studentName:     string;
+  admissionNumber: string;
+  gender:          string;
+  dateOfBirth:     string;
+  className:       string;
+  section:         string;
+  semester:        Semester;
+  academicYear:    string;
+  schoolName:      string;
+
+  subjects:        ReportCardSubjectRowDto[];
+  totalObtained:   number;
+  totalMaxMarks:   number;
+  average:         number;
+  rank:            number | null;
+  academicStatus:  'PASS' | 'FAIL' | 'PENDING';
+  failedSubjects:  string[];
+
+  attendance:      ReportCardAttendanceDto | null;
+  generatedDate:   string;
+}

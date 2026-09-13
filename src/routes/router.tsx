@@ -39,6 +39,15 @@ import { ProfilePage } from '../pages/profile/ProfilePage';
 import { PromotionPage } from '../pages/promotion/PromotionPage';
 import { PromotionBatchPage } from '../pages/promotion/PromotionBatchPage';
 import { PromotionApprovePage } from '../pages/promotion/PromotionApprovePage';
+import { ParentChildrenPage } from '../pages/parent/ParentChildrenPage';
+import { ParentAttendancePage } from '../pages/parent/ParentAttendancePage';
+import { ParentAssessmentPage } from '../pages/parent/ParentAssessmentPage';
+import { ParentResultsPage } from '../pages/parent/ParentResultsPage';
+import { ParentTranscriptPage } from '../pages/parent/ParentTranscriptPage';
+import { ParentMessagesPage } from '../pages/parent/ParentMessagesPage';
+import { TeacherMessagesPage } from '../pages/messages/TeacherMessagesPage';
+import { ReportCardPage } from '../pages/report-card/ReportCardPage';
+import { ParentReportCardPage } from '../pages/parent/ParentReportCardPage';
 import { GradeSubjectConfigPage } from '../pages/grade-subject-config/GradeSubjectConfigPage';
 
 export const router = createBrowserRouter([
@@ -88,10 +97,23 @@ export const router = createBrowserRouter([
 
           { path: '/my-attendance', element: <ProtectedRoute allowedRoles={['STUDENT']}><MyAttendancePage /></ProtectedRoute> },
           { path: '/my-grades', element: <ProtectedRoute allowedRoles={['STUDENT']}><MyGradesPage /></ProtectedRoute> },
-          { path: '/transcript', element: <ProtectedRoute allowedRoles={['STUDENT', 'ADMIN', 'DIRECTOR', 'VICE_DIRECTOR']}><TranscriptPage /></ProtectedRoute> },
+          { path: '/report-card', element: <ProtectedRoute allowedRoles={['STUDENT']}><ReportCardPage /></ProtectedRoute> },
+          { path: '/transcript', element: <ProtectedRoute allowedRoles={['STUDENT', 'ADMIN', 'DIRECTOR', 'VICE_DIRECTOR', 'PARENT']}><TranscriptPage /></ProtectedRoute> },
           { path: '/my-homework', element: <ProtectedRoute allowedRoles={['STUDENT']}><StudentHomeworkPage /></ProtectedRoute> },
 
           { path: '/timetable', element: <ProtectedRoute allowedRoles={['TEACHER', 'STUDENT']}><TimetablePage /></ProtectedRoute> },
+
+          // ── PARENT routes ────────────────────────────────────────────────
+          { path: '/parent/children',   element: <ProtectedRoute allowedRoles={['PARENT']}><ParentChildrenPage /></ProtectedRoute> },
+          { path: '/parent/attendance', element: <ProtectedRoute allowedRoles={['PARENT']}><ParentAttendancePage /></ProtectedRoute> },
+          { path: '/parent/assessment', element: <ProtectedRoute allowedRoles={['PARENT']}><ParentAssessmentPage /></ProtectedRoute> },
+          { path: '/parent/results',    element: <ProtectedRoute allowedRoles={['PARENT']}><ParentResultsPage /></ProtectedRoute> },
+          { path: '/parent/transcript', element: <ProtectedRoute allowedRoles={['PARENT']}><ParentTranscriptPage /></ProtectedRoute> },
+          { path: '/parent/messages',   element: <ProtectedRoute allowedRoles={['PARENT']}><ParentMessagesPage /></ProtectedRoute> },
+          { path: '/parent/report-card', element: <ProtectedRoute allowedRoles={['PARENT']}><ParentReportCardPage /></ProtectedRoute> },
+
+          // ── TEACHER messages ─────────────────────────────────────────────
+          { path: '/messages', element: <ProtectedRoute allowedRoles={['TEACHER']}><TeacherMessagesPage /></ProtectedRoute> },
 
           // Visible to every authenticated role — no role restriction in nav-config.
           { path: '/notifications', element: <NotificationsPage /> },

@@ -43,3 +43,23 @@ export function useStudentTranscript(studentId: number | undefined) {
     enabled: studentId !== undefined,
   });
 }
+
+export function useMyReportCard(semester: string | undefined, academicYear: string | undefined) {
+  return useQuery({
+    queryKey: ['academic-reports', 'me', 'report-card', semester, academicYear],
+    queryFn: () => academicReportsApi.getMyReportCard(semester as import('../types/grade').Semester, academicYear!),
+    enabled: Boolean(semester && academicYear),
+  });
+}
+
+export function useStudentReportCard(
+  studentId: number | undefined,
+  semester: string | undefined,
+  academicYear: string | undefined
+) {
+  return useQuery({
+    queryKey: ['academic-reports', 'student', studentId, 'report-card', semester, academicYear],
+    queryFn: () => academicReportsApi.getStudentReportCard(studentId!, semester as import('../types/grade').Semester, academicYear!),
+    enabled: Boolean(studentId && semester && academicYear),
+  });
+}

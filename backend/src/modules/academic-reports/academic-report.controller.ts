@@ -1,4 +1,5 @@
-import { Request, Response } from 'express';
+﻿import { Request, Response } from 'express';
+import { RoleName } from '@prisma/client';
 import { asyncHandler } from '../../core/http/async-handler';
 import { ApiResponse } from '../../core/http/api-response';
 import { UnauthorizedError } from '../../core/errors/app-error';
@@ -45,14 +46,18 @@ export class AcademicReportController {
     ]);
 
     const buffer = await buildReportCardPdf({
-      schoolName: settings.schoolName,
-      studentName: report.studentName,
+      schoolName:      settings.schoolName,
+      schoolZone:      settings.schoolZone    ?? null,
+      schoolWereda:    settings.schoolWereda  ?? null,
+      schoolRegion:    settings.schoolRegion  ?? null,
+      schoolLogo:      settings.schoolLogo    ?? null,
+      studentName:     report.studentName,
       admissionNumber: student.admissionNumber,
-      classroomLabel: `${student.classroom.className} ${student.classroom.section}`,
-      semester: report.semester,
-      academicYear: report.academicYear,
-      averageMark: report.averageMark,
-      rank: report.rank,
+      classroomLabel:  `${student.classroom.className} ${student.classroom.section}`,
+      semester:        report.semester,
+      academicYear:    report.academicYear,
+      averageMark:     report.averageMark,
+      rank:            report.rank,
       subjects,
     });
 
@@ -84,10 +89,16 @@ export class AcademicReportController {
       systemSettingService.get(),
     ]);
 
-    const buffer = await buildTranscriptPdf(settings.schoolName, transcript);
+    // Only Director and Vice Director produce official transcripts — everyone else gets a non-official copy
+    const isStudentCopy = req.user.role !== RoleName.DIRECTOR && req.user.role !== RoleName.VICE_DIRECTOR;
+    const buffer = await buildTranscriptPdf(settings.schoolName, transcript, { isStudentCopy });
+
+    const filename = isStudentCopy
+      ? `transcript-copy-${transcript.admissionNumber}.pdf`
+      : `transcript-${transcript.admissionNumber}.pdf`;
 
     res.setHeader('Content-Type', 'application/pdf');
-    res.setHeader('Content-Disposition', `attachment; filename="transcript-${transcript.admissionNumber}.pdf"`);
+    res.setHeader('Content-Disposition', `attachment; filename="${filename}"`);
     res.send(buffer);
   });
 
@@ -110,6 +121,22 @@ export class AcademicReportController {
   /** Convenience endpoint: the logged-in student's own transcript PDF — always marked as STUDENT COPY.
    *  studentId is derived exclusively from the authenticated session, never from URL params or body.
    */
+
+  getStudentReportCard = asyncHandler(async (req: Request, res: Response) => {
+    if (!req.user) throw new UnauthorizedError();
+    const { studentId } = req.params as unknown as StudentIdParam;
+    const { semester, academicYear } = req.query as unknown as ReportPeriodQuery;
+    const data = await academicReportService.getStudentReportCard(req.user, studentId, semester, academicYear);
+    ApiResponse.success(res, { message: 'Report card retrieved', data });
+  });
+
+  getMyReportCard = asyncHandler(async (req: Request, res: Response) => {
+    if (!req.user) throw new UnauthorizedError();
+    const { semester, academicYear } = req.query as unknown as ReportPeriodQuery;
+    const me = await studentService.getStudentByUserId(req.user.userId);
+    const data = await academicReportService.getStudentReportCard(req.user, me.studentId, semester, academicYear);
+    ApiResponse.success(res, { message: 'Your report card', data });
+  });
   getMyTranscriptPdf = asyncHandler(async (req: Request, res: Response) => {
     if (!req.user) throw new UnauthorizedError();
     const me = await studentService.getStudentByUserId(req.user.userId);

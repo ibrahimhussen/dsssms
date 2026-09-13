@@ -19,3 +19,11 @@ export function useCreateParent() {
     },
   });
 }
+
+export function useMyParentProfile() {
+  return useQuery({
+    queryKey: ['parents', 'me'],
+    queryFn: () => parentsApi.getMyProfile(),
+    staleTime: 60_000,
+  });
+}

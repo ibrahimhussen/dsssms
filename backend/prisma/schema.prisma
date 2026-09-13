@@ -42,6 +42,8 @@ model User {
   approvedBatches      PromotionBatch[]        @relation("BatchApprover")
   rejectedBatches      PromotionBatch[]        @relation("BatchRejecter")
   reportedDisciplineRecords DisciplineRecord[] @relation("DisciplineReporter")
+  sentMessages              ParentTeacherMessage[] @relation("MessageSender")
+  receivedMessages          ParentTeacherMessage[] @relation("MessageRecipient")
 
   @@index([roleId])
   @@map("users")
@@ -237,6 +239,7 @@ model Student {
   promotionEntries          PromotionEntry[]
   attendanceRecords         Attendance[]
   disciplineRecords         DisciplineRecord[]
+  parentTeacherMessages     ParentTeacherMessage[]
   classroom                 Classroom              @relation(fields: [classroomId], references: [classroomId])
   user                      User                   @relation(fields: [userId], references: [userId], onDelete: Cascade)
 
@@ -809,6 +812,32 @@ enum DisciplineStatus {
   UNDER_REVIEW
   RESOLVED
   DISMISSED
+}
+
+/// Direct messages between a parent and a teacher, scoped to a specific child.
+/// A parent may only message teachers who are assigned to their child's classroom.
+/// A teacher may only see threads for students they are assigned to teach.
+model ParentTeacherMessage {
+  id               Int       @id @default(autoincrement())
+  studentId        Int                         // the child this conversation is about
+  senderUserId     Int
+  recipientUserId  Int
+  body             String    @db.Text
+  isRead           Boolean   @default(false)
+  parentMessageId  Int?                        // non-null = this is a reply
+  createdAt        DateTime  @default(now())
+
+  student       Student                @relation(fields: [studentId],       references: [studentId], onDelete: Cascade)
+  sender        User                   @relation("MessageSender",    fields: [senderUserId],    references: [userId], onDelete: Cascade)
+  recipient     User                   @relation("MessageRecipient", fields: [recipientUserId], references: [userId], onDelete: Cascade)
+  parentMessage ParentTeacherMessage?  @relation("MessageThread", fields: [parentMessageId], references: [id])
+  replies       ParentTeacherMessage[] @relation("MessageThread")
+
+  @@index([studentId])
+  @@index([senderUserId])
+  @@index([recipientUserId])
+  @@index([parentMessageId])
+  @@map("parent_teacher_messages")
 }
 
 /// Persistent discipline incident records logged by teachers and vice directors.

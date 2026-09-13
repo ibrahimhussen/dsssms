@@ -5,6 +5,7 @@ import type {
   AcademicReport,
   GenerateClassroomReportsInput,
   GenerateReportsResult,
+  ReportCard,
   Transcript,
 } from '../types/academic-report';
 import type { Semester } from '../types/grade';
@@ -32,6 +33,22 @@ export const academicReportsApi = {
 
   getMyTranscript() {
     return unwrap(apiClient.get<ApiResponse<Transcript>>('/academic-reports/me/transcript'));
+  },
+
+  getMyReportCard(semester: Semester, academicYear: string) {
+    return unwrap(
+      apiClient.get<ApiResponse<ReportCard>>('/academic-reports/me/report-card', {
+        params: { semester, academicYear },
+      })
+    );
+  },
+
+  getStudentReportCard(studentId: number, semester: Semester, academicYear: string) {
+    return unwrap(
+      apiClient.get<ApiResponse<ReportCard>>(`/academic-reports/student/${studentId}/report-card`, {
+        params: { semester, academicYear },
+      })
+    );
   },
 
   getStudentTranscript(studentId: number) {

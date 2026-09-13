@@ -20,6 +20,7 @@ const TRANSCRIPT_ROLES = [RoleName.ADMIN, RoleName.DIRECTOR, RoleName.VICE_DIREC
 router.get('/me', authorize(RoleName.STUDENT), academicReportController.getMyReports);
 router.get('/me/transcript', authorize(RoleName.STUDENT), academicReportController.getMyTranscript);
 router.get('/me/transcript/pdf', authorize(RoleName.STUDENT), academicReportController.getMyTranscriptPdf);
+router.get('/me/report-card', authorize(RoleName.STUDENT), validate(reportPeriodQuerySchema, 'query'), academicReportController.getMyReportCard);
 
 router.post(
   '/generate',
@@ -38,6 +39,10 @@ router.get(
   validate(reportPeriodQuerySchema, 'query'),
   academicReportController.getStudentReport
 );
+
+// PDF endpoints — only oversight staff (Director/ViceDirector/Admin) get the pdfkit PDF.
+// Students use /me/transcript/pdf. Parents use the frontend HTML print path.
+const PDF_ROLES = [RoleName.ADMIN, RoleName.DIRECTOR, RoleName.VICE_DIRECTOR];
 
 router.get(
   '/student/:studentId/pdf',
@@ -62,8 +67,16 @@ router.get(
 );
 
 router.get(
-  '/student/:studentId/transcript/pdf',
+  '/student/:studentId/report-card',
   authorize(...TRANSCRIPT_ROLES),
+  validate(studentIdParamSchema, 'params'),
+  validate(reportPeriodQuerySchema, 'query'),
+  academicReportController.getStudentReportCard
+);
+
+router.get(
+  '/student/:studentId/transcript/pdf',
+  authorize(...PDF_ROLES),
   validate(studentIdParamSchema, 'params'),
   academicReportController.getTranscriptPdf
 );
