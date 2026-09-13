@@ -4,8 +4,6 @@ import {
   MdSchool,
   MdHistory,
   MdInfo,
-  MdCheckCircle,
-  MdWarningAmber,
 } from 'react-icons/md';
 import { Modal } from '../../components/ui/Modal';
 import { Badge } from '../../components/ui/Badge';

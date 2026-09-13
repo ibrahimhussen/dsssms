@@ -6,7 +6,6 @@ import { gradesApi } from '../../lib/grades-api';
 import { systemSettingsApi } from '../../lib/system-settings-api';
 import { buildReportCardHtml } from '../../lib/report-card-html';
 import { authApi } from '../../lib/auth-api';
-import { Badge } from '../../components/ui/Badge';
 import { Button } from '../../components/ui/Button';
 import { SelectField } from '../../components/ui/SelectField';
 import { LedgerRule } from '../../components/ui/LedgerRule';

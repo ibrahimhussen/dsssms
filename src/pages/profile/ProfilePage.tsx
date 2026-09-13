@@ -5,9 +5,6 @@ import {
   MdPerson,
   MdEdit,
   MdLock,
-  MdSchool,
-  MdBadge,
-  MdFamilyRestroom,
   MdCheckCircle,
   MdErrorOutline,
   MdCamera,
@@ -65,13 +62,14 @@ function RoleSection({ profile }: { profile: FullProfile }) {
     case 'TEACHER': {
       const assignments = (rd.assignments as { subjectName: string; className: string; section: string; academicYear: string }[] | null) ?? [];
       const homerooms = (rd.homeroomClasses as { className: string; section: string; academicYear: string }[] | null) ?? [];
+      const trd = rd as { qualification?: string; specialization?: string; phoneNumber?: string };
       return (
         <div className="flex flex-col gap-4">
-          {(rd.qualification || rd.specialization || rd.phoneNumber) && (
+          {(trd.qualification || trd.specialization || trd.phoneNumber) && (
             <InfoCard title="Teacher Details">
-              {rd.qualification && <Field label="Qualification" value={String(rd.qualification)} />}
-              {rd.specialization && <Field label="Specialization" value={String(rd.specialization)} />}
-              {rd.phoneNumber && <Field label="Phone" value={String(rd.phoneNumber)} />}
+              {trd.qualification && <Field label="Qualification" value={trd.qualification} />}
+              {trd.specialization && <Field label="Specialization" value={trd.specialization} />}
+              {trd.phoneNumber && <Field label="Phone" value={trd.phoneNumber} />}
             </InfoCard>
           )}
           {assignments.length > 0 && (
@@ -100,15 +98,16 @@ function RoleSection({ profile }: { profile: FullProfile }) {
     case 'STUDENT': {
       const classroom = rd.classroom as { className: string; section: string; academicYear: string } | null;
       const parents = (rd.parents as { fullName: string; phoneNumber: string | null; relationship: string }[] | null) ?? [];
+      const srd = rd as { admissionNumber?: string; gender?: string; dateOfBirth?: string; address?: string; admissionType?: string; enrolledAt?: string };
       return (
         <div className="flex flex-col gap-4">
           <InfoCard title="Student Information">
-            {rd.admissionNumber && <Field label="Student ID" value={String(rd.admissionNumber)} mono />}
-            {rd.gender && <Field label="Gender" value={rd.gender === 'M' ? 'Male' : 'Female'} />}
-            {rd.dateOfBirth && <Field label="Date of Birth" value={String(rd.dateOfBirth)} />}
-            {rd.address && <Field label="Address" value={String(rd.address)} />}
-            {rd.admissionType && <Field label="Admission Type" value={rd.admissionType === 'NEW_STUDENT' ? 'New Student' : 'Transfer'} />}
-            {rd.enrolledAt && <Field label="Enrolled" value={new Date(String(rd.enrolledAt)).toLocaleDateString()} />}
+            {srd.admissionNumber && <Field label="Student ID" value={srd.admissionNumber} mono />}
+            {srd.gender && <Field label="Gender" value={srd.gender === 'M' ? 'Male' : 'Female'} />}
+            {srd.dateOfBirth && <Field label="Date of Birth" value={String(srd.dateOfBirth)} />}
+            {srd.address && <Field label="Address" value={srd.address} />}
+            {srd.admissionType && <Field label="Admission Type" value={srd.admissionType === 'NEW_STUDENT' ? 'New Student' : 'Transfer'} />}
+            {srd.enrolledAt && <Field label="Enrolled" value={new Date(String(srd.enrolledAt)).toLocaleDateString()} />}
           </InfoCard>
           {classroom && (
             <InfoCard title="Current Enrollment">
@@ -139,11 +138,12 @@ function RoleSection({ profile }: { profile: FullProfile }) {
         relationship: string;
         classroom: { className: string; section: string; academicYear: string } | null;
       }[] | null) ?? [];
+      const prd = rd as { phoneNumber?: string };
       return (
         <div className="flex flex-col gap-4">
-          {rd.phoneNumber && (
+          {prd.phoneNumber && (
             <InfoCard title="Contact">
-              <Field label="Phone" value={String(rd.phoneNumber)} />
+              <Field label="Phone" value={prd.phoneNumber} />
             </InfoCard>
           )}
           {children.length > 0 && (

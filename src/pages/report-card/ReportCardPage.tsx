@@ -9,7 +9,7 @@ import { EmptyState } from "../../components/ui/EmptyState";
 import { Button } from "../../components/ui/Button";
 import { Badge } from "../../components/ui/Badge";
 import { MdPrint, MdEmojiEvents } from "react-icons/md";
-import type { Semester } from "../../types/grade";
+
 
 const SEM_LABEL: Record<string, string> = {
   SEMESTER_1: "Semester I",

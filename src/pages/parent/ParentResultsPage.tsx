@@ -7,7 +7,6 @@ import { systemSettingsApi } from '../../lib/system-settings-api';
 import { buildReportCardHtml } from '../../lib/report-card-html';
 import { LedgerRule } from '../../components/ui/LedgerRule';
 import { SelectField } from '../../components/ui/SelectField';
-import { Badge } from '../../components/ui/Badge';
 import { Button } from '../../components/ui/Button';
 import { EmptyState } from '../../components/ui/EmptyState';
 import { MdDownload, MdEmojiEvents } from 'react-icons/md';

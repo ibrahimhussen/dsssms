@@ -3,7 +3,6 @@ import { MdSchool, MdPrint } from 'react-icons/md';
 import { useMyTranscript, useStudentTranscript } from '../../hooks/useAcademicReports';
 import { useQuery } from '@tanstack/react-query';
 import { useAuth } from '../../context/AuthContext';
-import { academicReportsApi } from '../../lib/academic-reports-api';
 import { authApi } from '../../lib/auth-api';
 import { systemSettingsApi } from '../../lib/system-settings-api';
 import { studentsApi } from '../../lib/students-api';
@@ -328,7 +327,6 @@ export function TranscriptPage({ overrideStudentId }: { overrideStudentId?: numb
 
   const [searchQuery, setSearchQuery]       = useState('');
   const [selectedStudentId, setSelectedStudentId] = useState<number | null>(null);
-  const [isDownloading, setIsDownloading]   = useState(false);
 
   const { data: searchResults, isLoading: searchLoading } = useQuery({
     queryKey: ['students', 'search', searchQuery],

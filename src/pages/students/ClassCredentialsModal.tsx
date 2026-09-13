@@ -21,11 +21,10 @@ import { useState } from 'react';
 import { useQuery } from '@tanstack/react-query';
 import {
   MdDownload, MdPrint, MdKey, MdRefresh,
-  MdCheckCircle, MdWarningAmber, MdLock, MdInfo,
+  MdCheckCircle, MdWarningAmber, MdLock,
 } from 'react-icons/md';
 import { Modal } from '../../components/ui/Modal';
 import { Button } from '../../components/ui/Button';
-import { Badge } from '../../components/ui/Badge';
 import { ConfirmDialog } from '../../components/ui/ConfirmDialog';
 import { studentsApi } from '../../lib/students-api';
 import type { BulkGenerateNewResult } from '../../types/student';
