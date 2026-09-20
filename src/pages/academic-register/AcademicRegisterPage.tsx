@@ -65,10 +65,7 @@ function statusBadge(status: string) {
   }
 }
 
-function conductLabel(conduct: string | null): string {
-  if (!conduct) return '—';
-  return conduct.replace(/_/g, ' ').toLowerCase().replace(/^\w/, (c) => c.toUpperCase());
-}
+// conductLabel intentionally removed — not referenced in this file
 
 // ── Print builder ─────────────────────────────────────────────────────────────
 

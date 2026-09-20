@@ -7,7 +7,6 @@ import { Button } from '../../components/ui/Button';
 import { TextField } from '../../components/ui/TextField';
 import { LedgerRule } from '../../components/ui/LedgerRule';
 import { ConfirmDialog } from '../../components/ui/ConfirmDialog';
-import { ErrorMessage } from '../../components/ui/ErrorMessage';
 import { CreateClassroomModal } from './CreateClassroomModal';
 import type { ClassroomSummary, ListClassroomsParams } from '../../types/classroom';
 

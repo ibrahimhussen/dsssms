@@ -77,7 +77,7 @@ npm test                 # run the unit test suite (vitest)
 
 ### Demo accounts (after seeding)
 
-All seeded accounts use the password `Demo@12345`.
+All seeded accounts use the password configured in the `SEED_DEFAULT_PASSWORD` environment variable (set in `backend/.env`).
 
 | Role | Username |
 |---|---|

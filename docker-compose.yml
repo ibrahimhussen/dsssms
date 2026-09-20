@@ -7,7 +7,8 @@ services:
     environment:
       MYSQL_ROOT_PASSWORD: ${MYSQL_ROOT_PASSWORD:-devroot}
       MYSQL_DATABASE:      ${MYSQL_DATABASE:-dsssms}
-      MYSQL_USER:          ${MYSQL_USER:-dsssms_user}
+      # Override MYSQL_USER and MYSQL_PASSWORD via .env for non-dev environments
+      MYSQL_USER:          ${MYSQL_USER:-db_user}
       MYSQL_PASSWORD:      ${MYSQL_PASSWORD:-devpassword}
     ports:
       - "3306:3306"
@@ -29,7 +30,7 @@ services:
       - "4000:4000"
     environment:
       NODE_ENV:               ${NODE_ENV:-development}
-      DATABASE_URL:           mysql://${MYSQL_USER:-dsssms_user}:${MYSQL_PASSWORD:-devpassword}@mysql:3306/${MYSQL_DATABASE:-dsssms}
+      DATABASE_URL:           mysql://${MYSQL_USER:-db_user}:${MYSQL_PASSWORD:-devpassword}@mysql:3306/${MYSQL_DATABASE:-dsssms}
       JWT_ACCESS_SECRET:      ${JWT_ACCESS_SECRET:?JWT_ACCESS_SECRET is required}
       JWT_ACCESS_EXPIRES_IN:  ${JWT_ACCESS_EXPIRES_IN:-15m}
       JWT_REFRESH_SECRET:     ${JWT_REFRESH_SECRET:?JWT_REFRESH_SECRET is required}

@@ -1,4 +1,4 @@
-import { useMemo, useState } from 'react';
+﻿import { useMemo, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import {
   MdCheckCircle,
@@ -139,10 +139,10 @@ function SummaryPanel({
             className={`h-4 w-4 ${
               statusTone === 'positive' ? 'text-pine-700' :
               statusTone === 'warning'  ? 'text-gold-600' :
-              statusTone === 'danger'   ? 'text-danger-600' : 'text-slate-400'
+              'text-slate-400'
             }`}
           />
-          <Badge tone={statusTone === 'danger' ? 'warning' : (statusTone as 'positive' | 'warning' | 'neutral')}>{statusLabel}</Badge>
+          <Badge tone={statusTone as 'positive' | 'warning' | 'neutral'}>{statusLabel}</Badge>
           {readyToFinalize && !classroomFinalized && isOversight && (
             <Button onClick={onFinalizeClick} isLoading={isFinalizing}>
               <MdLock className="h-3.5 w-3.5" /> Finalize Results

@@ -1,5 +1,16 @@
 node_modules
-# Keep environment variables out of version control
+
+# Environment files — never commit real .env files
 .env
+*.env
+!*.env.example
+!*.env.production.example
+
+# Database backups contain PII and password hashes — never commit
+backups/
+
+# One-off debug/maintenance scripts — must not be committed
+__check_subjects.mjs
+unlock.js
 
 /app/generated/prisma

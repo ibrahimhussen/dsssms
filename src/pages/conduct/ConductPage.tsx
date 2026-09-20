@@ -24,6 +24,7 @@ export function ConductPage() {
   const [academicYear, setAcademicYear] = useState<string>(currentAcademicYear());
   const [selectedStudent, setSelectedStudent] = useState<StudentConduct | null>(null);
   const [showEditModal, setShowEditModal] = useState(false);
+  const [_saveError, setSaveError] = useState<string | null>(null);
 
   const { data: conductData, isLoading, error } = useClassroomConducts(
     classroomId ?? 0,

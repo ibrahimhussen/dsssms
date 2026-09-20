@@ -10,7 +10,7 @@ import { LedgerRule } from '../../components/ui/LedgerRule';
 import { Badge } from '../../components/ui/Badge';
 import { EmptyState } from '../../components/ui/EmptyState';
 import { ConfirmDialog } from '../../components/ui/ConfirmDialog';
-import type { AcademicReport, GenerateReportsResult } from '../../types/academic-report';
+import type { GenerateReportsResult } from '../../types/academic-report';
 import type { AcademicStatus, RegisterViewMode } from '../../types/academic-register';
 import type { Semester } from '../../types/grade';
 

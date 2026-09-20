@@ -10,24 +10,51 @@ import { PrismaMariaDb } from '@prisma/adapter-mariadb';
 import bcrypt from 'bcryptjs';
 import 'dotenv/config';
 
+// ── Production guard ──────────────────────────────────────────────────────────
+// The seed creates demo accounts with known credentials and must NEVER run
+// against a production database.
+if (process.env.NODE_ENV === 'production') {
+  console.error('ERROR: Database seed is disabled in production.');
+  process.exit(1);
+}
+
+// ── Database connection ───────────────────────────────────────────────────────
+// Credentials come from DATABASE_URL — the same env var used by the rest of
+// the application. No credentials are hardcoded here.
+const databaseUrl = process.env.DATABASE_URL;
+if (!databaseUrl) {
+  console.error('ERROR: DATABASE_URL environment variable is not set.');
+  process.exit(1);
+}
+
+const dbUrl = new URL(databaseUrl);
 const adapter = new PrismaMariaDb({
-  host: 'localhost',
-  port: 3306,
-  user: 'dsssms_user',
-  password: 'mudasir',
-  database: 'dsssms_db',
+  host:            dbUrl.hostname,
+  port:            dbUrl.port ? Number(dbUrl.port) : 3306,
+  user:            decodeURIComponent(dbUrl.username),
+  password:        decodeURIComponent(dbUrl.password),
+  database:        dbUrl.pathname.replace(/^\//, ''),
   connectionLimit: 5,
 });
 
-const prisma = new PrismaClient({
-  adapter,
-});
+const prisma = new PrismaClient({ adapter });
 
-const DEFAULT_PASSWORD = 'Demo@12345'; // Meets the password policy; CHANGE on first login in any real deployment.
+// ── Seed credentials ──────────────────────────────────────────────────────────
+// The default password for demo accounts is read from the environment so it
+// never needs to be hardcoded. Set SEED_DEFAULT_PASSWORD in your .env file.
+// This password is for DEVELOPMENT ONLY — all accounts must be changed before
+// any environment is accessible to real users.
+const DEFAULT_PASSWORD = process.env.SEED_DEFAULT_PASSWORD;
+if (!DEFAULT_PASSWORD) {
+  console.error('ERROR: SEED_DEFAULT_PASSWORD environment variable is not set.');
+  console.error('Set it in backend/.env, e.g.: SEED_DEFAULT_PASSWORD=YourDevPassword1!');
+  process.exit(1);
+}
+
 const CURRENT_ACADEMIC_YEAR = '2026/27';
 
 // Dev convenience only: reseeding resets every demo account's password back to
-// DEFAULT_PASSWORD, even if it already existed. Never do this in a production seed.
+// DEFAULT_PASSWORD even if it already existed. Never enable this in production.
 const RESET_PASSWORDS_ON_RESEED = true;
 
 async function hash(password: string): Promise<string> {
@@ -55,7 +82,7 @@ async function resetPasswordIfEnabled(username: string, label: string): Promise<
     where: { username },
     data: { passwordHash: await hash(DEFAULT_PASSWORD) },
   });
-  console.log(`  ${label} already exists — password reset to: ${DEFAULT_PASSWORD}`);
+  console.log(`  ${label} already exists — password reset (use configured dev credentials)`);
 }
 
 async function main(): Promise<void> {
@@ -83,7 +110,7 @@ async function main(): Promise<void> {
         administrator: { create: { firstName: 'System', lastName: 'Administrator' } },
       },
     });
-    console.log(`  Created admin — username: ${adminUsername} / password: ${DEFAULT_PASSWORD}`);
+    console.log(`  Created admin — username: ${adminUsername}`);
   } else {
     await resetPasswordIfEnabled(adminUsername, 'Admin');
   }
@@ -123,7 +150,7 @@ async function main(): Promise<void> {
       },
       include: { teacher: true },
     });
-    console.log(`  Created teacher — username: ${teacherUsername} / password: ${DEFAULT_PASSWORD}`);
+    console.log(`  Created teacher — username: ${teacherUsername}`);
   } else {
     await resetPasswordIfEnabled(teacherUsername, 'Teacher');
   }
@@ -241,7 +268,7 @@ async function main(): Promise<void> {
         director: { create: { firstName: 'Alemu', lastName: 'Tadesse' } },
       },
     });
-    console.log(`  Created director — username: ${directorUsername} / password: ${DEFAULT_PASSWORD}`);
+    console.log(`  Created director — username: ${directorUsername}`);
   } else {
     await resetPasswordIfEnabled(directorUsername, 'Director');
   }
@@ -258,7 +285,7 @@ async function main(): Promise<void> {
         viceDirector: { create: { firstName: 'Tigist', lastName: 'Haile' } },
       },
     });
-    console.log(`  Created vice director — username: ${viceDirectorUsername} / password: ${DEFAULT_PASSWORD}`);
+    console.log(`  Created vice director — username: ${viceDirectorUsername}`);
   } else {
     await resetPasswordIfEnabled(viceDirectorUsername, 'Vice Director');
   }
@@ -346,7 +373,7 @@ async function main(): Promise<void> {
     });
 
     console.log(`  Created student — ${s.firstName} ${s.lastName} → ${s.classroomKey} — username: ${studentUsername}`);
-    console.log(`  Created guardian — username: ${parentUsername} / password: ${DEFAULT_PASSWORD}`);
+    console.log(`  Created guardian — username: ${parentUsername}`);
   }
 
   // Grade 9 A students only (for attendance + grades which are classroom-specific)
@@ -627,15 +654,11 @@ async function main(): Promise<void> {
     }
   }
 
-  console.log('\nSeeding complete. All demo accounts use the password: ' + DEFAULT_PASSWORD);
-  console.log('  admin / director.demo / vicedirector.demo / abebe.kebede');
-  console.log('  Students: husen.ahmed, chaltu.sani, selam.mulugeta (Grade 9A)');
-  console.log('            abdi.bekele, meron.tesfaye, dawit.haile (Grade 9B)');
-  console.log('  Classrooms: 12 classrooms across Grade 9–12, Sections A–C');
-  console.log('  admin / director.demo / vicedirector.demo / abebe.kebede');
-  console.log('  Students: husen.ahmed, chaltu.sani, selam.mulugeta (Grade 9A)');
-  console.log('            abdi.bekele, meron.tesfaye, dawit.haile (Grade 9B)');
-  console.log('  Classrooms: 12 classrooms across Grade 9–12, Sections A–C');
+  console.log('\nDevelopment seed complete.');
+  console.log('  Demo accounts created. Use the credentials from SEED_DEFAULT_PASSWORD.');
+  console.log('  Staff usernames: admin, director.demo, vicedirector.demo, abebe.kebede');
+  console.log('  Student IDs: DSH-2026-00001 through DSH-2026-00006');
+  console.log('  IMPORTANT: Change all passwords before this environment is used by real users.');
 }
 
 async function seedSystemSettings(): Promise<void> {

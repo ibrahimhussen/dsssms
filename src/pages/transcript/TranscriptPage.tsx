@@ -1,4 +1,4 @@
-import { useMemo, useState } from 'react';
+﻿import { useMemo, useState } from 'react';
 import { MdSchool, MdPrint } from 'react-icons/md';
 import { useMyTranscript, useStudentTranscript } from '../../hooks/useAcademicReports';
 import { useQuery } from '@tanstack/react-query';
@@ -388,29 +388,6 @@ export function TranscriptPage({ overrideStudentId }: { overrideStudentId?: numb
     });
   }
 
-  async function handleDownload() {
-    if (!transcript) return;
-    // For all roles: open the same beautiful HTML transcript in a new window.
-    // The browser's "Save as PDF" / print-to-PDF produces the correct A4 landscape layout.
-    // (The old pdfkit backend produces a plain portrait layout — not used here.)
-    const html = buildTranscriptHtml();
-    if (!html) return;
-    setIsDownloading(true);
-    try {
-      const w = window.open('', '_blank');
-      if (!w) return;
-      // Inject a one-shot auto-print so Ctrl+P / Save as PDF fires immediately
-      const htmlWithAutoPrint = html.replace(
-        '</body></html>',
-        `<script>window.onload=function(){setTimeout(function(){window.print();},600);};<\/script></body></html>`
-      );
-      w.document.write(htmlWithAutoPrint);
-      w.document.close();
-      w.focus();
-    } finally {
-      setIsDownloading(false);
-    }
-  }
 
   function handlePrint() {
     if (!transcript) return;

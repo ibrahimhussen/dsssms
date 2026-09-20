@@ -1,4 +1,4 @@
-/**
+﻿/**
  * ClassCredentialsModal
  *
  * Two clearly separated operations:

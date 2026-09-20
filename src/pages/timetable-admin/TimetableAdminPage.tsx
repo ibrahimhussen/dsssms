@@ -1,4 +1,4 @@
-import { useState, useMemo } from 'react';
+﻿import { useState, useMemo } from 'react';
 import { useClassroomOptions } from '../../hooks/useClassrooms';
 import { useAssignments } from '../../hooks/useTeacherSubjects';
 import { useAuth } from '../../context/AuthContext';
@@ -13,7 +13,6 @@ import { AddTimetableEntryModal } from './AddTimetableEntryModal';
 import { TimetableMatrixTable, DEFAULT_PERIODS } from './TimetableMatrixTable';
 import type { DayOfWeek, TimetableEntry } from '../../types/timetable';
 import type { Semester } from '../../types/grade';
-import type { ClassSession } from '../../types/classroom';
 
 type SchoolSession = 'MORNING' | 'AFTERNOON';
 
@@ -91,7 +90,6 @@ export function TimetableAdminPage() {
     () => classrooms?.items.find((c) => c.classroomId === classroomId),
     [classrooms, classroomId]
   );
-  const classroomSession: ClassSession | undefined = selectedClassroom?.session;
 
   function handleDownloadPdf() {
     if (!entries || !selectedClassroom) return;

@@ -12,6 +12,14 @@ dist
 dist-ssr
 *.local
 
+# Environment files — never commit real .env files
+.env
+*.env
+# Keep example/template files trackable
+!.env.example
+!*.env.example
+!*.env.production.example
+
 # Editor directories and files
 .vscode/*
 !.vscode/extensions.json

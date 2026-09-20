@@ -1,4 +1,4 @@
-import { useForm } from 'react-hook-form';
+﻿import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { useState } from 'react';
 import { Modal } from '../../components/ui/Modal';
@@ -54,7 +54,7 @@ export function CreateAssignmentModal({ isOpen, onClose, onCreated }: CreateAssi
         <SelectField label="Teacher" error={errors.teacherId?.message} {...register('teacherId')}>
           <option value="">Select a teacher…</option>
           {teachersData?.items.filter(t => t.teacherId).map((t) => (
-            <option key={t.teacherId} value={t.teacherId}>
+            <option key={t.teacherId} value={t.teacherId ?? ''}>
               {t.fullName}
             </option>
           ))}
