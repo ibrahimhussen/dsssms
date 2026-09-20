@@ -19,13 +19,13 @@ export interface AuthenticatedUser {
   fullName:            string | null;
 }
 
+/** @deprecated Use LoginResult from auth-api.ts — refreshToken is now in httpOnly cookie. */
 export interface LoginResponse {
-  user: AuthenticatedUser;
+  user:        AuthenticatedUser;
   accessToken: string;
-  refreshToken: string;
 }
 
 export interface RefreshResponse {
+  /** New access token. Refresh token rotation is handled via httpOnly cookie. */
   accessToken: string;
-  refreshToken: string;
 }

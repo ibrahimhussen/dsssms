@@ -1,31 +1,38 @@
-const ACCESS_TOKEN_KEY = 'dsssms.accessToken';
-const REFRESH_TOKEN_KEY = 'dsssms.refreshToken';
-
 /**
- * NOTE on the storage tradeoff: the backend issues the refresh token in the
- * JSON response body (not an httpOnly cookie), so the frontend has to hold
- * onto it somewhere itself to survive a page reload. localStorage is the
- * simplest option and is what's implemented here; it's readable by any
- * script on the page (XSS risk) so if this ships to production, moving the
- * refresh token to an httpOnly cookie set by the backend is the natural
- * next hardening step (tracked for Stage 10).
+ * Access token storage — stored in memory (sessionStorage for tab persistence).
+ *
+ * Security model:
+ * - Refresh token: stored in an httpOnly cookie set by the backend.
+ *   JS never sees it. The browser sends it automatically on /auth/refresh
+ *   and /auth/logout requests.
+ * - Access token: short-lived (15 min), stored in sessionStorage.
+ *   sessionStorage is cleared when the tab closes and is not accessible
+ *   to other tabs, reducing the XSS blast radius compared to localStorage.
  */
+const ACCESS_TOKEN_KEY = 'dsssms.accessToken';
+
 export const tokenStorage = {
   getAccessToken(): string | null {
-    return localStorage.getItem(ACCESS_TOKEN_KEY);
+    return sessionStorage.getItem(ACCESS_TOKEN_KEY);
   },
-  getRefreshToken(): string | null {
-    return localStorage.getItem(REFRESH_TOKEN_KEY);
+
+  /** Called after a successful login — only stores the access token. */
+  setTokens(accessToken: string, _refreshToken?: string): void {
+    // _refreshToken ignored — it now lives in an httpOnly cookie managed by the backend.
+    sessionStorage.setItem(ACCESS_TOKEN_KEY, accessToken);
   },
-  setTokens(accessToken: string, refreshToken: string): void {
-    localStorage.setItem(ACCESS_TOKEN_KEY, accessToken);
-    localStorage.setItem(REFRESH_TOKEN_KEY, refreshToken);
-  },
+
   setAccessToken(accessToken: string): void {
-    localStorage.setItem(ACCESS_TOKEN_KEY, accessToken);
+    sessionStorage.setItem(ACCESS_TOKEN_KEY, accessToken);
   },
+
+  /** @deprecated Refresh token is now in a cookie — always returns null. */
+  getRefreshToken(): string | null {
+    return null;
+  },
+
   clear(): void {
-    localStorage.removeItem(ACCESS_TOKEN_KEY);
-    localStorage.removeItem(REFRESH_TOKEN_KEY);
+    sessionStorage.removeItem(ACCESS_TOKEN_KEY);
+    // The refresh cookie is cleared by the backend on /auth/logout.
   },
 };

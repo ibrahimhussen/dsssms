@@ -57,19 +57,17 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
   const login = useCallback(async (username: string, password: string) => {
     const result = await authApi.login(username, password);
-    tokenStorage.setTokens(result.accessToken, result.refreshToken);
+    // Refresh token is now in an httpOnly cookie set by the backend.
+    tokenStorage.setAccessToken(result.accessToken);
     setUser(result.user);
     return result.user;
   }, []);
 
   const logout = useCallback(async () => {
-    const refreshToken = tokenStorage.getRefreshToken();
     tokenStorage.clear();
     setUser(null);
-    if (refreshToken) {
-      // Best-effort — the session is already cleared client-side regardless of outcome.
-      await authApi.logout(refreshToken).catch(() => undefined);
-    }
+    // Tell the backend to revoke the refresh cookie — best-effort.
+    await authApi.logout().catch(() => undefined);
   }, []);
 
   const value = useMemo<AuthContextValue>(() => ({ user, isLoading, login, logout }), [user, isLoading, login, logout]);

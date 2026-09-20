@@ -1,0 +1,44 @@
+name: Security Checks
+
+on:
+  push:
+    branches: [main, develop]
+  pull_request:
+    branches: [main, develop]
+  schedule:
+    # Run weekly on Mondays at 08:00 UTC
+    - cron: '0 8 * * 1'
+
+jobs:
+  dependency-audit:
+    name: Dependency Vulnerability Scan
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Setup Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+          cache: npm
+
+      - name: Audit frontend dependencies
+        run: npm audit --audit-level=high
+        continue-on-error: true
+
+      - name: Audit backend dependencies
+        working-directory: ./backend
+        run: npm audit --audit-level=high
+        continue-on-error: true
+
+      - name: Check for critical vulnerabilities (fail build)
+        run: |
+          FRONTEND_CRITICAL=$(npm audit --json 2>/dev/null | node -e "const d=require('fs').readFileSync('/dev/stdin','utf8'); try { const j=JSON.parse(d); console.log(j.metadata?.vulnerabilities?.critical ?? 0); } catch { console.log(0); }")
+          BACKEND_CRITICAL=$(cd backend && npm audit --json 2>/dev/null | node -e "const d=require('fs').readFileSync('/dev/stdin','utf8'); try { const j=JSON.parse(d); console.log(j.metadata?.vulnerabilities?.critical ?? 0); } catch { console.log(0); }")
+          echo "Frontend critical: $FRONTEND_CRITICAL"
+          echo "Backend critical: $BACKEND_CRITICAL"
+          if [ "$FRONTEND_CRITICAL" -gt "0" ] || [ "$BACKEND_CRITICAL" -gt "0" ]; then
+            echo "❌ Critical vulnerabilities found. Review and fix before merging."
+            exit 1
+          fi
+          echo "✅ No critical vulnerabilities found."

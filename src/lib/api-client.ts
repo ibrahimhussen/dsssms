@@ -10,8 +10,9 @@ const API_BASE_URL = import.meta.env.VITE_API_BASE_URL ?? 'http://localhost:4000
 export const SESSION_EXPIRED_EVENT = 'dsssms:session-expired';
 
 export const apiClient = axios.create({
-  baseURL: API_BASE_URL,
-  headers: { 'Content-Type': 'application/json' },
+  baseURL:         API_BASE_URL,
+  headers:         { 'Content-Type': 'application/json' },
+  withCredentials: true,   // send httpOnly refresh cookie on every request
 });
 
 apiClient.interceptors.request.use((config) => {
@@ -29,22 +30,21 @@ interface RetryableRequestConfig extends InternalAxiosRequestConfig {
 let refreshPromise: Promise<string> | null = null;
 
 async function refreshAccessToken(): Promise<string> {
-  const refreshToken = tokenStorage.getRefreshToken();
-  if (!refreshToken) {
-    throw new Error('No refresh token available');
-  }
-
-  // A plain axios call (not `apiClient`) avoids re-triggering these same interceptors.
-  const response = await axios.post<ApiResponse<RefreshResponse>>(`${API_BASE_URL}/auth/refresh`, {
-    refreshToken,
-  });
+  // Refresh token is in the httpOnly cookie — sent automatically.
+  // No need to read it from storage or pass it in the body.
+  const response = await axios.post<ApiResponse<RefreshResponse>>(
+    `${API_BASE_URL}/auth/refresh`,
+    {},
+    { withCredentials: true }
+  );
 
   if (!response.data.success) {
     throw new Error(response.data.message);
   }
 
-  const { accessToken, refreshToken: newRefreshToken } = response.data.data;
-  tokenStorage.setTokens(accessToken, newRefreshToken);
+  // Backend rotates the cookie automatically; we only need the new access token.
+  const { accessToken } = response.data.data;
+  tokenStorage.setAccessToken(accessToken);
   return accessToken;
 }
 

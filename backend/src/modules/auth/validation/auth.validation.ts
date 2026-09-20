@@ -6,7 +6,10 @@ export const loginSchema = z.object({
 });
 
 export const refreshTokenSchema = z.object({
-  refreshToken: z.string().min(1, 'Refresh token is required'),
+  // refreshToken is now optional — it lives in an httpOnly cookie.
+  // This field is kept for backwards-compatibility with clients that
+  // haven't been updated yet.
+  refreshToken: z.string().optional(),
 });
 
 const passwordField = z

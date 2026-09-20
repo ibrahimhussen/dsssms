@@ -1,6 +1,6 @@
 import { apiClient, unwrap } from './api-client';
 import type { ApiResponse } from '../types/api';
-import type { AuthenticatedUser, LoginResponse } from '../types/auth';
+import type { AuthenticatedUser } from '../types/auth';
 
 export interface FullProfile {
   userId:              number;
@@ -15,13 +15,20 @@ export interface FullProfile {
   roleData:            Record<string, unknown> | null;
 }
 
+/** Shape returned by POST /auth/login (refresh token is now in httpOnly cookie). */
+export interface LoginResult {
+  accessToken: string;
+  user:        AuthenticatedUser;
+}
+
 export const authApi = {
-  login(username: string, password: string): Promise<LoginResponse> {
-    return unwrap(apiClient.post<ApiResponse<LoginResponse>>('/auth/login', { username, password }));
+  login(username: string, password: string): Promise<LoginResult> {
+    return unwrap(apiClient.post<ApiResponse<LoginResult>>('/auth/login', { username, password }));
   },
 
-  logout(refreshToken: string): Promise<null> {
-    return unwrap(apiClient.post<ApiResponse<null>>('/auth/logout', { refreshToken }));
+  /** Logout — no body needed; refresh cookie is sent automatically and revoked by the backend. */
+  logout(): Promise<null> {
+    return unwrap(apiClient.post<ApiResponse<null>>('/auth/logout', {}));
   },
 
   me(): Promise<AuthenticatedUser> {
