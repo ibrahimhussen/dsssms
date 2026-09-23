@@ -71,10 +71,16 @@ vi.mock('../../database/prisma-client', () => ({
 }));
 
 vi.mock('../../core/audit/audit-recorder', () => ({ recordAudit: vi.fn().mockResolvedValue(undefined) }));
-vi.mock('../../modules/notifications/notification.service', () => ({
-  createAutoNotification: vi.fn().mockResolvedValue(undefined),
-  notifyStudentParents:   vi.fn().mockResolvedValue(undefined),
-}));
+// Only mock the standalone helper functions — NOT the NotificationService class.
+// The controller uses notificationService (class instance) directly.
+vi.mock('../../modules/notifications/notification.service', async (importOriginal) => {
+  const actual = await importOriginal<typeof import('../../modules/notifications/notification.service')>();
+  return {
+    ...actual,
+    createAutoNotification: vi.fn().mockResolvedValue(undefined),
+    notifyStudentParents:   vi.fn().mockResolvedValue(undefined),
+  };
+});
 
 // ── Imports ───────────────────────────────────────────────────────────────────
 import { describe, it, expect, vi, beforeEach, beforeAll, afterAll, type Mock } from 'vitest';
@@ -126,8 +132,11 @@ const TEACHER = { teacherId: 100, userId: 3, firstName: 'Tom', lastName: 'T' };
 
 beforeEach(() => {
   vi.clearAllMocks();
-  // Default: userPermission always returns [] (no temp permissions)
+  // Restore critical defaults cleared by clearAllMocks
+  // authorizeWithPermissions always needs this to return [] (no temp permissions for forbidden roles)
   (prisma.userPermission.findMany as Mock).mockResolvedValue([]);
+  // auditLog.create must always succeed
+  (prisma.auditLog.create as Mock).mockResolvedValue({});
 });
 
 // ═══════════════════════════════════════════════════════════════════════════════
@@ -234,7 +243,8 @@ describe('C. Students', () => {
         .set('Authorization', `Bearer ${dirToken}`);
       expect(r.status).toBe(200);
       expect(r.body.success).toBe(true);
-      expect(Array.isArray(r.body.data.items)).toBe(true);
+      // controller sends data: items (array directly), with pagination separate
+      expect(Array.isArray(r.body.data)).toBe(true);
     });
 
     it('returns 200 for TEACHER (via authorizeWithPermissions)', async () => {
@@ -662,7 +672,8 @@ describe('H. Notifications', () => {
 
     it('returns 200 for any authenticated user', async () => {
       (prisma.notification.findMany as Mock).mockResolvedValue([]);
-      (prisma.notification.count   as Mock).mockResolvedValue(0);
+      // count is called twice: totalItems + unreadCount
+      (prisma.notification.count as Mock).mockResolvedValue(0);
       const r = await request(app)
         .get('/api/v1/notifications/me?page=1&limit=20')
         .set('Authorization', `Bearer ${dirToken}`);
@@ -679,6 +690,7 @@ describe('H. Notifications', () => {
         .get('/api/v1/notifications/unread-count')
         .set('Authorization', `Bearer ${stuToken}`);
       expect(r.status).toBe(200);
+      expect(r.body.data.unreadCount).toBe(5);
     });
   });
 
@@ -697,8 +709,9 @@ describe('H. Notifications', () => {
     });
 
     it('returns 403 when notification belongs to a different user', async () => {
+      // recipientUserId=99, but our director token has userId=1
       (prisma.notification.findUnique as Mock).mockResolvedValue({
-        notificationId: 1, recipientUserId: 99, // userId=1 is Director but belongs to 99
+        notificationId: 1, recipientUserId: 99,
         title: 'T', message: 'M', sentDate: new Date(),
         status: 'UNREAD', category: 'ANNOUNCEMENT',
         relatedEntity: null, relatedEntityId: null, deduplicationKey: null,
@@ -706,7 +719,7 @@ describe('H. Notifications', () => {
       });
       const r = await request(app)
         .patch('/api/v1/notifications/1/read')
-        .set('Authorization', `Bearer ${dirToken}`); // dir userId=1, but notif belongs to userId=99
+        .set('Authorization', `Bearer ${dirToken}`);
       expect(r.status).toBe(403);
     });
   });
@@ -847,9 +860,10 @@ describe('J. Error handling', () => {
       deduplicationKey: null, senderUser: null, student: null,
       senderUserId: null, studentId: null,
     });
+    // dir userId=1 — notification recipientUserId=999 → should get 403
     const r = await request(app)
       .patch('/api/v1/notifications/5/read')
-      .set('Authorization', `Bearer ${dirToken}`); // dir userId=1, not 999
+      .set('Authorization', `Bearer ${dirToken}`);
     expect(r.status).toBe(403);
   });
 });
