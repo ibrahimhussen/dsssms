@@ -51,6 +51,10 @@ if (!DEFAULT_PASSWORD) {
   process.exit(1);
 }
 
+// After the guard above, DEFAULT_PASSWORD is guaranteed to be a non-empty string.
+// The explicit assertion satisfies TypeScript 7's stricter narrowing.
+const SEED_PASSWORD: string = DEFAULT_PASSWORD;
+
 const CURRENT_ACADEMIC_YEAR = '2026/27';
 
 // Dev convenience only: reseeding resets every demo account's password back to
@@ -80,7 +84,7 @@ async function resetPasswordIfEnabled(username: string, label: string): Promise<
   }
   await prisma.user.update({
     where: { username },
-    data: { passwordHash: await hash(DEFAULT_PASSWORD) },
+    data: { passwordHash: await hash(SEED_PASSWORD) },
   });
   console.log(`  ${label} already exists — password reset (use configured dev credentials)`);
 }
@@ -105,7 +109,7 @@ async function main(): Promise<void> {
       data: {
         username: adminUsername,
         email: 'admin@dinsho-secondary.edu.et',
-        passwordHash: await hash(DEFAULT_PASSWORD),
+        passwordHash: await hash(SEED_PASSWORD),
         roleId: roles.ADMIN,
         administrator: { create: { firstName: 'System', lastName: 'Administrator' } },
       },
@@ -137,7 +141,7 @@ async function main(): Promise<void> {
     teacherUser = await prisma.user.create({
       data: {
         username: teacherUsername,
-        passwordHash: await hash(DEFAULT_PASSWORD),
+        passwordHash: await hash(SEED_PASSWORD),
         roleId: roles.TEACHER,
         teacher: {
           create: {
@@ -263,7 +267,7 @@ async function main(): Promise<void> {
       data: {
         username: directorUsername,
         email: 'director@dinsho-secondary.edu.et',
-        passwordHash: await hash(DEFAULT_PASSWORD),
+        passwordHash: await hash(SEED_PASSWORD),
         roleId: roles.DIRECTOR,
         director: { create: { firstName: 'Alemu', lastName: 'Tadesse' } },
       },
@@ -280,7 +284,7 @@ async function main(): Promise<void> {
       data: {
         username: viceDirectorUsername,
         email: 'vicedirector@dinsho-secondary.edu.et',
-        passwordHash: await hash(DEFAULT_PASSWORD),
+        passwordHash: await hash(SEED_PASSWORD),
         roleId: roles.VICE_DIRECTOR,
         viceDirector: { create: { firstName: 'Tigist', lastName: 'Haile' } },
       },
@@ -321,7 +325,7 @@ async function main(): Promise<void> {
     const studentUserRecord = await prisma.user.create({
       data: {
         username: studentUsername,
-        passwordHash: await hash(DEFAULT_PASSWORD),
+        passwordHash: await hash(SEED_PASSWORD),
         roleId: roles.STUDENT,
         student: {
           create: {
@@ -357,7 +361,7 @@ async function main(): Promise<void> {
     const parentUserRecord = await prisma.user.create({
       data: {
         username: parentUsername,
-        passwordHash: await hash(DEFAULT_PASSWORD),
+        passwordHash: await hash(SEED_PASSWORD),
         roleId: roles.PARENT,
         parent: { create: { fullName: s.guardianName } },
       },

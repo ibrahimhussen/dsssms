@@ -33,9 +33,9 @@ function loadEnv() {
   const parsed = envSchema.safeParse(process.env);
 
   if (!parsed.success) {
-    // eslint-disable-next-line no-console
+     
     console.error('❌ Invalid environment configuration:');
-    // eslint-disable-next-line no-console
+     
     console.error(parsed.error.flatten().fieldErrors);
     process.exit(1);
   }
@@ -53,7 +53,7 @@ function loadEnv() {
       errors.push('CORS_ORIGIN must not contain localhost in production');
     }
     if (errors.length > 0) {
-      // eslint-disable-next-line no-console
+       
       console.error('❌ Production environment validation failed:');
       errors.forEach((e) => console.error(`  • ${e}`));
       process.exit(1);
