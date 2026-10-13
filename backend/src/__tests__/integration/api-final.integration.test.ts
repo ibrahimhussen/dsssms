@@ -1,8 +1,9 @@
-﻿/**
- * Phase 4.14 — Final API/HTTP Integration Tests
+/* eslint-disable @typescript-eslint/no-unused-vars, @typescript-eslint/no-explicit-any */
+/**
+ * Phase 4.14 � Final API/HTTP Integration Tests
  *
  * Covers remaining untested route flows:
- *  Y.  Auth — login success, refresh cookie, token rotation, change-password
+ *  Y.  Auth � login success, refresh cookie, token rotation, change-password
  *  Z.  Student create (POST /students via mocked $transaction)
  *  AA. Promotion approve full execution path
  *  AB. Backup routes (ADMIN-only RBAC, list, create, delete)
@@ -16,7 +17,7 @@
  *  AJ. Conduct summary endpoint
  */
 
-// ── Env ───────────────────────────────────────────────────────────────────────
+// -- Env -----------------------------------------------------------------------
 process.env.NODE_ENV           = "test";
 process.env.DATABASE_URL       = "mysql://test:test@localhost:3306/test";
 process.env.JWT_ACCESS_SECRET  = "test-access-secret-32chars-padding!!";
@@ -30,15 +31,15 @@ vi.mock("../../core/logger/logger", () => ({ logger: { info: vi.fn(), warn: vi.f
 
 vi.mock("../../database/prisma-client", () => ({
   prisma: {
-    // ── Core user/role tables ──────────────────────────────────────────────
+    // -- Core user/role tables ----------------------------------------------
     user:                  { findUnique: vi.fn(), findMany: vi.fn(), count: vi.fn(), create: vi.fn(), update: vi.fn() },
     role:                  { findUnique: vi.fn(), findMany: vi.fn() },
     refreshToken:          { findUnique: vi.fn(), create: vi.fn(), update: vi.fn(), updateMany: vi.fn() },
-    // ── Staff profile tables (backup iterates these) ───────────────────────
+    // -- Staff profile tables (backup iterates these) -----------------------
     administrator:         { findMany: vi.fn() },
     director:              { findMany: vi.fn() },
     viceDirector:          { findMany: vi.fn() },
-    // ── Academic tables ────────────────────────────────────────────────────
+    // -- Academic tables ----------------------------------------------------
     student:               { findMany: vi.fn(), findUnique: vi.fn(), count: vi.fn(), update: vi.fn() },
     classroom:             { findUnique: vi.fn(), findMany: vi.fn(), count: vi.fn(), create: vi.fn(), update: vi.fn(), delete: vi.fn() },
     teacher:               { findUnique: vi.fn(), findMany: vi.fn(), count: vi.fn() },
@@ -77,7 +78,7 @@ vi.mock("../../modules/notifications/notification.service", async (importOrigina
   const actual = await importOriginal<typeof import("../../modules/notifications/notification.service")>();
   return { ...actual, createAutoNotification: vi.fn().mockResolvedValue(undefined), notifyStudentParents: vi.fn().mockResolvedValue(undefined) };
 });
-// Backup service uses fs — mock it
+// Backup service uses fs � mock it
 vi.mock("fs/promises", () => ({
   default: {
     mkdir: vi.fn().mockResolvedValue(undefined),
@@ -152,9 +153,9 @@ beforeEach(() => {
   (prisma.classroom.count as Mock).mockResolvedValue(0);
 });
 
-// ── Y. Auth: login success + refresh + change-password ────────────────────────
+// -- Y. Auth: login success + refresh + change-password ------------------------
 describe("Y. Auth extended", () => {
-  it("POST /auth/login success → 200 with accessToken in body", async () => {
+  it("POST /auth/login success ? 200 with accessToken in body", async () => {
     const { authService } = await import("../../modules/auth/auth.service");
     vi.spyOn(authService, "login").mockResolvedValue({
       accessToken:  "mock.access.token",
@@ -169,7 +170,7 @@ describe("Y. Auth extended", () => {
     expect(r.body.data.refreshToken).toBeUndefined();
   });
 
-  it("POST /auth/refresh with cookie → 200 with new accessToken", async () => {
+  it("POST /auth/refresh with cookie ? 200 with new accessToken", async () => {
     const { authService } = await import("../../modules/auth/auth.service");
     vi.spyOn(authService, "refresh").mockResolvedValue({
       accessToken:  "new.access.token",
@@ -183,19 +184,19 @@ describe("Y. Auth extended", () => {
     expect(r.body.data.accessToken).toBe("new.access.token");
   });
 
-  it("POST /auth/refresh with body token → 200", async () => {
+  it("POST /auth/refresh with body token ? 200", async () => {
     const { authService } = await import("../../modules/auth/auth.service");
     vi.spyOn(authService, "refresh").mockResolvedValue({ accessToken: "new.tok", refreshToken: "new.rt" });
     const r = await request(app).post("/api/v1/auth/refresh").send({ refreshToken: "some.token" });
     expect(r.status).toBe(200);
   });
 
-  it("POST /auth/refresh with no token → 401", async () => {
+  it("POST /auth/refresh with no token ? 401", async () => {
     const r = await request(app).post("/api/v1/auth/refresh").send({});
     expect(r.status).toBe(401);
   });
 
-  it("POST /auth/change-password → 200 on success", async () => {
+  it("POST /auth/change-password ? 200 on success", async () => {
     const { authService } = await import("../../modules/auth/auth.service");
     vi.spyOn(authService, "changePassword").mockResolvedValue(undefined);
     const r = await request(app)
@@ -205,7 +206,7 @@ describe("Y. Auth extended", () => {
     expect(r.status).toBe(200);
   });
 
-  it("POST /auth/change-password → 422 when newPassword missing", async () => {
+  it("POST /auth/change-password ? 422 when newPassword missing", async () => {
     const r = await request(app)
       .post("/api/v1/auth/change-password")
       .set("Authorization", `Bearer ${dirTok}`)
@@ -213,7 +214,7 @@ describe("Y. Auth extended", () => {
     expect(r.status).toBe(422);
   });
 
-  it("PATCH /auth/profile → 200 on success", async () => {
+  it("PATCH /auth/profile ? 200 on success", async () => {
     const { authService } = await import("../../modules/auth/auth.service");
     vi.spyOn(authService, "updateProfile").mockResolvedValue({ userId: 1, username: "dir", email: "new@t.et", profilePicture: null } as any);
     const r = await request(app)
@@ -224,7 +225,7 @@ describe("Y. Auth extended", () => {
   });
 });
 
-// ── Z. Student create ─────────────────────────────────────────────────────────
+// -- Z. Student create ---------------------------------------------------------
 describe("Z. Student create", () => {
   const CREATE_INPUT = {
     firstName: "Alice", lastName: "Bekele", gender: "F",
@@ -273,7 +274,7 @@ describe("Z. Student create", () => {
   });
 });
 
-// ── AA. Promotion approve ─────────────────────────────────────────────────────
+// -- AA. Promotion approve -----------------------------------------------------
 describe("AA. Promotion approve execution", () => {
   const SUBMITTED_BATCH = {
     id: 1, sourceClassroomId: 1, sourceAcademicYear: "2026/27", targetAcademicYear: "2027/28",
@@ -317,7 +318,7 @@ describe("AA. Promotion approve execution", () => {
   });
 });
 
-// ── AB. Backup routes ─────────────────────────────────────────────────────────
+// -- AB. Backup routes ---------------------------------------------------------
 describe("AB. Backup routes (ADMIN-only)", () => {
   it("GET /backups returns 403 for DIRECTOR", async () => {
     const r = await request(app).get("/api/v1/backups").set("Authorization", `Bearer ${dirTok}`);
@@ -355,14 +356,14 @@ describe("AB. Backup routes (ADMIN-only)", () => {
   });
 
   /**
-   * POST /backups — backup creation success path.
+   * POST /backups � backup creation success path.
    *
    * The service iterates MODELS_IN_INSERT_ORDER (31 tables) calling
    * delegateFor(prisma, model).findMany(). Every model in that list has its
    * findMany mock re-established via setupBackupMocks() after clearAllMocks().
    * fs.writeFile and fs.stat are mocked so no real file is written.
    */
-  it("POST /backups returns 201 for ADMIN — all 31 backup models queried safely", async () => {
+  it("POST /backups returns 201 for ADMIN � all 31 backup models queried safely", async () => {
     // Re-establish all backup model findMany mocks (cleared by beforeEach)
     setupBackupMocks();
 
@@ -404,7 +405,7 @@ describe("AB. Backup routes (ADMIN-only)", () => {
   });
 });
 
-// ── AC. Academic register export ──────────────────────────────────────────────
+// -- AC. Academic register export ----------------------------------------------
 describe("AC. Academic register export", () => {
   it("GET /academic-register/export returns 403 for TEACHER", async () => {
     const r = await request(app)
@@ -442,7 +443,7 @@ describe("AC. Academic register export", () => {
   });
 });
 
-// ── AD. Discipline ─────────────────────────────────────────────────────────────
+// -- AD. Discipline -------------------------------------------------------------
 describe("AD. Discipline records", () => {
   const DISC_ROW = { id: 1, studentId: 101, title: "Misconduct", description: "D", severity: "MEDIUM", status: "OPEN", actionTaken: null, reportedByUserId: 1, incidentDate: new Date(), createdAt: new Date(), student: { ...STU_ROW, classroom: { classroomId: 1, className: "Grade 9", section: "A" } }, reportedBy: { username: "dir" } };
 
@@ -504,7 +505,7 @@ describe("AD. Discipline records", () => {
   });
 });
 
-// ── AE. Parents ───────────────────────────────────────────────────────────────
+// -- AE. Parents ---------------------------------------------------------------
 describe("AE. Parents", () => {
   const PARENT_ROW = { parentId: 10, userId: 5, fullName: "Papa P", phoneNumber: null, user: { userId: 5, username: "papap", email: null }, links: [] };
 
@@ -534,7 +535,7 @@ describe("AE. Parents", () => {
   });
 });
 
-// ── AF. Teacher-subjects ──────────────────────────────────────────────────────
+// -- AF. Teacher-subjects ------------------------------------------------------
 describe("AF. Teacher-subjects", () => {
   const TS_ROW = { id: 1, teacherId: 100, subjectId: 1, classroomId: 1, teacher: TEACHER, subject: SUBJECT, classroom: CL };
 
@@ -566,7 +567,7 @@ describe("AF. Teacher-subjects", () => {
   });
 });
 
-// ── AG. Grades remaining ──────────────────────────────────────────────────────
+// -- AG. Grades remaining ------------------------------------------------------
 describe("AG. Grades remaining", () => {
   it("POST /grades/components/:id/release returns 403 for DIRECTOR (teacher-only)", async () => {
     const r = await request(app).post("/api/v1/grades/components/1/release").set("Authorization", `Bearer ${dirTok}`);
@@ -601,7 +602,7 @@ describe("AG. Grades remaining", () => {
   });
 });
 
-// ── AH. Attendance student history + update ───────────────────────────────────
+// -- AH. Attendance student history + update -----------------------------------
 describe("AH. Attendance student history + update", () => {
   it("GET /attendance/me returns 403 for TEACHER (student-only)", async () => {
     const r = await request(app).get("/api/v1/attendance/me?page=1&limit=20").set("Authorization", `Bearer ${tchTok}`);
@@ -636,7 +637,7 @@ describe("AH. Attendance student history + update", () => {
   });
 });
 
-// ── AI. Notifications extended ────────────────────────────────────────────────
+// -- AI. Notifications extended ------------------------------------------------
 describe("AI. Notifications extended", () => {
   it("POST /notifications returns 403 for TEACHER (oversight-only)", async () => {
     const r = await request(app)
@@ -677,7 +678,7 @@ describe("AI. Notifications extended", () => {
     expect(r.body.data.notificationsSent).toBe(1);
   });
 
-  it("PATCH /notifications/read-all → 200 marks all read", async () => {
+  it("PATCH /notifications/read-all ? 200 marks all read", async () => {
     (prisma.notification.updateMany as Mock).mockResolvedValue({ count: 3 });
     const r = await request(app).patch("/api/v1/notifications/read-all").set("Authorization", `Bearer ${dirTok}`);
     expect(r.status).toBe(200);
@@ -690,7 +691,7 @@ describe("AI. Notifications extended", () => {
   });
 });
 
-// ── AJ. Conduct summary ───────────────────────────────────────────────────────
+// -- AJ. Conduct summary -------------------------------------------------------
 describe("AJ. Conduct summary", () => {
   it("GET /conduct/classroom/:id/:sem/summary returns 403 for STUDENT", async () => {
     const r = await request(app)

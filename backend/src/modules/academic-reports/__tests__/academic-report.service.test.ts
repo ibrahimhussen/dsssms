@@ -1,3 +1,4 @@
+/* eslint-disable @typescript-eslint/no-unused-vars, @typescript-eslint/no-explicit-any */
 /**
  * Phase 4.11 — AcademicReportService: generateClassroomReports, getStudentReport, listStudentReports
  * DATABASE SAFETY: all Prisma mocked.

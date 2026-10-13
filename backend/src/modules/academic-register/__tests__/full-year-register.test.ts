@@ -1,3 +1,4 @@
+/* eslint-disable @typescript-eslint/no-unused-vars, @typescript-eslint/no-explicit-any */
 /**
  * Phase 4.2 — Full-Year Register + Grade-Wide Ranking
  * DATABASE SAFETY: all Prisma mocked.

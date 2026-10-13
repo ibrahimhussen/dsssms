@@ -1,5 +1,6 @@
-﻿/**
- * Phase 4.13 — Remaining API/HTTP Integration Tests
+/* eslint-disable @typescript-eslint/no-unused-vars, @typescript-eslint/no-explicit-any */
+/**
+ * Phase 4.13 � Remaining API/HTTP Integration Tests
  * Covers all routes not tested in Phase 4.12.
  * DATABASE SAFETY: all Prisma mocked. No real DB required.
  */
@@ -96,7 +97,7 @@ beforeEach(() => {
   (prisma.student.count as Mock).mockResolvedValue(0);
 });
 
-// ── K. Auth (remaining routes) ────────────────────────────────────────────────
+// -- K. Auth (remaining routes) ------------------------------------------------
 describe("K. Auth remaining", () => {
   it("POST /login with invalid credentials returns 401 (auth error)", async () => {
     // Mock authService.login to throw the actual UnauthorizedError class
@@ -109,7 +110,7 @@ describe("K. Auth remaining", () => {
   });
 
   it("POST /logout returns 200 when no refresh token provided (token is optional)", async () => {
-    // refreshToken is optional in schema — logout with just cookies is valid
+    // refreshToken is optional in schema � logout with just cookies is valid
     const { authService } = await import("../../modules/auth/auth.service");
     vi.spyOn(authService, "logout").mockResolvedValue(undefined);
     const r = await request(app).post("/api/v1/auth/logout").send({});
@@ -134,7 +135,7 @@ describe("K. Auth remaining", () => {
   });
 });
 
-// ── L. Classrooms ─────────────────────────────────────────────────────────────
+// -- L. Classrooms -------------------------------------------------------------
 describe("L. Classrooms", () => {
   it("GET / returns 401 without token", async () => {
     const r = await request(app).get("/api/v1/classrooms?page=1&limit=20");
@@ -189,7 +190,7 @@ describe("L. Classrooms", () => {
   });
 });
 
-// ── M. Subjects ───────────────────────────────────────────────────────────────
+// -- M. Subjects ---------------------------------------------------------------
 describe("M. Subjects", () => {
   it("GET / returns 403 for STUDENT", async () => {
     const r = await request(app).get("/api/v1/subjects?page=1&limit=20").set("Authorization", `Bearer ${stuTok}`);
@@ -235,7 +236,7 @@ describe("M. Subjects", () => {
   });
 });
 
-// ── N. Users ──────────────────────────────────────────────────────────────────
+// -- N. Users ------------------------------------------------------------------
 describe("N. Users", () => {
   const mkUser = (role = "TEACHER") => ({ userId: 1, username: "t", email: null, status: "ACTIVE", failedLoginAttempts: 0, lockedUntil: null, lastLoginAt: null, createdAt: new Date(), role: { roleName: role }, administrator: null, director: null, viceDirector: null, parent: null, student: null, teacher: { teacherId: 100, firstName: "Tom", lastName: "T" } });
 
@@ -297,7 +298,7 @@ describe("N. Users", () => {
   });
 });
 
-// ── O. Assignments ────────────────────────────────────────────────────────────
+// -- O. Assignments ------------------------------------------------------------
 describe("O. Assignments", () => {
   it("GET /assignments/me returns 403 for DIRECTOR", async () => {
     const r = await request(app).get("/api/v1/assignments/me").set("Authorization", `Bearer ${dirTok}`);
@@ -335,7 +336,7 @@ describe("O. Assignments", () => {
   });
 });
 
-// ── P. Dashboard ──────────────────────────────────────────────────────────────
+// -- P. Dashboard --------------------------------------------------------------
 describe("P. Dashboard", () => {
   it("GET /dashboard/admin returns 403 for DIRECTOR", async () => {
     const r = await request(app).get("/api/v1/dashboard/admin").set("Authorization", `Bearer ${dirTok}`);
@@ -375,7 +376,7 @@ describe("P. Dashboard", () => {
   });
 });
 
-// ── Q. Promotion ──────────────────────────────────────────────────────────────
+// -- Q. Promotion --------------------------------------------------------------
 describe("Q. Promotion", () => {
   const mkBatch = (status = "DRAFT") => ({ id: 1, sourceClassroomId: 1, sourceAcademicYear: "2026/27", targetAcademicYear: "2027/28", status, preparedById: 6, approvedById: null, rejectedById: null, rejectionReason: null, submittedAt: null, approvedAt: null, completedAt: null, createdAt: new Date(), updatedAt: new Date(), sourceClassroom: CL, preparedBy: { userId: 6, username: "vd", director: null, viceDirector: { firstName: "V", lastName: "D" }, administrator: null }, approvedBy: null, entries: [] });
 
@@ -424,7 +425,7 @@ describe("Q. Promotion", () => {
   });
 });
 
-// ── R. Conduct ────────────────────────────────────────────────────────────────
+// -- R. Conduct ----------------------------------------------------------------
 describe("R. Conduct", () => {
   it("POST /conduct returns 403 for TEACHER", async () => {
     const r = await request(app).post("/api/v1/conduct").set("Authorization", `Bearer ${tchTok}`).send({ studentId: 101, classroomId: 1, academicYear: "2026/27", semester: "SEMESTER_1", rating: "GOOD" });
@@ -459,7 +460,7 @@ describe("R. Conduct", () => {
   });
 });
 
-// ── S. Timetable ──────────────────────────────────────────────────────────────
+// -- S. Timetable --------------------------------------------------------------
 describe("S. Timetable", () => {
   it("GET /timetable/me returns 403 for DIRECTOR", async () => {
     const r = await request(app).get("/api/v1/timetable/me").set("Authorization", `Bearer ${dirTok}`);
@@ -498,7 +499,7 @@ describe("S. Timetable", () => {
   });
 });
 
-// ── T. Messaging ──────────────────────────────────────────────────────────────
+// -- T. Messaging --------------------------------------------------------------
 describe("T. Messaging", () => {
   it("GET /messaging/unread-count returns 401 without token", async () => {
     const r = await request(app).get("/api/v1/messaging/unread-count");
@@ -538,7 +539,7 @@ describe("T. Messaging", () => {
   });
 });
 
-// ── U. Finalization (remaining) ───────────────────────────────────────────────
+// -- U. Finalization (remaining) -----------------------------------------------
 describe("U. Finalization remaining", () => {
   it("POST /finalization/review-subject returns 403 for TEACHER", async () => {
     const r = await request(app).post("/api/v1/finalization/review-subject").set("Authorization", `Bearer ${tchTok}`).send({ teacherSubjectId: 1, semester: "SEMESTER_1", academicYear: "2026/27", approved: true });
@@ -573,7 +574,7 @@ describe("U. Finalization remaining", () => {
   });
 });
 
-// ── V. Grade-Subject-Config ───────────────────────────────────────────────────
+// -- V. Grade-Subject-Config ---------------------------------------------------
 describe("V. Grade-Subject-Config", () => {
   it("GET /grade-subject-config returns 403 for STUDENT", async () => {
     const r = await request(app).get("/api/v1/grade-subject-config?className=Grade+9&academicYear=2026%2F27").set("Authorization", `Bearer ${stuTok}`);
@@ -592,7 +593,7 @@ describe("V. Grade-Subject-Config", () => {
   });
 
   it("POST /grade-subject-config/copy returns 404 when source year has no config", async () => {
-    // No validation schema on /copy — service throws 404 when source year empty
+    // No validation schema on /copy � service throws 404 when source year empty
     (prisma.gradeSubjectConfig.findMany as Mock).mockResolvedValue([]); // empty source
     const r = await request(app).post("/api/v1/grade-subject-config/copy").set("Authorization", `Bearer ${dirTok}`).send({ className: "Grade 9", sourceAcademicYear: "2020/21", targetAcademicYear: "2027/28" });
     expect(r.status).toBe(404);
@@ -605,7 +606,7 @@ describe("V. Grade-Subject-Config", () => {
   });
 });
 
-// ── W. System settings, audit-log, parents, teacher-subjects ──────────────────
+// -- W. System settings, audit-log, parents, teacher-subjects ------------------
 describe("W. System / audit / parents / teacher-subjects", () => {
   it("GET /system-settings returns 200 for any authenticated user", async () => {
     (prisma.systemSetting.upsert as Mock).mockResolvedValue(SETTINGS);
@@ -654,7 +655,7 @@ describe("W. System / audit / parents / teacher-subjects", () => {
   });
 });
 
-// ── X. Academic reports (remaining) ──────────────────────────────────────────
+// -- X. Academic reports (remaining) ------------------------------------------
 describe("X. Academic reports remaining", () => {
   it("POST /academic-reports/generate returns 403 for ADMIN (DIR/VD only)", async () => {
     const r = await request(app).post("/api/v1/academic-reports/generate").set("Authorization", `Bearer ${adminTok}`).send({ classroomId: 1, semester: "SEMESTER_1", academicYear: "2026/27" });

@@ -1,4 +1,5 @@
-﻿/** Promotion Service Tests - Phase 3.3 - DATABASE SAFETY: all Prisma mocked */
+/* eslint-disable @typescript-eslint/no-unused-vars, @typescript-eslint/no-explicit-any */
+/** Promotion Service Tests - Phase 3.3 - DATABASE SAFETY: all Prisma mocked */
 import { describe, it, expect, vi, beforeEach, type Mock } from "vitest";
 import { PromotionService } from "../promotion.service";
 import { BadRequestError, ConflictError, NotFoundError } from "../../../core/errors/app-error";
@@ -46,8 +47,8 @@ function mkEntry(sid: number, dec: PromotionDecision, elig: EligibilityStatus, t
                firstName: "Stu", lastName: String(sid) },
     targetClassroom: tcId ? CL10A : null };
 }
-// ═══ eligibility + createBatch ════════════════════════════════════════════
-describe("createBatch — eligibility", () => {
+// --- eligibility + createBatch --------------------------------------------
+describe("createBatch � eligibility", () => {
   let svc: PromotionService;
   beforeEach(() => { svc = new PromotionService(); vi.clearAllMocks(); });
 
@@ -62,13 +63,13 @@ describe("createBatch — eligibility", () => {
     (prisma.$transaction as Mock).mockImplementation(async (fn:any) => fn({ promotionBatch:{ create:vi.fn().mockResolvedValue(batch), findUniqueOrThrow:vi.fn().mockResolvedValue(batch) }, promotionEntry:{ createMany:vi.fn() } }));
   }
 
-  it("student with avg >= passMark → ELIGIBLE", async () => {
+  it("student with avg >= passMark ? ELIGIBLE", async () => {
     setupCreate([STU1], [{ studentId:101, averageMark:"72.00" }]);
     const r = await svc.createBatch(VICE_DIR, { sourceClassroomId:1, targetAcademicYear:"2027/28" });
     expect(r.batch).toBeDefined();
   });
 
-  it("student with avg < passMark → NOT_ELIGIBLE", async () => {
+  it("student with avg < passMark ? NOT_ELIGIBLE", async () => {
     const entry = mkEntry(101, PromotionDecision.REPEATED, EligibilityStatus.NOT_ELIGIBLE);
     const batch = mkBatch({ entries: [entry] });
     (prisma.classroom.findUnique as Mock).mockResolvedValue(CL9A);
@@ -82,7 +83,7 @@ describe("createBatch — eligibility", () => {
     expect(r.batch).toBeDefined();
   });
 
-  it("student with no reports → PENDING_REVIEW", async () => {
+  it("student with no reports ? PENDING_REVIEW", async () => {
     const entry = mkEntry(101, PromotionDecision.REPEATED, EligibilityStatus.PENDING_REVIEW);
     const batch = mkBatch({ entries: [entry] });
     (prisma.classroom.findUnique as Mock).mockResolvedValue(CL9A);

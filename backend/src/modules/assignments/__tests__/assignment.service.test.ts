@@ -1,3 +1,4 @@
+/* eslint-disable @typescript-eslint/no-unused-vars, @typescript-eslint/no-explicit-any */
 /**
  * Phase 4.9 — AssignmentService Tests
  * DATABASE SAFETY: all Prisma mocked.
