@@ -1,5 +1,4 @@
 import * as crypto from 'crypto';
-import { prisma } from '../../database/prisma-client';
 import { Prisma } from '@prisma/client';
 
 /**

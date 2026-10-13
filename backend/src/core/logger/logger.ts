@@ -2,6 +2,7 @@ import pino from 'pino';
 import { env, isDevelopment } from '../../config/env';
 
 // Use require.resolve to ensure pino-pretty is resolved correctly
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
 declare const require: any;
 
 /**

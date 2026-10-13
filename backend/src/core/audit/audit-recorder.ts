@@ -1,3 +1,4 @@
+import { Prisma } from '@prisma/client';
 import { prisma } from '../../database/prisma-client';
 import { logger } from '../logger/logger';
 
@@ -16,7 +17,7 @@ export async function recordAudit(params: {
   entity?: string;
   entityId?: string;
   ipAddress?: string;
-  metadata?: any;
+  metadata?: Record<string, unknown>;
 }): Promise<void> {
   try {
     await prisma.auditLog.create({
@@ -26,7 +27,7 @@ export async function recordAudit(params: {
         entity: params.entity,
         entityId: params.entityId,
         ipAddress: params.ipAddress,
-        metadata: params.metadata,
+        metadata: params.metadata as Prisma.InputJsonValue | undefined,
       },
     });
   } catch (err) {
