@@ -5,7 +5,7 @@ export default defineConfig({
   test: {
     environment: 'node',
     include:     ['src/**/*.test.ts', 'src/**/*.spec.ts'],
-    exclude:     ['node_modules/**', 'dist/**'],
+    exclude:     ['node_modules/**', 'dist/**', 'src/__tests__/realdb/**'],
     globals:     false,  // explicit imports keep tests readable
     coverage: {
       provider: 'v8',

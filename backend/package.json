@@ -10,6 +10,7 @@
     "test": "vitest run",
     "test:watch": "vitest",
     "test:coverage": "vitest run --coverage",
+    "test:realdb": "cross-env DATABASE_URL=mysql://dsssms_user:mudasir@localhost:3306/dsssms_db vitest run --config vitest.realdb.config.ts",
     "test:ui": "vitest --ui",
     "lint": "tsc --noEmit"
   },
@@ -54,6 +55,7 @@
     "@types/supertest": "^7.2.1",
     "@vitest/coverage-v8": "^4.1.10",
     "@vitest/ui": "^4.1.10",
+    "cross-env": "^10.1.0",
     "formidable": "^3.5.4",
     "nodemon": "^3.1.14",
     "prisma": "^7.8.0",
