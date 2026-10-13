@@ -1,4 +1,4 @@
-import { ConductRating, Prisma, RoleName, Semester } from '@prisma/client';
+import { Prisma, RoleName, Semester } from '@prisma/client';
 import { prisma } from '../../database/prisma-client';
 import {
   BadRequestError,

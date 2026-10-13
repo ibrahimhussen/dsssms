@@ -1,4 +1,4 @@
-import { ConductRating, Prisma, RoleName, Semester } from '@prisma/client';
+import { ConductRating, RoleName, Semester } from '@prisma/client';
 import { prisma } from '../../database/prisma-client';
 import { BadRequestError, ForbiddenError, NotFoundError } from '../../core/errors/app-error';
 import { AuthenticatedUser } from '../../middlewares/authenticate.middleware';
@@ -381,7 +381,7 @@ export class AcademicRegisterService {
     }
 
     // ── Classroom finalization state ──────────────────────────────────────────
-    let isOfficialView = false;
+    let isOfficialView: boolean = false; // overwritten in both branches below
     let finalizedAt: string | null = null;
 
     if (query.viewMode === 'FULL_YEAR') {
@@ -635,14 +635,6 @@ export class AcademicRegisterService {
       throw new NotFoundError(`No classrooms found for ${normalizedGrade} in ${academicYear}`);
     }
 
-    const settings = await getSystemSettings();
-    const configuredSubjectIds = (
-      await prisma.gradeSubjectConfig.findMany({
-        where: { className: normalizedGrade, academicYear },
-        select: { subjectId: true },
-      })
-    ).map((cs) => cs.subjectId);
-
     const sections: AcademicRegisterGradeSummary['sections'] = [];
     let totalStudents = 0;
     let overallAverageSum = 0;
@@ -705,7 +697,7 @@ export class AcademicRegisterService {
     academicYear: string,
     viewMode: RegisterViewMode,
     configuredSubjectIds: number[],
-    settings: { promotionPassMark: number; minimumSubjectPassMark: number }
+    _settings: { promotionPassMark: number; minimumSubjectPassMark: number }
   ): Promise<{ studentId: number; average: number }[]> {
     if (configuredSubjectIds.length === 0) return [];
 

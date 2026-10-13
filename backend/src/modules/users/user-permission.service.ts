@@ -1,5 +1,5 @@
 import { prisma } from '../../database/prisma-client';
-import { ConflictError, NotFoundError } from '../../core/errors/app-error';
+import { NotFoundError } from '../../core/errors/app-error';
 import { recordAudit } from '../../core/audit/audit-recorder';
 import { ActorContext } from './user.service';
 import { GrantPermissionInput } from './validation/user-permission.validation';

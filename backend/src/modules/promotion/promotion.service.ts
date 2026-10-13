@@ -1,11 +1,9 @@
-import { BatchStatus, EligibilityStatus, EnrollmentDecision, Prisma, PromotionDecision, RoleName } from '@prisma/client';
+import { BatchStatus, EligibilityStatus, EnrollmentDecision, Prisma, PromotionDecision } from '@prisma/client';
 import { prisma } from '../../database/prisma-client';
 import {
   BadRequestError,
   ConflictError,
-  ForbiddenError,
   NotFoundError,
-  ValidationError,
 } from '../../core/errors/app-error';
 import { getPaginationParams, buildPaginationMeta, PaginationQuery } from '../../core/http/pagination';
 import { recordAudit } from '../../core/audit/audit-recorder';
@@ -91,7 +89,9 @@ function toBatchSummaryDto(batch: BatchWithRelations): PromotionBatchSummaryDto 
     sourceClassroomId: batch.sourceClassroomId,
     sourceClassroomLabel: classroomLabel(batch.sourceClassroom),
     status: batch.status,
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
     preparedBy: resolveUserName(batch.preparedBy as any),
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
     approvedBy: batch.approvedBy ? resolveUserName(batch.approvedBy as any) : null,
     totalStudents: batch.entries.length,
     eligibleCount: eligible,
@@ -113,8 +113,6 @@ function toBatchDetailDto(batch: BatchWithRelations): PromotionBatchDetailDto {
 }
 
 // ── Helpers ───────────────────────────────────────────────────────────────────
-
-const MANAGE_ROLES: RoleName[] = [RoleName.DIRECTOR, RoleName.VICE_DIRECTOR];
 
 async function assertBatchExists(id: number): Promise<BatchWithRelations> {
   const batch = await prisma.promotionBatch.findUnique({ where: { id }, include: BATCH_INCLUDE });

@@ -38,6 +38,7 @@ export interface StudentSummaryDto {
   previousStudentId?: string | null;
   transferReason?: string | null;
   transferCertificateRef?: string | null;
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
   previousAcademicSummary?: any;
   transferredOutAt?: Date | null;
   transferredOutDestination?: string | null;

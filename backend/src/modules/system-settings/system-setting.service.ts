@@ -58,7 +58,7 @@ export class SystemSettingService {
       entityId: String(SETTINGS_ROW_ID),
       ipAddress: actor.ipAddress,
       // Exclude schoolLogo from audit metadata — it can be megabytes of base64
-      metadata: (({ schoolLogo: _logo, ...rest }) => rest)(input),
+      metadata: (({ schoolLogo: _logo, ...rest }: typeof input) => rest)(input),
     });
 
     return toDto(row);

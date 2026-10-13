@@ -2,7 +2,7 @@ import { Router } from 'express';
 import { RoleName } from '@prisma/client';
 import { promotionController } from './promotion.controller';
 import { authenticate } from '../../middlewares/authenticate.middleware';
-import { authorize, authorizeWithPermissions } from '../../middlewares/authorize.middleware';
+import { authorizeWithPermissions } from '../../middlewares/authorize.middleware';
 import { validate } from '../../middlewares/validate.middleware';
 import {
   batchIdParamSchema,

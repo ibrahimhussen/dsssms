@@ -1,6 +1,6 @@
 import { Prisma, RoleName } from '@prisma/client';
 import { prisma } from '../../database/prisma-client';
-import { ConflictError, ForbiddenError, NotFoundError } from '../../core/errors/app-error';
+import { ForbiddenError, NotFoundError } from '../../core/errors/app-error';
 import { recordAudit } from '../../core/audit/audit-recorder';
 import { AuthenticatedUser } from '../../middlewares/authenticate.middleware';
 import {

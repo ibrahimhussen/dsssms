@@ -2,8 +2,6 @@ import { z } from 'zod';
 import { RoleName, UserStatus } from '@prisma/client';
 import { paginationQuerySchema } from '../../../core/http/pagination';
 
-const STAFF_ROLES = [RoleName.ADMIN, RoleName.DIRECTOR, RoleName.VICE_DIRECTOR, RoleName.TEACHER] as const;
-
 export const createStaffSchema = z.object({
   role: z.nativeEnum(RoleName),
   firstName: z.string().trim().min(1, 'First name is required').max(100),

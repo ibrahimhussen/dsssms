@@ -1,4 +1,4 @@
-import { ConductRating, Semester } from '@prisma/client';
+import { ConductRating } from '@prisma/client';
 
 // ── View mode ─────────────────────────────────────────────────────────────────
 

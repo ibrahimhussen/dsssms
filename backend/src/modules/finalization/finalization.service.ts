@@ -19,7 +19,6 @@ import {
 import {
   ClassroomFinalizationDto,
   SubjectFinalizationDto,
-  SubjectFinalizationSummaryDto,
 } from './dto/finalization.dto';
 
 const FINALIZATION_ROLES: RoleName[] = [RoleName.VICE_DIRECTOR, RoleName.DIRECTOR, RoleName.ADMIN];
@@ -113,16 +112,6 @@ function toClassroomFinalizationDto(
     createdAt: finalization.createdAt.toISOString(),
     updatedAt: finalization.updatedAt.toISOString(),
   };
-}
-
-function resolveUserName(user: {
-  username: string;
-  director: { firstName: string; lastName: string } | null;
-  viceDirector: { firstName: string; lastName: string } | null;
-  administrator: { firstName: string; lastName: string } | null;
-}): string {
-  const profile = user.director ?? user.viceDirector ?? user.administrator;
-  return profile ? `${profile.firstName} ${profile.lastName}` : user.username;
 }
 
 // ── Helpers ───────────────────────────────────────────────────────────────────

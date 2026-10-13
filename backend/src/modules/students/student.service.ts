@@ -66,7 +66,8 @@ function toStudentSummaryDto(student: StudentWithRelations): StudentSummaryDto {
   };
 }
 
-const MAX_ADMISSION_NUMBER_ATTEMPTS = 5; // kept to avoid breaking bulkImport error handling
+// eslint-disable-next-line @typescript-eslint/no-unused-vars -- kept for bulkImport error handling
+const MAX_ADMISSION_NUMBER_ATTEMPTS = 5;
 
 export class StudentService {
   /**
@@ -148,14 +149,15 @@ export class StudentService {
 
   async bulkImportStudents(studentsInput: CreateStudentInput[]) {
     let successCount = 0;
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
     const errors: any[] = [];
     
     for (const input of studentsInput) {
       try {
         await this.createStudent(input);
         successCount++;
-      } catch (err: any) {
-        errors.push({ student: input.firstName + ' ' + input.lastName, error: err.message });
+      } catch (err: unknown) {
+        errors.push({ student: input.firstName + ' ' + input.lastName, error: err instanceof Error ? err.message : String(err) });
       }
     }
     

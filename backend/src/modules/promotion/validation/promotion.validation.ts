@@ -1,5 +1,5 @@
 import { z } from 'zod';
-import { EligibilityStatus, PromotionDecision } from '@prisma/client';
+import { PromotionDecision } from '@prisma/client';
 import { paginationQuerySchema } from '../../../core/http/pagination';
 
 // ── Params ────────────────────────────────────────────────────────────────────
