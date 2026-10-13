@@ -3,6 +3,7 @@ import { conductService } from './conduct.service';
 import { AuthenticatedUser } from '../../middlewares/authenticate.middleware';
 import { CreateConductInput, UpdateConductInput } from './dto/conduct.dto';
 import { UnauthorizedError } from '../../core/errors/app-error';
+import { Semester } from '@prisma/client';
 
 export class ConductController {
   /**
@@ -52,7 +53,7 @@ export class ConductController {
         req.user,
         Number(studentId),
         Number(classroomId),
-        semester as any,
+        semester as Semester,
         academicYear
       );
       res.json({ success: true, data: result });
@@ -76,7 +77,7 @@ export class ConductController {
       const result = await conductService.getClassroomConducts(
         req.user,
         Number(classroomId),
-        semester as any,
+        semester as Semester,
         academicYear
       );
       res.json({ success: true, data: result });
@@ -100,7 +101,7 @@ export class ConductController {
       const result = await conductService.getClassroomConductSummary(
         req.user,
         Number(classroomId),
-        semester as any,
+        semester as Semester,
         academicYear
       );
       res.json({ success: true, data: result });
@@ -118,7 +119,7 @@ export class ConductController {
       if (!req.user) throw new UnauthorizedError();
       const { id } = req.params;
       await conductService.deleteConduct(req.user, Number(id), req.ip);
-      res.json({ success: true, message: 'Conduct record deleted successfully' });
+      res.json({ success: true });
     } catch (error) {
       next(error);
     }

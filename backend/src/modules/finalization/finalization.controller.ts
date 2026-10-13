@@ -9,6 +9,7 @@ import {
   SubmitForReviewInput,
 } from './dto/finalization.dto';
 import { UnauthorizedError } from '../../core/errors/app-error';
+import { Semester } from '@prisma/client';
 
 export class FinalizationController {
   /**
@@ -86,7 +87,7 @@ export class FinalizationController {
       const result = await finalizationService.getSubjectFinalization(
         req.user,
         Number(teacherSubjectId),
-        semester as any,
+        semester as Semester,
         academicYear
       );
       res.json({ success: true, data: result });
@@ -110,7 +111,7 @@ export class FinalizationController {
       const result = await finalizationService.getClassroomFinalization(
         req.user,
         Number(classroomId),
-        semester as any,
+        semester as Semester,
         academicYear
       );
       res.json({ success: true, data: result });
@@ -134,7 +135,7 @@ export class FinalizationController {
       const result = await finalizationService.getClassroomSubjectFinalizations(
         req.user,
         Number(classroomId),
-        semester as any,
+        semester as Semester,
         academicYear
       );
       res.json({ success: true, data: result });
