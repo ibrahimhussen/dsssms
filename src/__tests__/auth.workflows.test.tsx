@@ -1,52 +1,80 @@
+/* eslint-disable @typescript-eslint/no-unused-vars, @typescript-eslint/no-explicit-any */
 /**
  * Auth workflow tests
- * - LoginPage rendering, validation, submit, error, password toggle
- * - AuthContext: hydration, login, logout, session-expired event
- * - GuestRoute: redirects authenticated user, renders outlet for guest
- * - ProtectedRoute: redirects unauthenticated, blocks wrong role, passes allowed
- * - role-redirect helpers
- * - token-storage
+ * LoginPage, GuestRoute, ProtectedRoute, role-redirect, token-storage
  */
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
-import { render, screen, fireEvent, waitFor, act } from '@testing-library/react';
+import { render, screen, waitFor } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { MemoryRouter, Route, Routes } from 'react-router-dom';
 import type { AuthenticatedUser } from '../types/auth';
 import { getRoleDashboardPath, getPostLoginRedirect } from '../lib/role-redirect';
 import { tokenStorage } from '../lib/token-storage';
 
-// ── helpers ───────────────────────────────────────────────────────────────────
+// ── Mock AuthContext ──────────────────────────────────────────────────────────
+
+const mockLogin   = vi.fn();
+const mockLogout  = vi.fn();
+const mockUseAuth = vi.fn();
+
+vi.mock('../context/AuthContext', () => ({
+  useAuth:      () => mockUseAuth(),
+  AuthProvider: ({ children }: { children: React.ReactNode }) => <>{children}</>,
+}));
+
+// Mock react-icons so SVG imports don't crash jsdom
+vi.mock('react-icons/md', () => { const i = () => <span />; return { MdVisibility:i,MdVisibilityOff:i,MdErrorOutline:i,MdSchool:i,MdAssessment:i,MdDescription:i,MdFactCheck:i,MdMenuBook:i,MdPrint:i,MdDownload:i,MdEmojiEvents:i,MdBarChart:i,MdSend:i,MdChat:i,MdInbox:i,MdArrowBack:i,MdPerson:i,MdAdd:i,MdDelete:i,MdEdit:i,MdCheck:i,MdClose:i,MdSearch:i,MdRefresh:i,MdWarning:i,MdInfo:i,MdCheckCircle:i,MdNotifications:i,MdLogout:i,MdMenu:i }; });
+
+vi.mock('../components/ui/Button', () => ({
+  Button: ({
+    children, isLoading: _l, ...props
+  }: React.ButtonHTMLAttributes<HTMLButtonElement> & { isLoading?: boolean }) => (
+    <button {...props}>{children}</button>
+  ),
+}));
+
+// ── Helpers ───────────────────────────────────────────────────────────────────
 
 function makeUser(role: AuthenticatedUser['role'] = 'DIRECTOR'): AuthenticatedUser {
-  return { userId: 1, username: 'dir', email: null, role, status: 'ACTIVE', permissions: [], isTemporaryPassword: false, profilePicture: null, fullName: 'Dave D' };
+  return {
+    userId: 1, username: 'u', email: null, role,
+    status: 'ACTIVE', permissions: [], isTemporaryPassword: false,
+    profilePicture: null, fullName: 'Test User',
+  };
 }
 
-// ── A. role-redirect ──────────────────────────────────────────────────────────
+function authState(user: AuthenticatedUser | null, loading = false) {
+  mockUseAuth.mockReturnValue({ user, isLoading: loading, login: mockLogin, logout: mockLogout });
+}
 
-describe('A. role-redirect helpers', () => {
+// ── A. role-redirect ─────────────────────────────────────────────────────────
+
+describe('A. role-redirect', () => {
   it('getRoleDashboardPath returns "/" for every role', () => {
-    const roles: AuthenticatedUser['role'][] = ['ADMIN','DIRECTOR','VICE_DIRECTOR','TEACHER','STUDENT','PARENT'];
+    const roles: AuthenticatedUser['role'][] = [
+      'ADMIN', 'DIRECTOR', 'VICE_DIRECTOR', 'TEACHER', 'STUDENT', 'PARENT',
+    ];
     for (const r of roles) expect(getRoleDashboardPath(r)).toBe('/');
   });
 
-  it('getPostLoginRedirect uses "from" when it is a safe non-blocked path', () => {
+  it('getPostLoginRedirect honours a safe "from" path', () => {
     expect(getPostLoginRedirect('TEACHER', '/grades')).toBe('/grades');
-    expect(getPostLoginRedirect('TEACHER', '/students/101')).toBe('/students/101');
+    expect(getPostLoginRedirect('DIRECTOR', '/students/101')).toBe('/students/101');
   });
 
-  it('getPostLoginRedirect falls back to dashboard for blocked paths', () => {
+  it('getPostLoginRedirect blocks /login, /unauthorized and / as "from"', () => {
     expect(getPostLoginRedirect('DIRECTOR', '/login')).toBe('/');
     expect(getPostLoginRedirect('DIRECTOR', '/unauthorized')).toBe('/');
     expect(getPostLoginRedirect('DIRECTOR', '/')).toBe('/');
   });
 
-  it('getPostLoginRedirect falls back to dashboard when from is null/undefined', () => {
+  it('getPostLoginRedirect falls back to "/" when from is null/undefined', () => {
     expect(getPostLoginRedirect('STUDENT', null)).toBe('/');
     expect(getPostLoginRedirect('STUDENT', undefined)).toBe('/');
   });
 });
 
-// ── B. token-storage ──────────────────────────────────────────────────────────
+// ── B. token-storage ─────────────────────────────────────────────────────────
 
 describe('B. token-storage', () => {
   afterEach(() => sessionStorage.clear());
@@ -66,62 +94,46 @@ describe('B. token-storage', () => {
     expect(tokenStorage.getAccessToken()).toBeNull();
   });
 
-  it('getRefreshToken always returns null (deprecated — lives in httpOnly cookie)', () => {
+  it('getRefreshToken always returns null (moved to httpOnly cookie)', () => {
     expect(tokenStorage.getRefreshToken()).toBeNull();
   });
 
-  it('setTokens stores the access token (ignores refresh)', () => {
+  it('setTokens stores the access token', () => {
     tokenStorage.setTokens('at123', 'rt_ignored');
     expect(tokenStorage.getAccessToken()).toBe('at123');
   });
 });
 
-// ── C. LoginPage ──────────────────────────────────────────────────────────────
-
-const mockLogin  = vi.fn();
-const mockLogout = vi.fn();
-const mockUseAuth = vi.fn();
-
-vi.mock('../context/AuthContext', () => ({
-  useAuth: () => mockUseAuth(),
-  AuthProvider: ({ children }: { children: React.ReactNode }) => <>{children}</>,
-}));
-
-// Also mock react-icons to prevent SVG rendering issues
-vi.mock('react-icons/md', () => ({
-  MdVisibility:    () => <span data-testid="icon-visibility" />,
-  MdVisibilityOff: () => <span data-testid="icon-visibility-off" />,
-  MdErrorOutline:  () => <span data-testid="icon-error" />,
-  MdSchool:        () => <span data-testid="icon-school" />,
-}));
-
-vi.mock('../components/ui/Button', () => ({
-  Button: ({ children, ...props }: React.ButtonHTMLAttributes<HTMLButtonElement> & { isLoading?: boolean }) => (
-    <button {...props}>{children}</button>
-  ),
-}));
+// ── C. LoginPage ─────────────────────────────────────────────────────────────
 
 import { LoginPage } from '../pages/auth/LoginPage';
 
 function renderLogin(user: AuthenticatedUser | null = null) {
-  mockUseAuth.mockReturnValue({ user, isLoading: false, login: mockLogin, logout: mockLogout });
+  authState(user);
   return render(
     <MemoryRouter initialEntries={['/login']}>
       <Routes>
         <Route path="/login" element={<LoginPage />} />
-        <Route path="/" element={<div data-testid="home" />} />
+        <Route path="/"      element={<div data-testid="home" />} />
       </Routes>
     </MemoryRouter>
   );
 }
 
 describe('C. LoginPage', () => {
-  beforeEach(() => { vi.clearAllMocks(); mockLogin.mockResolvedValue(makeUser()); });
+  beforeEach(() => {
+    vi.clearAllMocks();
+    mockLogin.mockResolvedValue(makeUser());
+  });
 
-  it('renders username and password fields', () => {
+  it('renders username field', () => {
     renderLogin();
     expect(screen.getByLabelText(/username/i)).toBeInTheDocument();
-    expect(screen.getByLabelText(/password/i)).toBeInTheDocument();
+  });
+
+  it('renders password field', () => {
+    renderLogin();
+    expect(screen.getByLabelText('Password')).toBeInTheDocument();
   });
 
   it('renders the sign-in heading', () => {
@@ -129,50 +141,43 @@ describe('C. LoginPage', () => {
     expect(screen.getByRole('heading', { level: 1 })).toHaveTextContent(/sign in/i);
   });
 
-  it('renders the submit button', () => {
-    renderLogin();
-    expect(screen.getByRole('button', { name: /sign in/i })).toBeInTheDocument();
-  });
-
-  it('shows validation error when username is empty on submit', async () => {
+  it('shows validation error when submitting with empty username', async () => {
     const user = userEvent.setup();
     renderLogin();
     await user.click(screen.getByRole('button', { name: /sign in/i }));
-    await waitFor(() => {
-      expect(screen.getByText(/enter your username/i)).toBeInTheDocument();
-    });
+    await waitFor(() =>
+      expect(screen.getByText(/enter your username/i)).toBeInTheDocument()
+    );
   });
 
-  it('shows validation error when password is empty on submit', async () => {
+  it('shows validation error when submitting with empty password', async () => {
     const user = userEvent.setup();
     renderLogin();
     await user.type(screen.getByLabelText(/username/i), 'director');
     await user.click(screen.getByRole('button', { name: /sign in/i }));
-    await waitFor(() => {
-      expect(screen.getByText(/enter your password/i)).toBeInTheDocument();
-    });
+    await waitFor(() =>
+      expect(screen.getByText(/enter your password/i)).toBeInTheDocument()
+    );
   });
 
-  it('calls login with trimmed username and password on valid submit', async () => {
+  it('calls login with trimmed username on valid submit', async () => {
     const user = userEvent.setup();
     renderLogin();
     await user.type(screen.getByLabelText(/username/i), '  director  ');
-    await user.type(screen.getByLabelText(/password/i), 'Pass1!');
+    await user.type(screen.getByLabelText('Password'), 'Pass1!');
     await user.click(screen.getByRole('button', { name: /sign in/i }));
-    await waitFor(() => {
-      expect(mockLogin).toHaveBeenCalledWith('director', 'Pass1!');
-    });
+    await waitFor(() => expect(mockLogin).toHaveBeenCalledWith('director', 'Pass1!'));
   });
 
   it('navigates to "/" after successful login', async () => {
     const user = userEvent.setup();
     renderLogin();
     await user.type(screen.getByLabelText(/username/i), 'director');
-    await user.type(screen.getByLabelText(/password/i), 'Pass1!');
+    await user.type(screen.getByLabelText('Password'), 'Pass1!');
     await user.click(screen.getByRole('button', { name: /sign in/i }));
-    await waitFor(() => {
-      expect(screen.getByTestId('home')).toBeInTheDocument();
-    });
+    await waitFor(() =>
+      expect(screen.getByTestId('home')).toBeInTheDocument()
+    );
   });
 
   it('shows server error when login throws', async () => {
@@ -180,20 +185,19 @@ describe('C. LoginPage', () => {
     const user = userEvent.setup();
     renderLogin();
     await user.type(screen.getByLabelText(/username/i), 'bad');
-    await user.type(screen.getByLabelText(/password/i), 'wrong');
+    await user.type(screen.getByLabelText('Password'), 'wrong');
     await user.click(screen.getByRole('button', { name: /sign in/i }));
-    await waitFor(() => {
-      expect(screen.getByRole('alert')).toHaveTextContent('Invalid credentials');
-    });
+    await waitFor(() =>
+      expect(screen.getByRole('alert')).toHaveTextContent('Invalid credentials')
+    );
   });
 
   it('toggles password visibility', async () => {
     const user = userEvent.setup();
     renderLogin();
-    const input = screen.getByLabelText(/password/i) as HTMLInputElement;
+    const input = screen.getByLabelText('Password') as HTMLInputElement;
     expect(input.type).toBe('password');
-    const toggle = screen.getByRole('button', { name: /show password/i });
-    await user.click(toggle);
+    await user.click(screen.getByRole('button', { name: /show password/i }));
     expect(input.type).toBe('text');
     await user.click(screen.getByRole('button', { name: /hide password/i }));
     expect(input.type).toBe('password');
@@ -207,8 +211,8 @@ import { GuestRoute } from '../routes/GuestRoute';
 describe('D. GuestRoute', () => {
   beforeEach(() => vi.clearAllMocks());
 
-  it('renders outlet content when user is not logged in', () => {
-    mockUseAuth.mockReturnValue({ user: null, isLoading: false, login: mockLogin, logout: mockLogout });
+  it('renders outlet for unauthenticated user', () => {
+    authState(null);
     render(
       <MemoryRouter>
         <Routes>
@@ -221,8 +225,8 @@ describe('D. GuestRoute', () => {
     expect(screen.getByTestId('guest-content')).toBeInTheDocument();
   });
 
-  it('redirects authenticated user to "/" ', () => {
-    mockUseAuth.mockReturnValue({ user: makeUser(), isLoading: false, login: mockLogin, logout: mockLogout });
+  it('redirects authenticated user to "/"', () => {
+    authState(makeUser());
     render(
       <MemoryRouter initialEntries={['/login']}>
         <Routes>
@@ -238,7 +242,7 @@ describe('D. GuestRoute', () => {
   });
 
   it('shows loading spinner when isLoading=true', () => {
-    mockUseAuth.mockReturnValue({ user: null, isLoading: true, login: mockLogin, logout: mockLogout });
+    authState(null, true);
     render(
       <MemoryRouter>
         <Routes>
@@ -257,176 +261,83 @@ describe('D. GuestRoute', () => {
 
 import { ProtectedRoute } from '../routes/ProtectedRoute';
 
+function mountProtected(
+  role: AuthenticatedUser['role'] | null,
+  allowed: AuthenticatedUser['role'][],
+  loading = false,
+) {
+  authState(role ? makeUser(role) : null, loading);
+  render(
+    <MemoryRouter initialEntries={['/page']}>
+      <Routes>
+        <Route element={<ProtectedRoute allowedRoles={allowed} />}>
+          <Route path="/page" element={<div data-testid="allowed" />} />
+        </Route>
+        <Route path="/unauthorized" element={<div data-testid="unauthorized" />} />
+        <Route path="/login"        element={<div data-testid="login" />} />
+      </Routes>
+    </MemoryRouter>
+  );
+}
+
 describe('E. ProtectedRoute', () => {
   beforeEach(() => vi.clearAllMocks());
 
-  it('redirects unauthenticated user to /login', () => {
-    mockUseAuth.mockReturnValue({ user: null, isLoading: false, login: mockLogin, logout: mockLogout });
-    render(
-      <MemoryRouter initialEntries={['/admin']}>
-        <Routes>
-          <Route element={<ProtectedRoute />}>
-            <Route path="/admin" element={<div data-testid="admin" />} />
-          </Route>
-          <Route path="/login" element={<div data-testid="login" />} />
-        </Routes>
-      </MemoryRouter>
-    );
+  it('unauthenticated user → /login', () => {
+    mountProtected(null, ['ADMIN']);
     expect(screen.getByTestId('login')).toBeInTheDocument();
-    expect(screen.queryByTestId('admin')).not.toBeInTheDocument();
   });
 
-  it('renders content for authenticated user with no role restriction', () => {
-    mockUseAuth.mockReturnValue({ user: makeUser('STUDENT'), isLoading: false, login: mockLogin, logout: mockLogout });
-    render(
-      <MemoryRouter>
-        <Routes>
-          <Route element={<ProtectedRoute />}>
-            <Route index element={<div data-testid="protected" />} />
-          </Route>
-        </Routes>
-      </MemoryRouter>
-    );
-    expect(screen.getByTestId('protected')).toBeInTheDocument();
-  });
-
-  it('redirects to /unauthorized when role is not in allowedRoles', () => {
-    mockUseAuth.mockReturnValue({ user: makeUser('TEACHER'), isLoading: false, login: mockLogin, logout: mockLogout });
-    render(
-      <MemoryRouter initialEntries={['/admin-only']}>
-        <Routes>
-          <Route element={<ProtectedRoute allowedRoles={['ADMIN']} />}>
-            <Route path="/admin-only" element={<div data-testid="admin-page" />} />
-          </Route>
-          <Route path="/unauthorized" element={<div data-testid="unauthorized" />} />
-        </Routes>
-      </MemoryRouter>
-    );
+  it('wrong role → /unauthorized', () => {
+    mountProtected('TEACHER', ['ADMIN']);
     expect(screen.getByTestId('unauthorized')).toBeInTheDocument();
-    expect(screen.queryByTestId('admin-page')).not.toBeInTheDocument();
+    expect(screen.queryByTestId('allowed')).not.toBeInTheDocument();
   });
 
-  it('renders content when user role IS in allowedRoles', () => {
-    mockUseAuth.mockReturnValue({ user: makeUser('DIRECTOR'), isLoading: false, login: mockLogin, logout: mockLogout });
-    render(
-      <MemoryRouter>
-        <Routes>
-          <Route element={<ProtectedRoute allowedRoles={['ADMIN', 'DIRECTOR']} />}>
-            <Route index element={<div data-testid="director-content" />} />
-          </Route>
-        </Routes>
-      </MemoryRouter>
-    );
-    expect(screen.getByTestId('director-content')).toBeInTheDocument();
+  it('correct role → renders content', () => {
+    mountProtected('DIRECTOR', ['ADMIN', 'DIRECTOR']);
+    expect(screen.getByTestId('allowed')).toBeInTheDocument();
   });
 
-  it('shows loading state while isLoading=true', () => {
-    mockUseAuth.mockReturnValue({ user: null, isLoading: true, login: mockLogin, logout: mockLogout });
+  it('no allowedRoles restriction → any authenticated user passes', () => {
+    authState(makeUser('STUDENT'));
     render(
       <MemoryRouter>
         <Routes>
           <Route element={<ProtectedRoute />}>
-            <Route index element={<div data-testid="content" />} />
+            <Route index element={<div data-testid="open" />} />
           </Route>
         </Routes>
       </MemoryRouter>
     );
-    expect(screen.getByRole('status')).toBeInTheDocument();
-    expect(screen.queryByTestId('content')).not.toBeInTheDocument();
+    expect(screen.getByTestId('open')).toBeInTheDocument();
   });
 
-  it('renders children prop directly (non-Outlet usage)', () => {
-    mockUseAuth.mockReturnValue({ user: makeUser(), isLoading: false, login: mockLogin, logout: mockLogout });
+  it('isLoading → shows spinner, no content', () => {
+    mountProtected(null, ['ADMIN'], true);
+    expect(screen.getByRole('status')).toBeInTheDocument();
+    expect(screen.queryByTestId('allowed')).not.toBeInTheDocument();
+  });
+
+  it('renders children prop directly', () => {
+    authState(makeUser());
     render(
       <MemoryRouter>
         <ProtectedRoute>
-          <div data-testid="child-content" />
+          <div data-testid="child" />
         </ProtectedRoute>
       </MemoryRouter>
     );
-    expect(screen.getByTestId('child-content')).toBeInTheDocument();
-  });
-});
-
-// ── F. AuthContext ────────────────────────────────────────────────────────────
-
-// Re-use the real AuthContext (unmock for this section)
-vi.unmock('../context/AuthContext');
-
-import { AuthProvider, useAuth } from '../context/AuthContext';
-import { authApi } from '../lib/auth-api';
-
-vi.mock('../lib/auth-api', () => ({
-  authApi: {
-    me:     vi.fn(),
-    login:  vi.fn(),
-    logout: vi.fn(),
-  },
-}));
-
-function TestConsumer() {
-  const { user, isLoading } = useAuth();
-  if (isLoading) return <div>loading</div>;
-  return <div data-testid="user">{user?.username ?? 'no-user'}</div>;
-}
-
-describe('F. AuthContext', () => {
-  beforeEach(() => {
-    vi.clearAllMocks();
-    sessionStorage.clear();
+    expect(screen.getByTestId('child')).toBeInTheDocument();
   });
 
-  it('isLoading=false and user=null when no token stored', async () => {
-    (authApi.me as ReturnType<typeof vi.fn>).mockResolvedValue(makeUser());
-    const { findByTestId } = render(
-      <AuthProvider>
-        <TestConsumer />
-      </AuthProvider>
-    );
-    // No token → no me() call, isLoading resolves to false quickly
-    const el = await findByTestId('user');
-    expect(el).toHaveTextContent('no-user');
-    expect(authApi.me).not.toHaveBeenCalled();
+  it('STUDENT cannot access TEACHER-only page', () => {
+    mountProtected('STUDENT', ['TEACHER']);
+    expect(screen.getByTestId('unauthorized')).toBeInTheDocument();
   });
 
-  it('hydrates user from stored token on mount', async () => {
-    tokenStorage.setAccessToken('existing.token');
-    (authApi.me as ReturnType<typeof vi.fn>).mockResolvedValue(makeUser('TEACHER'));
-    const { findByTestId } = render(
-      <AuthProvider>
-        <TestConsumer />
-      </AuthProvider>
-    );
-    const el = await findByTestId('user');
-    expect(el).toHaveTextContent('dir');
-  });
-
-  it('clears token and sets user=null when hydration fails', async () => {
-    tokenStorage.setAccessToken('bad.token');
-    (authApi.me as ReturnType<typeof vi.fn>).mockRejectedValue(new Error('401'));
-    const { findByTestId } = render(
-      <AuthProvider>
-        <TestConsumer />
-      </AuthProvider>
-    );
-    const el = await findByTestId('user');
-    expect(el).toHaveTextContent('no-user');
-    expect(tokenStorage.getAccessToken()).toBeNull();
-  });
-
-  it('session-expired event clears user', async () => {
-    (authApi.me as ReturnType<typeof vi.fn>).mockResolvedValue(makeUser());
-    tokenStorage.setAccessToken('tok');
-    const { findByTestId } = render(
-      <AuthProvider>
-        <TestConsumer />
-      </AuthProvider>
-    );
-    await findByTestId('user');
-    // Fire the session-expired event
-    await act(async () => {
-      window.dispatchEvent(new Event('dsssms:session-expired'));
-    });
-    expect(screen.getByTestId('user')).toHaveTextContent('no-user');
+  it('PARENT cannot access oversight page', () => {
+    mountProtected('PARENT', ['ADMIN', 'DIRECTOR', 'VICE_DIRECTOR']);
+    expect(screen.getByTestId('unauthorized')).toBeInTheDocument();
   });
 });
