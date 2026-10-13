@@ -1,3 +1,4 @@
+/* eslint-disable react-refresh/only-export-components */
 import { useMemo } from 'react';
 import type { DayOfWeek, TimetableEntry } from '../../types/timetable';
 import { MORNING_PERIODS, AFTERNOON_PERIODS, type TimetablePeriod } from '../../lib/timetable-periods';

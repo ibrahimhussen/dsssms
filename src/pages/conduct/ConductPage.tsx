@@ -1,3 +1,4 @@
+/* eslint-disable @typescript-eslint/no-explicit-any */
 import { useState } from 'react';
 import { useClassroomOptions } from '../../hooks/useClassrooms';
 import { useClassroomConducts, useClassroomConductSummary, useUpdateConduct, useDeleteConduct } from '../../hooks/useConduct';

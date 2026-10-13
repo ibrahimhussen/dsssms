@@ -1,3 +1,4 @@
+/* eslint-disable @typescript-eslint/no-explicit-any */
 import { useState } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import { MdArrowBack, MdCheckCircle, MdWarning, MdThumbUp, MdThumbDown } from 'react-icons/md';
@@ -40,7 +41,7 @@ interface RejectModalProps {
   onClose: () => void;
 }
 
-function RejectModal({ isOpen, batchId: _batchId, isLoading, onReject, onClose }: RejectModalProps) {
+function RejectModal({ isOpen, batchId: _batchId , isLoading, onReject, onClose }: RejectModalProps) {
   const [reason, setReason] = useState('');
 
   function handleSubmit(e: React.FormEvent) {

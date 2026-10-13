@@ -1,4 +1,4 @@
-﻿import { useState, useMemo } from "react";
+import { useState, useMemo, useEffect } from "react";
 import { useMyAcademicReports, useMyReportCard } from "../../hooks/useAcademicReports";
 import { gradesApi } from "../../lib/grades-api";
 import { systemSettingsApi } from "../../lib/system-settings-api";
@@ -32,7 +32,7 @@ export function ReportCardPage() {
     ), [reports]
   );
 
-  useMemo(() => {
+  useEffect(() => {
     if (sortedReports.length > 0 && !selectedSemester) {
       setSelectedSemester(sortedReports[0].semester);
       setSelectedYear(sortedReports[0].academicYear);
@@ -71,7 +71,7 @@ export function ReportCardPage() {
       const w = window.open("", "_blank");
       if (!w) return;
       w.document.write(html.replace("</body></html>",
-        "<script>window.onload=function(){setTimeout(function(){window.print();},600);};<\/script></body></html>"));
+        "<script>window.onload=function(){setTimeout(function(){window.print();},600);};</script></body></html>"));
       w.document.close(); w.focus();
     } finally { setIsPrinting(false); }
   }

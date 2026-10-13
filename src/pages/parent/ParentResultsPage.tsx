@@ -1,4 +1,4 @@
-﻿import { useState } from 'react';
+import { useState } from 'react';
 import { useSearchParams, Link } from 'react-router-dom';
 import { useMyParentProfile } from '../../hooks/useParents';
 import { useStudentReportHistory } from '../../hooks/useAcademicReports';
@@ -70,7 +70,7 @@ export function ParentResultsPage() {
 
       const htmlWithPrint = html.replace(
         '</body></html>',
-        `<script>window.onload=function(){setTimeout(function(){window.print();},600);};<\/script></body></html>`
+        `<script>window.onload=function(){setTimeout(function(){window.print();},600);};</script></body></html>`
       );
       const w = window.open('', '_blank');
       if (!w) return;
@@ -86,7 +86,7 @@ export function ParentResultsPage() {
     return (
       <div className="flex items-center gap-2 py-16 text-slate-400">
         <span className="h-4 w-4 animate-spin rounded-full border-2 border-slate-200 border-t-pine-700" />
-        <span className="text-sm">Loading…</span>
+        <span className="text-sm">Loading�</span>
       </div>
     );
 
@@ -107,7 +107,7 @@ export function ParentResultsPage() {
       <div className="mb-1 flex flex-wrap items-start justify-between gap-3">
         <div>
           <Link to="/parent/children" className="mb-1 inline-flex items-center text-xs font-medium text-slate-500 hover:text-pine-700">
-            ← Academic Overview
+            ? Academic Overview
           </Link>
           <h1 className="text-2xl font-semibold text-ink-900">Results</h1>
           {selectedChild && (
@@ -137,7 +137,7 @@ export function ParentResultsPage() {
       {reportsLoading ? (
         <div className="flex items-center gap-2 py-16 text-slate-400">
           <span className="h-4 w-4 animate-spin rounded-full border-2 border-slate-200 border-t-pine-700" />
-          <span className="text-sm">Loading results…</span>
+          <span className="text-sm">Loading results�</span>
         </div>
       ) : sorted.length === 0 ? (
         <EmptyState

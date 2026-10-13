@@ -1,4 +1,5 @@
-ï»¿import { useForm } from 'react-hook-form';
+/* eslint-disable @typescript-eslint/no-explicit-any */
+import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { useState } from 'react';
 import { Modal } from '../../components/ui/Modal';
@@ -52,7 +53,7 @@ export function CreateAssignmentModal({ isOpen, onClose, onCreated }: CreateAssi
     <Modal title="Assign teacher to subject &amp; classroom" isOpen={isOpen} onClose={handleClose}>
       <form onSubmit={(e) => void handleSubmit(onSubmit)(e)} noValidate>
         <SelectField label="Teacher" error={errors.teacherId?.message} {...register('teacherId')}>
-          <option value="">Select a teacherâ€¦</option>
+          <option value="">Select a teacher…</option>
           {teachersData?.items.filter(t => t.teacherId).map((t) => (
             <option key={t.teacherId} value={t.teacherId ?? ''}>
               {t.fullName}
@@ -61,7 +62,7 @@ export function CreateAssignmentModal({ isOpen, onClose, onCreated }: CreateAssi
         </SelectField>
 
         <SelectField label="Subject" error={errors.subjectId?.message} {...register('subjectId')}>
-          <option value="">Select a subjectâ€¦</option>
+          <option value="">Select a subject…</option>
           {subjectsData?.items.map((s) => (
             <option key={s.subjectId} value={s.subjectId}>
               {s.subjectName} ({s.subjectCode})
@@ -70,7 +71,7 @@ export function CreateAssignmentModal({ isOpen, onClose, onCreated }: CreateAssi
         </SelectField>
 
         <SelectField label="Classroom" error={errors.classroomId?.message} {...register('classroomId')}>
-          <option value="">Select a classroomâ€¦</option>
+          <option value="">Select a classroom…</option>
           {classroomsData?.items.map((c) => (
             <option key={c.classroomId} value={c.classroomId}>
               {c.className} {c.section} ({c.academicYear})

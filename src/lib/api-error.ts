@@ -55,8 +55,8 @@ function normaliseDetails(raw: unknown): Record<string, string[]> | undefined {
   if (!raw || typeof raw !== 'object') return undefined;
 
   // Zod flatten() produces { fieldErrors: { field: string[] }, formErrors: string[] }
-  if ('fieldErrors' in raw && typeof (raw as any).fieldErrors === 'object') {
-    const fe = (raw as any).fieldErrors as Record<string, unknown>;
+  if ('fieldErrors' in raw && typeof (raw as Record<string, unknown>).fieldErrors === 'object') {
+    const fe = (raw as { fieldErrors: Record<string, unknown> }).fieldErrors;
     const out: Record<string, string[]> = {};
     for (const [key, val] of Object.entries(fe)) {
       if (Array.isArray(val)) out[key] = val.map(String);

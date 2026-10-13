@@ -1,4 +1,5 @@
-﻿import { useEffect, useMemo, useState } from 'react';
+/* eslint-disable @typescript-eslint/no-explicit-any */
+import { useEffect, useMemo, useState } from 'react';
 import { useQuery } from '@tanstack/react-query';
 import { useMyGrades } from '../../hooks/useGrades';
 import { useMyAcademicReports } from '../../hooks/useAcademicReports';
@@ -14,7 +15,7 @@ import { MdDownload, MdEmojiEvents, MdBarChart, MdSchool } from 'react-icons/md'
 import type { GradeCategory, Semester, StudentGradesParams, SubjectGradeBreakdown } from '../../types/grade';
 import type { AcademicReport } from '../../types/academic-report';
 
-// ── constants ─────────────────────────────────────────────────────────────────
+// -- constants -----------------------------------------------------------------
 
 const SEMESTER_LABELS: Record<Semester, string> = {
   SEMESTER_1: 'Semester 1',
@@ -35,7 +36,7 @@ const CATEGORY_STYLE: Record<GradeCategory, string> = {
   OTHER:      'bg-slate-100 text-slate-700',
 };
 
-// ── sub-components ────────────────────────────────────────────────────────────
+// -- sub-components ------------------------------------------------------------
 
 /** Animated percentage bar */
 function ScoreBar({ pct, pass }: { pct: number; pass: boolean }) {
@@ -74,8 +75,8 @@ function SubjectCard({ subject, idx }: { subject: SubjectGradeBreakdown; idx: nu
             {subject.subject.subjectName}
           </p>
           <p className="text-xs text-slate-400 mt-0.5">
-            {SEMESTER_LABELS[subject.semester]} · {subject.academicYear}
-            {subject.teacher && ` · ${subject.teacher.firstName} ${subject.teacher.lastName}`}
+            {SEMESTER_LABELS[subject.semester]} � {subject.academicYear}
+            {subject.teacher && ` � ${subject.teacher.firstName} ${subject.teacher.lastName}`}
           </p>
           <ScoreBar pct={pct} pass={pass} />
         </div>
@@ -88,7 +89,7 @@ function SubjectCard({ subject, idx }: { subject: SubjectGradeBreakdown; idx: nu
             {subject.totalScore} / {subject.totalMaxMarks}
           </p>
         </div>
-        <span className={`text-slate-400 text-xs ml-1 transition-transform duration-200 ${expanded ? 'rotate-180' : ''}`}>▼</span>
+        <span className={`text-slate-400 text-xs ml-1 transition-transform duration-200 ${expanded ? 'rotate-180' : ''}`}>?</span>
       </button>
 
       {/* Assessment breakdown */}
@@ -122,7 +123,7 @@ function SubjectCard({ subject, idx }: { subject: SubjectGradeBreakdown; idx: nu
                         </span>
                       </td>
                       <td className="px-4 py-2.5 text-right font-mono">
-                        {c.isReleased && c.score !== null ? c.score : <span className="text-slate-300">—</span>}
+                        {c.isReleased && c.score !== null ? c.score : <span className="text-slate-300">�</span>}
                       </td>
                       <td className="px-4 py-2.5 text-right font-mono text-slate-500">{c.maxMarks}</td>
                       <td className="px-4 py-2.5 text-right font-mono font-semibold">
@@ -206,7 +207,7 @@ function ReportTile({
   );
 }
 
-// ── main page ─────────────────────────────────────────────────────────────────
+// -- main page -----------------------------------------------------------------
 
 export function MyGradesPage() {
   const { data: profile } = useQuery({
@@ -289,7 +290,7 @@ export function MyGradesPage() {
 
       const htmlWithPrint = html.replace(
         '</body></html>',
-        `<script>window.onload=function(){setTimeout(function(){window.print();},600);};<\/script></body></html>`
+        `<script>window.onload=function(){setTimeout(function(){window.print();},600);};</script></body></html>`
       );
       const w = window.open('', '_blank');
       if (!w) return;
@@ -301,7 +302,7 @@ export function MyGradesPage() {
     }
   }
 
-  // ── Summary stats from current filtered grades ────────────────────────────
+  // -- Summary stats from current filtered grades ----------------------------
   const summaryStats = useMemo(() => {
     if (!gradesData || gradesData.length === 0) return null;
     const subjects = gradesData.filter((s) => s.totalMaxMarks > 0);
@@ -316,12 +317,12 @@ export function MyGradesPage() {
     return { avg: Math.round(avg * 10) / 10, best, passed, total: subjects.length };
   }, [gradesData]);
 
-  // ── Latest report for hero card ───────────────────────────────────────────
+  // -- Latest report for hero card -------------------------------------------
   const latestReport = sortedReports[0] ?? null;
 
   return (
     <div className="max-w-4xl">
-      {/* ── Page header ── */}
+      {/* -- Page header -- */}
       <div className="mb-1 flex flex-wrap items-start justify-between gap-3">
         <div>
           <h1 className="text-2xl font-semibold text-ink-900">Assessments</h1>
@@ -332,7 +333,7 @@ export function MyGradesPage() {
       </div>
       <LedgerRule />
 
-      {/* ── Hero summary cards ── */}
+      {/* -- Hero summary cards -- */}
       {(summaryStats || latestReport) && (
         <div className="mb-7 grid grid-cols-2 gap-4 sm:grid-cols-4">
           {/* Overall average */}
@@ -390,14 +391,14 @@ export function MyGradesPage() {
                 {latestReport.averageMark.toFixed(1)}%
               </p>
               <p className="text-xs text-slate-500">
-                {SEMESTER_LABELS[latestReport.semester as Semester]} · {latestReport.academicYear}
+                {SEMESTER_LABELS[latestReport.semester as Semester]} � {latestReport.academicYear}
               </p>
             </div>
           )}
         </div>
       )}
 
-      {/* ── Filters ── */}
+      {/* -- Filters -- */}
       <div className="mb-5 flex flex-wrap items-end gap-3">
         <SelectField label="Semester" className="min-w-[150px]"
           value={filters.semester ?? ''}
@@ -414,11 +415,11 @@ export function MyGradesPage() {
         </SelectField>
       </div>
 
-      {/* ── Subject cards ── */}
+      {/* -- Subject cards -- */}
       {isGradesLoading ? (
         <div className="flex items-center gap-2 py-16 text-slate-400">
           <span className="h-4 w-4 animate-spin rounded-full border-2 border-slate-200 border-t-pine-700" />
-          <span className="text-sm">Loading assessments…</span>
+          <span className="text-sm">Loading assessments�</span>
         </div>
       ) : !gradesData || gradesData.length === 0 ? (
         <EmptyState
@@ -437,7 +438,7 @@ export function MyGradesPage() {
         </div>
       )}
 
-      {/* ── Report cards ── */}
+      {/* -- Report cards -- */}
       <div className="mt-10">
         <div className="mb-3 flex items-center gap-2">
           <h2 className="text-base font-semibold text-ink-900">Report Cards</h2>
@@ -449,7 +450,7 @@ export function MyGradesPage() {
         </div>
 
         {isReportsLoading ? (
-          <p className="text-sm text-slate-400">Loading…</p>
+          <p className="text-sm text-slate-400">Loading�</p>
         ) : sortedReports.length === 0 ? (
           <div className="rounded-2xl border border-dashed border-slate-300 bg-white px-5 py-8 shadow-sm">
             <EmptyState

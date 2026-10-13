@@ -1,4 +1,4 @@
-ï»¿import { useState } from 'react';
+import { useState } from 'react';
 import { Link } from 'react-router-dom';
 import clsx from 'clsx';
 import {
@@ -23,7 +23,7 @@ function openPrintWindow(html: string) {
   if (!w) return;
   w.document.write(html.replace(
     '</body></html>',
-    '<script>window.onload=function(){setTimeout(function(){window.print();},600);};<\/script></body></html>'
+    '<script>window.onload=function(){setTimeout(function(){window.print();},600);};</script></body></html>'
   ));
   w.document.close();
   w.focus();
@@ -179,11 +179,11 @@ export function ParentDashboard() {
             </Link>
             {latestReport && (
               <>
-                <span className="text-slate-300">Â·</span>
+                <span className="text-slate-300">·</span>
                 <Button variant="ghost" onClick={() => void handleDownloadReportCard()} isLoading={isDownloadingReportCard}>
                   Download latest report card (PDF)
                 </Button>
-                <span className="text-slate-300">Â·</span>
+                <span className="text-slate-300">·</span>
                 <Button variant="ghost" onClick={() => void handleDownloadTranscript()} isLoading={isDownloadingTranscript}>
                   Download transcript (PDF)
                 </Button>

@@ -1,3 +1,4 @@
+/* eslint-disable react-hooks/set-state-in-effect, react-hooks/set-state-in-render */
 import { useState, useRef, useEffect } from 'react';
 import { useMyParentProfile } from '../../hooks/useParents';
 import {

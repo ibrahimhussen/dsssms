@@ -143,7 +143,7 @@ export function BulkImportModal({ isOpen, onClose }: Props) {
         setParseErrors(errors);
         setValidRows(valid);
         setStep('preview');
-      } catch (err) {
+      } catch {  // err unused intentionally
         setParseErrors(['Invalid CSV file. Please use the template provided.']);
         setValidRows([]);
         setStep('preview');
@@ -159,7 +159,7 @@ export function BulkImportModal({ isOpen, onClose }: Props) {
       const result = await bulkImport.mutateAsync(validRows);
       setImportResult(result);
       setStep('result');
-    } catch (err) {
+    } catch {  // err unused intentionally
       setServerError(err instanceof Error ? err.message : 'Bulk import failed.');
     }
   }

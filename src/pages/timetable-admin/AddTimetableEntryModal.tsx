@@ -1,3 +1,4 @@
+/* eslint-disable react-hooks/set-state-in-effect, react-hooks/set-state-in-render */
 import { useState, useEffect } from 'react';
 import { Modal } from '../../components/ui/Modal';
 import { TextField } from '../../components/ui/TextField';

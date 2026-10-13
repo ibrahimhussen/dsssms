@@ -1,4 +1,4 @@
-﻿import { useState, useMemo } from "react";
+import { useState, useMemo, useEffect } from "react";
 import { useSearchParams, Link } from "react-router-dom";
 import { useMyParentProfile } from "../../hooks/useParents";
 import { useStudentReportHistory, useStudentReportCard } from "../../hooks/useAcademicReports";
@@ -40,7 +40,7 @@ export function ParentReportCardPage() {
     ), [reports]
   );
 
-  useMemo(() => {
+  useEffect(() => {
     if (sortedReports.length > 0 && !selectedSemester) {
       setSelectedSemester(sortedReports[0].semester);
       setSelectedYear(sortedReports[0].academicYear);
@@ -82,7 +82,7 @@ export function ParentReportCardPage() {
       const w = window.open("", "_blank");
       if (!w) return;
       w.document.write(html.replace("</body></html>",
-        "<script>window.onload=function(){setTimeout(function(){window.print();},600);};<\/script></body></html>"));
+        "<script>window.onload=function(){setTimeout(function(){window.print();},600);};</script></body></html>"));
       w.document.close(); w.focus();
     } finally { setIsPrinting(false); }
   }

@@ -1,4 +1,5 @@
-﻿import { useMemo, useState } from 'react';
+/* eslint-disable no-useless-assignment */
+import { useMemo, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import {
   MdCheckCircle,
@@ -28,11 +29,11 @@ import { ConfirmDialog } from '../../components/ui/ConfirmDialog';
 import type { Semester } from '../../types/grade';
 import type { SubjectFinalization } from '../../types/finalization';
 
-// ── Constants ─────────────────────────────────────────────────────────────────
+// -- Constants -----------------------------------------------------------------
 
 const FALLBACK_GRADE_OPTIONS = ['Grade 9', 'Grade 10', 'Grade 11', 'Grade 12'];
 
-// ── Helpers ───────────────────────────────────────────────────────────────────
+// -- Helpers -------------------------------------------------------------------
 
 function currentAcademicYear(): string {
   const y = new Date().getFullYear();
@@ -53,7 +54,7 @@ function statusBadge(status: SubjectFinalization['status']) {
   }
 }
 
-// ── Summary panel ─────────────────────────────────────────────────────────────
+// -- Summary panel -------------------------------------------------------------
 
 interface SummaryPanelProps {
   classroom: { className: string; section: string } | undefined;
@@ -86,8 +87,8 @@ function SummaryPanel({
   // Not-ready reasons
   const blockers: string[] = [];
   subjects.forEach((s) => {
-    if (s.status === 'DRAFT')        blockers.push(`${s.subjectName}: Draft — not submitted for review`);
-    if (s.status === 'UNDER_REVIEW') blockers.push(`${s.subjectName}: Under Review — awaiting approval`);
+    if (s.status === 'DRAFT')        blockers.push(`${s.subjectName}: Draft � not submitted for review`);
+    if (s.status === 'UNDER_REVIEW') blockers.push(`${s.subjectName}: Under Review � awaiting approval`);
     if (s.missingResultsCount > 0)   blockers.push(`${s.subjectName}: ${s.missingResultsCount} student(s) missing results`);
     if (!s.teacherSubjectId)         blockers.push(`${s.subjectName}: No teacher assigned`);
   });
@@ -128,9 +129,9 @@ function SummaryPanel({
         <div>
           <p className="text-xs uppercase tracking-wide text-slate-400 mb-0.5">Finalization Summary</p>
           <p className="font-semibold text-ink-900">
-            {classroom ? `${classroom.className} — Section ${classroom.section}` : '—'}
+            {classroom ? `${classroom.className} � Section ${classroom.section}` : '�'}
             <span className="ml-2 font-normal text-slate-500 text-sm">
-              {academicYear} · {semesterLabel(semester)}
+              {academicYear} � {semesterLabel(semester)}
             </span>
           </p>
         </div>
@@ -179,10 +180,10 @@ function SummaryPanel({
             <div className="flex items-center gap-2">
               <MdWarningAmber className="h-4 w-4 shrink-0 text-gold-600" />
               <span className="text-sm font-semibold text-gold-700">
-                Not ready for finalization — {blockers.length} issue{blockers.length > 1 ? 's' : ''}
+                Not ready for finalization � {blockers.length} issue{blockers.length > 1 ? 's' : ''}
               </span>
             </div>
-            <span className="text-xs text-gold-600">{showBlockers ? 'Hide ▲' : 'Show ▼'}</span>
+            <span className="text-xs text-gold-600">{showBlockers ? 'Hide ?' : 'Show ?'}</span>
           </button>
           {showBlockers && (
             <ul className="mt-2 list-disc pl-8 space-y-1">
@@ -199,7 +200,7 @@ function SummaryPanel({
         <div className="flex items-center gap-2 border-t border-pine-100 bg-pine-50 px-5 py-2.5">
           <MdCheckCircle className="h-4 w-4 text-pine-700 shrink-0" />
           <p className="text-sm text-pine-800 font-semibold">
-            All subjects finalized — Academic Register is official.
+            All subjects finalized � Academic Register is official.
           </p>
         </div>
       )}
@@ -207,7 +208,7 @@ function SummaryPanel({
   );
 }
 
-// ── Main page ─────────────────────────────────────────────────────────────────
+// -- Main page -----------------------------------------------------------------
 
 export function FinalizationPage() {
   const navigate  = useNavigate();
@@ -217,7 +218,7 @@ export function FinalizationPage() {
 
   const { data: classroomsData } = useClassroomOptions();
 
-  // ── Cascading filters ─────────────────────────────────────────────────────
+  // -- Cascading filters -----------------------------------------------------
   const [grade, setGrade]               = useState('');
   const [academicYear, setAcademicYear] = useState(currentAcademicYear());
   const [classroomId, setClassroomId]   = useState<number>(0);
@@ -255,7 +256,7 @@ export function FinalizationPage() {
   const isGradeConfigured = Boolean(grade && academicYear && configuredSubjects !== undefined);
   void isGradeConfigured; // used implicitly via configuredSubjects.length
 
-  // ── Data ─────────────────────────────────────────────────────────────────
+  // -- Data -----------------------------------------------------------------
   const {
     data: subjectFinalizations,
     isLoading,
@@ -271,7 +272,7 @@ export function FinalizationPage() {
   const [actionError,           setActionError]           = useState<string | null>(null);
   const [classroomConfirmOpen,  setClassroomConfirmOpen]  = useState(false);
 
-  // ── Filtered rows ────────────────────────────────────────────────────────
+  // -- Filtered rows --------------------------------------------------------
   const displayedRows = useMemo(() => {
     if (!subjectFinalizations) return [];
     if (!teacherFilter) return subjectFinalizations;
@@ -283,22 +284,22 @@ export function FinalizationPage() {
   const teacherNames = useMemo(() => {
     const s = new Set<string>();
     subjectFinalizations?.forEach((f) => {
-      if (f.teacherName && f.teacherName !== '— No teacher assigned —') s.add(f.teacherName);
+      if (f.teacherName && f.teacherName !== '� No teacher assigned �') s.add(f.teacherName);
     });
     return Array.from(s).sort();
   }, [subjectFinalizations]);
 
-  // ── Computed readiness ────────────────────────────────────────────────────
+  // -- Computed readiness ----------------------------------------------------
   const allApproved = (subjectFinalizations?.length ?? 0) > 0 &&
     subjectFinalizations?.every((s) => s.status === 'APPROVED' || s.status === 'FINALIZED') === true;
   const noMissingResults = subjectFinalizations?.every((s) => s.missingResultsCount === 0) === true;
   const readyToFinalize = allApproved && noMissingResults;
   const allFinalized    = subjectFinalizations?.every((s) => s.status === 'FINALIZED') === true &&
     (subjectFinalizations?.length ?? 0) > 0;
-  // suppress unused-variable lint — both used inside SummaryPanel and isOversight guard
+  // suppress unused-variable lint � both used inside SummaryPanel and isOversight guard
   void readyToFinalize; void allFinalized;
 
-  // ── Actions ──────────────────────────────────────────────────────────────
+  // -- Actions --------------------------------------------------------------
   async function handleSubmitForReview(teacherSubjectId: number) {
     setActionError(null);
     try {
@@ -357,7 +358,7 @@ export function FinalizationPage() {
     setClassroomId(0);
   }
 
-  // ── Columns ──────────────────────────────────────────────────────────────
+  // -- Columns --------------------------------------------------------------
   const columns: Column<SubjectFinalization>[] = [
     {
       header: 'Subject',
@@ -397,12 +398,12 @@ export function FinalizationPage() {
       render: (f) =>
         f.reviewedByUser
           ? `${f.reviewedByUser.firstName} ${f.reviewedByUser.lastName}`
-          : '—',
+          : '�',
     },
     {
       header: 'Finalized At',
       render: (f) =>
-        f.finalizedAt ? new Date(f.finalizedAt).toLocaleDateString() : '—',
+        f.finalizedAt ? new Date(f.finalizedAt).toLocaleDateString() : '�',
     },
     {
       header: 'Actions',
@@ -450,13 +451,13 @@ export function FinalizationPage() {
     },
   ];
 
-  // ── Render ───────────────────────────────────────────────────────────────
+  // -- Render ---------------------------------------------------------------
   return (
     <div className="max-w-full">
       <h1 className="text-2xl">Results Finalization</h1>
       <LedgerRule />
 
-      {/* ── Filter card ── */}
+      {/* -- Filter card -- */}
       <div className="mb-5 rounded-2xl border border-slate-200 bg-white p-5 shadow-sm">
         <p className="mb-4 text-xs font-semibold uppercase tracking-wider text-slate-400">
           Select Classroom
@@ -483,7 +484,7 @@ export function FinalizationPage() {
             value={grade}
             onChange={(e) => handleGradeChange(e.target.value)}
           >
-            <option value="">Select grade…</option>
+            <option value="">Select grade�</option>
             {gradeOptions.map((g) => (
               <option key={g} value={g}>{g}</option>
             ))}
@@ -498,16 +499,16 @@ export function FinalizationPage() {
           >
             <option value="">
               {!grade || !academicYear
-                ? 'Select grade & year first…'
+                ? 'Select grade & year first�'
                 : filteredClassrooms.length === 0
                 ? 'No sections found'
-                : 'Select section…'}
+                : 'Select section�'}
             </option>
             {filteredClassrooms.map((c) => (
               <option key={c.classroomId} value={c.classroomId}>
                 {c.className} {c.section}
                 {c.homeroomTeacher
-                  ? ` — ${c.homeroomTeacher.firstName} ${c.homeroomTeacher.lastName}`
+                  ? ` � ${c.homeroomTeacher.firstName} ${c.homeroomTeacher.lastName}`
                   : ''}
               </option>
             ))}
@@ -542,7 +543,7 @@ export function FinalizationPage() {
           <div className="mt-3 flex items-start gap-2 rounded-lg border border-gold-200 bg-gold-50 px-3 py-2.5">
             <MdWarningAmber className="mt-0.5 h-4 w-4 shrink-0 text-gold-600" />
             <p className="text-sm text-gold-700">
-              No required subjects configured for <strong>{grade}</strong> — <strong>{academicYear}</strong>.{' '}
+              No required subjects configured for <strong>{grade}</strong> � <strong>{academicYear}</strong>.{' '}
               <button
                 type="button"
                 className="font-semibold underline hover:no-underline"
@@ -580,7 +581,7 @@ export function FinalizationPage() {
       {classroomId > 0 && isLoading && (
         <div className="flex items-center gap-2 py-12 text-slate-500">
           <span className="h-4 w-4 animate-spin rounded-full border-2 border-ink-900/15 border-t-pine-700" />
-          Loading finalization data…
+          Loading finalization data�
         </div>
       )}
 
