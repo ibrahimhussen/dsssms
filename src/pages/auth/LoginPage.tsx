@@ -13,6 +13,7 @@ import { loginFormSchema } from '../../lib/validation/auth';
 import type { LoginFormValues } from '../../lib/validation/auth';
 import { getPostLoginRedirect } from '../../lib/role-redirect';
 import { Button } from '../../components/ui/Button';
+import { useSystemSettings } from '../../hooks/useSystemSettings';
 
 // ── Inline field component — matches the existing TextField API but gives
 //    us full control over the password-field eye-icon placement ─────────────
@@ -75,6 +76,11 @@ export function LoginPage() {
   const location = useLocation();
   const [serverError, setServerError] = useState<string | null>(null);
   const [showPassword, setShowPassword] = useState(false);
+
+  // School name comes from system settings so it updates without a code change.
+  // Falls back to a generic label while loading or if settings are unavailable.
+  const { data: settings } = useSystemSettings();
+  const schoolName = settings?.schoolName ?? 'Student Management System';
 
   const {
     register,
@@ -142,7 +148,7 @@ export function LoginPage() {
           </div>
           <div>
             <p className="text-sm font-bold text-paper-50 leading-tight">DSSSMS</p>
-            <p className="text-xs text-paper-100/70 leading-tight">Dinsho Secondary School</p>
+            <p className="text-xs text-paper-100/70 leading-tight">{schoolName}</p>
           </div>
         </div>
 
@@ -153,9 +159,7 @@ export function LoginPage() {
 
           <div className="flex flex-col gap-2">
             <h2 className="font-display text-[2.25rem] font-semibold leading-tight text-paper-50">
-              Dinsho
-              <br />
-              Secondary School
+              {schoolName}
             </h2>
             <p className="text-[0.9375rem] leading-relaxed text-paper-100/70 max-w-[28ch]">
               Student Management System
@@ -263,7 +267,7 @@ export function LoginPage() {
 
           {/* Footer */}
           <p className="mt-5 text-center text-[0.75rem] text-slate-400">
-            Dinsho Secondary School &mdash; Authorized access only
+            {schoolName} &mdash; Authorized access only
           </p>
         </div>
       </div>

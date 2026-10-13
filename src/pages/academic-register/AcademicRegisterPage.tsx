@@ -17,6 +17,7 @@ import { useConfiguredGrades } from '../../hooks/useGradeSubjectConfig';
 import { useAcademicRegister, useGradeRegister } from '../../hooks/useAcademicRegister';
 import { useClassroomFinalization, useFinalizeClassroom } from '../../hooks/useFinalization';
 import { useAuth } from '../../context/AuthContext';
+import { useSystemSettings } from '../../hooks/useSystemSettings';
 import { academicRegisterApi } from '../../lib/academic-register-api';
 import { SelectField } from '../../components/ui/SelectField';
 import { Button } from '../../components/ui/Button';
@@ -72,7 +73,8 @@ function statusBadge(status: string) {
 function buildPrintHtml(
   metadata: NonNullable<ReturnType<typeof useAcademicRegister>['data']>['metadata'],
   subjects: NonNullable<ReturnType<typeof useAcademicRegister>['data']>['subjects'],
-  students: AcademicRegisterStudent[]
+  students: AcademicRegisterStudent[],
+  schoolName: string
 ): string {
   const subjectHeaders = subjects.map((s) => `<th class="subject-col">${s.subjectName}</th>`).join('');
   const rows = students.map((s, idx) => {
@@ -125,7 +127,7 @@ function buildPrintHtml(
     .sig{border-top:1px solid #333;padding-top:4px;text-align:center;font-size:8pt}
   </style></head><body>
   ${draftBanner}
-  <div class="school-name">Dinsho Secondary School</div>
+  <div class="school-name">${schoolName}</div>
   <div class="register-title">Class Roster</div>
   <div class="meta-grid">
     <div class="meta-item">Grade/Class: <span>${metadata.classroomLabel}</span></div>
@@ -332,6 +334,10 @@ export function AcademicRegisterPage() {
   const navigate = useNavigate();
   const { user } = useAuth();
 
+  // School name from system settings — used in print/export headers
+  const { data: settings } = useSystemSettings();
+  const schoolName = settings?.schoolName ?? 'School';
+
   // ── Filter state ────────────────────────────────────────────────────────────
   const [grade, setGrade]             = useState('');
   const [academicYear, setAcademicYear] = useState('');
@@ -453,7 +459,7 @@ export function AcademicRegisterPage() {
 
   function handlePrint() {
     if (!sectionData) return;
-    const html = buildPrintHtml(sectionData.metadata, sectionData.subjects, sectionData.students);
+    const html = buildPrintHtml(sectionData.metadata, sectionData.subjects, sectionData.students, schoolName);
     const w = window.open('', '_blank');
     if (!w) return;
     w.document.write(html);

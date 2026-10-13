@@ -27,6 +27,7 @@ import { Modal } from '../../components/ui/Modal';
 import { Button } from '../../components/ui/Button';
 import { ConfirmDialog } from '../../components/ui/ConfirmDialog';
 import { studentsApi } from '../../lib/students-api';
+import { useSystemSettings } from '../../hooks/useSystemSettings';
 import type { BulkGenerateNewResult } from '../../types/student';
 
 interface Props {
@@ -43,6 +44,10 @@ export function ClassCredentialsModal({ classroomId, classroomLabel, onClose }: 
   const [isWorking, setIsWorking]       = useState(false);
   const [workError, setWorkError]       = useState<string | null>(null);
   const [result, setResult]             = useState<OperationResult | null>(null);
+
+  // School name from system settings (shares cache with parent page — no extra request)
+  const { data: settings } = useSystemSettings();
+  const schoolName = settings?.schoolName ?? 'School';
 
   // ── Preview: how many students need passwords generated ────────────────────
   const { data: preview, isLoading: previewLoading, refetch: refetchPreview } = useQuery({
@@ -120,7 +125,7 @@ export function ClassCredentialsModal({ classroomId, classroomLabel, onClose }: 
     <h2>Student Login Credentials — ${classroomLabel}</h2>
     <div class="sub">
       Generated: ${new Date().toLocaleDateString()} &nbsp;·&nbsp;
-      DSSSMS — Dinsho Secondary School
+      DSSSMS — ${schoolName}
     </div>
     <div class="warning">
       ⚠ Confidential — For authorized distribution only.
