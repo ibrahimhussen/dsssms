@@ -57,9 +57,16 @@ const SEED_PASSWORD: string = DEFAULT_PASSWORD;
 
 const CURRENT_ACADEMIC_YEAR = '2026/27';
 
-// Dev convenience only: reseeding resets every demo account's password back to
-// DEFAULT_PASSWORD even if it already existed. Never enable this in production.
-const RESET_PASSWORDS_ON_RESEED = true;
+// Safety flag: when false (the default), reseeding NEVER silently overwrites an
+// existing user's password. Set to true only in a controlled local dev environment
+// when you explicitly want all demo accounts reset to SEED_DEFAULT_PASSWORD.
+//
+// NEVER set this to true in any environment accessible to real users —
+// it would reset every account's password, including production staff.
+//
+// Override via environment variable to avoid accidental commits:
+//   SEED_RESET_PASSWORDS=true npx prisma db seed
+const RESET_PASSWORDS_ON_RESEED = process.env.SEED_RESET_PASSWORDS === 'true';
 
 async function hash(password: string): Promise<string> {
   return bcrypt.hash(password, 12);
@@ -76,17 +83,17 @@ async function uniqueUsername(base: string): Promise<string> {
   return candidate;
 }
 
-/** Resets an existing user's password to DEFAULT_PASSWORD, if enabled. */
+/** Skips (safe default) or resets an existing user's password, controlled by SEED_RESET_PASSWORDS env var. */
 async function resetPasswordIfEnabled(username: string, label: string): Promise<void> {
   if (!RESET_PASSWORDS_ON_RESEED) {
-    console.log(`  ${label} already exists, skipping.`);
+    console.log(`  ${label} already exists — skipping (set SEED_RESET_PASSWORDS=true to force reset).`);
     return;
   }
   await prisma.user.update({
     where: { username },
     data: { passwordHash: await hash(SEED_PASSWORD) },
   });
-  console.log(`  ${label} already exists — password reset (use configured dev credentials)`);
+  console.log(`  ${label} already exists — password reset (SEED_RESET_PASSWORDS=true)`);
 }
 
 async function main(): Promise<void> {
