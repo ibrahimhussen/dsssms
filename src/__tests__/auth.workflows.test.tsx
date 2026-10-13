@@ -25,6 +25,12 @@ vi.mock('../context/AuthContext', () => ({
 // Mock react-icons so SVG imports don't crash jsdom
 vi.mock('react-icons/md', () => { const i = () => <span />; return { MdVisibility:i,MdVisibilityOff:i,MdErrorOutline:i,MdSchool:i,MdAssessment:i,MdDescription:i,MdFactCheck:i,MdMenuBook:i,MdPrint:i,MdDownload:i,MdEmojiEvents:i,MdBarChart:i,MdSend:i,MdChat:i,MdInbox:i,MdArrowBack:i,MdPerson:i,MdAdd:i,MdDelete:i,MdEdit:i,MdCheck:i,MdClose:i,MdSearch:i,MdRefresh:i,MdWarning:i,MdInfo:i,MdCheckCircle:i,MdNotifications:i,MdLogout:i,MdMenu:i }; });
 
+// Mock useSystemSettings so LoginPage renders without a QueryClientProvider
+vi.mock('../hooks/useSystemSettings', () => ({
+  useSystemSettings: () => ({ data: { schoolName: 'Test School' }, isLoading: false }),
+  useUpdateSystemSettings: () => ({ mutate: vi.fn() }),
+}));
+
 vi.mock('../components/ui/Button', () => ({
   Button: ({
     children, isLoading: _l, ...props
