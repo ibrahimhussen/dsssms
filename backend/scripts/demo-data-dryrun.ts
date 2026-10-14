@@ -145,7 +145,7 @@ async function main(): Promise<void> {
 
   console.log(`\n  [Parent accounts] (${demoParentIds.length} demo parents)`);
   if (demoParentIds.length > 0) {
-    const parentMsgs = await prisma.notification.count({ where: { recipientId: { in: demoParents.map(u => u.userId) } } });
+    const parentMsgs = await prisma.notification.count({ where: { recipientUserId: { in: demoParents.map(u => u.userId) } } });
     console.log(`    Notification (parent) : ${parentMsgs}`);
   }
 
