@@ -7,6 +7,7 @@ import { validate } from '../../middlewares/validate.middleware';
 import {
   createStaffSchema,
   listUsersQuerySchema,
+  replaceOfficeSchema,
   userIdParamSchema,
   updateUserStatusSchema,
 } from './validation/user.validation';
@@ -17,9 +18,28 @@ const router = Router();
 
 router.use(authenticate);
 
-
-
 router.post('/staff', authorize(RoleName.ADMIN), validate(createStaffSchema), userController.createStaff);
+
+/**
+ * Atomically replaces the current active Director or Vice Director.
+ * ADMIN only. Returns the outgoing user (now INACTIVE), incoming user, and one-time credentials.
+ */
+router.post(
+  '/staff/replace-office',
+  authorize(RoleName.ADMIN),
+  validate(replaceOfficeSchema),
+  userController.replaceOfficeHolder,
+);
+
+/**
+ * Returns the current active Director and Vice Director (at most one each).
+ * Accessible to ADMIN so the UI can show the current officeholders and block duplicates.
+ */
+router.get(
+  '/office-holders',
+  authorize(RoleName.ADMIN),
+  userController.getOfficeHolders,
+);
 
 router.get('/', authorize(RoleName.ADMIN), validate(listUsersQuerySchema, 'query'), userController.list);
 

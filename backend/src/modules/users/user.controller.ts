@@ -6,6 +6,7 @@ import {
   CreateStaffInput,
   ListUsersQuery,
   listUsersQuerySchema,
+  ReplaceOfficeInput,
   UserIdParam,
   UpdateUserStatusInput,
 } from './validation/user.validation';
@@ -19,6 +20,21 @@ export class UserController {
       message: 'Staff account created. Share the temporary credentials securely — they will not be shown again.',
       data: result,
     });
+  });
+
+  replaceOfficeHolder = asyncHandler(async (req: Request, res: Response) => {
+    const input = req.body as ReplaceOfficeInput;
+    const result = await userService.replaceOfficeHolder(input, { userId: req.user!.userId, ipAddress: req.ip });
+    ApiResponse.success(res, {
+      statusCode: 201,
+      message: 'Officeholder replaced. Share the new temporary credentials securely — they will not be shown again.',
+      data: result,
+    });
+  });
+
+  getOfficeHolders = asyncHandler(async (_req: Request, res: Response) => {
+    const data = await userService.getOfficeHolders();
+    ApiResponse.success(res, { message: 'Office holders retrieved', data });
   });
 
   list = asyncHandler(async (req: Request, res: Response) => {
