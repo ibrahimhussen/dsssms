@@ -53,3 +53,26 @@ export interface GrantPermissionInput {
   permission: string;
   expiresAt?: string; // ISO datetime string, optional — null means permanent
 }
+
+/** Current active Director and Vice Director (at most one each). */
+export interface OfficeHolders {
+  director: UserSummary | null;
+  viceDirector: UserSummary | null;
+}
+
+/** Payload to replace the current active Director or Vice Director. */
+export interface ReplaceOfficeInput {
+  role: 'DIRECTOR' | 'VICE_DIRECTOR';
+  /** userId of the current active officeholder to be deactivated. */
+  outgoingUserId: number;
+  firstName: string;
+  lastName: string;
+  email?: string;
+}
+
+/** Returned after replacing an officeholder — outgoing (now INACTIVE), incoming (new), and one-time credentials. */
+export interface ReplaceOfficeResult {
+  outgoing: UserSummary;
+  incoming: UserSummary;
+  credentials: IssuedCredentials;
+}

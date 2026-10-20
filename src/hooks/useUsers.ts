@@ -1,10 +1,11 @@
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { usersApi } from '../lib/users-api';
-import type { CreateStaffInput, GrantPermissionInput, ListUsersParams } from '../types/user';
+import type { CreateStaffInput, GrantPermissionInput, ListUsersParams, ReplaceOfficeInput } from '../types/user';
 import type { UserStatus } from '../types/auth';
 
-const usersQueryKey = (params: ListUsersParams) => ['users', params] as const;
-const permissionsQueryKey = (userId: number) => ['users', userId, 'permissions'] as const;
+const usersQueryKey      = (params: ListUsersParams) => ['users', params] as const;
+const permissionsQueryKey = (userId: number)         => ['users', userId, 'permissions'] as const;
+const officeHoldersKey    = ()                        => ['users', 'office-holders'] as const;
 
 export function useUsers(params: ListUsersParams) {
   return useQuery({
@@ -18,6 +19,24 @@ export function useCreateStaff() {
   const queryClient = useQueryClient();
   return useMutation({
     mutationFn: (input: CreateStaffInput) => usersApi.createStaff(input),
+    onSuccess: () => {
+      void queryClient.invalidateQueries({ queryKey: ['users'] });
+    },
+  });
+}
+
+export function useOfficeHolders() {
+  return useQuery({
+    queryKey: officeHoldersKey(),
+    queryFn: () => usersApi.getOfficeHolders(),
+    staleTime: 30_000,
+  });
+}
+
+export function useReplaceOfficeHolder() {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: (input: ReplaceOfficeInput) => usersApi.replaceOfficeHolder(input),
     onSuccess: () => {
       void queryClient.invalidateQueries({ queryKey: ['users'] });
     },

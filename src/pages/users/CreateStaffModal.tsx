@@ -6,7 +6,7 @@ import { Modal } from '../../components/ui/Modal';
 import { TextField } from '../../components/ui/TextField';
 import { SelectField } from '../../components/ui/SelectField';
 import { Button } from '../../components/ui/Button';
-import { useCreateStaff } from '../../hooks/useUsers';
+import { useCreateStaff, useOfficeHolders } from '../../hooks/useUsers';
 import { createStaffFormSchema } from '../../lib/validation/user';
 import type { CreateStaffFormValues } from '../../lib/validation/user';
 import type { CreateStaffResult } from '../../types/user';
@@ -19,7 +19,12 @@ interface CreateStaffModalProps {
 
 export function CreateStaffModal({ isOpen, onClose, onCreated }: CreateStaffModalProps) {
   const createStaff = useCreateStaff();
+  const { data: officeHolders } = useOfficeHolders();
   const [serverError, setServerError] = useState<string | null>(null);
+
+  // Whether each officeholder slot is already filled
+  const directorTaken     = Boolean(officeHolders?.director);
+  const viceDirectorTaken = Boolean(officeHolders?.viceDirector);
 
   const {
     register,
@@ -59,15 +64,37 @@ export function CreateStaffModal({ isOpen, onClose, onCreated }: CreateStaffModa
     onClose();
   }
 
+  const isOfficeholderBlocked =
+    (selectedRole === 'DIRECTOR' && directorTaken) ||
+    (selectedRole === 'VICE_DIRECTOR' && viceDirectorTaken);
+
   return (
     <Modal title="Add staff account" isOpen={isOpen} onClose={handleClose}>
       <form onSubmit={(e) => void handleSubmit(onSubmit)(e)} noValidate>
         <SelectField label="Role" error={errors.role?.message} {...register('role')}>
           <option value="TEACHER">Teacher</option>
-          <option value="VICE_DIRECTOR">Vice Director</option>
-          <option value="DIRECTOR">Director</option>
+          <option value="VICE_DIRECTOR" disabled={viceDirectorTaken}>
+            {`Vice Director${viceDirectorTaken ? ' — already assigned (use Replace)' : ''}`}
+          </option>
+          <option value="DIRECTOR" disabled={directorTaken}>
+            {`Director${directorTaken ? ' — already assigned (use Replace)' : ''}`}
+          </option>
           <option value="ADMIN">Administrator</option>
         </SelectField>
+
+        {/* Contextual warning when an officeholder slot is already filled */}
+        {selectedRole === 'DIRECTOR' && directorTaken && (
+          <p className="mb-3 rounded-lg border border-gold-200 bg-gold-50 px-3 py-2 text-sm text-gold-700">
+            An active Director already exists. Use the{' '}
+            <strong>Replace</strong> action in the Staff Accounts table to appoint a new one.
+          </p>
+        )}
+        {selectedRole === 'VICE_DIRECTOR' && viceDirectorTaken && (
+          <p className="mb-3 rounded-lg border border-gold-200 bg-gold-50 px-3 py-2 text-sm text-gold-700">
+            An active Vice Director already exists. Use the{' '}
+            <strong>Replace</strong> action in the Staff Accounts table to appoint a new one.
+          </p>
+        )}
 
         <div className="grid grid-cols-2 gap-x-4">
           <TextField label="First name" error={errors.firstName?.message} {...register('firstName')} />
@@ -96,7 +123,7 @@ export function CreateStaffModal({ isOpen, onClose, onCreated }: CreateStaffModa
           <Button type="button" variant="ghost" onClick={handleClose}>
             Cancel
           </Button>
-          <Button type="submit" isLoading={isSubmitting}>
+          <Button type="submit" isLoading={isSubmitting} disabled={isOfficeholderBlocked}>
             Create account
           </Button>
         </div>

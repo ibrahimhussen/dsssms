@@ -1,7 +1,17 @@
 import { apiClient, unwrap, unwrapPaginated } from './api-client';
 import { cleanParams } from './clean-params';
 import type { ApiResponse } from '../types/api';
-import type { CreateStaffInput, CreateStaffResult, ListUsersParams, UserSummary, UserPermission, GrantPermissionInput } from '../types/user';
+import type {
+  CreateStaffInput,
+  CreateStaffResult,
+  ListUsersParams,
+  OfficeHolders,
+  ReplaceOfficeInput,
+  ReplaceOfficeResult,
+  UserSummary,
+  UserPermission,
+  GrantPermissionInput,
+} from '../types/user';
 import type { UserStatus } from '../types/auth';
 
 export const usersApi = {
@@ -20,8 +30,21 @@ export const usersApi = {
     return unwrap(apiClient.get<ApiResponse<UserSummary>>(`/users/${userId}`));
   },
 
+  /** Returns the current active Director and Vice Director (at most one each). */
+  getOfficeHolders() {
+    return unwrap(apiClient.get<ApiResponse<OfficeHolders>>('/users/office-holders'));
+  },
+
   createStaff(input: CreateStaffInput) {
     return unwrap(apiClient.post<ApiResponse<CreateStaffResult>>('/users/staff', input));
+  },
+
+  /**
+   * Atomically replaces the current active Director or Vice Director.
+   * Deactivates the outgoing user and creates the incoming user in one transaction.
+   */
+  replaceOfficeHolder(input: ReplaceOfficeInput) {
+    return unwrap(apiClient.post<ApiResponse<ReplaceOfficeResult>>('/users/staff/replace-office', input));
   },
 
   updateStatus(userId: number, status: UserStatus) {

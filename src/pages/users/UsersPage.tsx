@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { useUsers, useUpdateUserStatus, useResetUserPassword } from '../../hooks/useUsers';
+import { useUsers, useUpdateUserStatus, useResetUserPassword, useOfficeHolders } from '../../hooks/useUsers';
 import { Table } from '../../components/ui/Table';
 import type { Column } from '../../components/ui/Table';
 import { Pagination } from '../../components/ui/Pagination';
@@ -11,6 +11,7 @@ import { LedgerRule } from '../../components/ui/LedgerRule';
 import { CredentialsDialog } from '../../components/ui/CredentialsDialog';
 import { ErrorMessage } from '../../components/ui/ErrorMessage';
 import { CreateStaffModal } from './CreateStaffModal';
+import { ReplaceOfficeModal } from './ReplaceOfficeModal';
 import { UserPermissionsModal } from './UserPermissionsModal';
 import { getRoleLabel } from '../../lib/role-labels';
 import type { UserSummary, CreateStaffResult, ListUsersParams } from '../../types/user';
@@ -27,11 +28,13 @@ function statusTone(status: UserStatus): 'positive' | 'warning' | 'danger' {
 export function UsersPage() {
   const [filters, setFilters] = useState<ListUsersParams>({ page: 1, limit: 20 });
   const [isCreateOpen, setCreateOpen] = useState(false);
+  const [replaceTarget, setReplaceTarget] = useState<{ role: 'DIRECTOR' | 'VICE_DIRECTOR'; user: UserSummary } | null>(null);
   const [permissionsUser, setPermissionsUser] = useState<UserSummary | null>(null);
   const [issuedCredentials, setIssuedCredentials] = useState<CreateStaffResult | null>(null);
   const [resetResult, setResetResult] = useState<{ username: string; temporaryPassword: string } | null>(null);
 
   const { data, isLoading, error, refetch } = useUsers(filters);
+  const { data: officeHolders } = useOfficeHolders();
   const updateStatus = useUpdateUserStatus();
   const resetPassword = useResetUserPassword();
   const [statusError, setStatusError] = useState<string | null>(null);
@@ -77,6 +80,17 @@ export function UsersPage() {
           <Button variant="ghost" onClick={() => setPermissionsUser(u)}>
             Permissions
           </Button>
+          {/* Replace action — only for the current active Director/ViceDirector */}
+          {u.role === 'DIRECTOR' && u.status === 'ACTIVE' && (
+            <Button variant="ghost" onClick={() => setReplaceTarget({ role: 'DIRECTOR', user: u })}>
+              Replace
+            </Button>
+          )}
+          {u.role === 'VICE_DIRECTOR' && u.status === 'ACTIVE' && (
+            <Button variant="ghost" onClick={() => setReplaceTarget({ role: 'VICE_DIRECTOR', user: u })}>
+              Replace
+            </Button>
+          )}
           <Button variant="ghost" onClick={() => void handleToggleStatus(u)} disabled={updateStatus.isPending}>
             {u.status === 'ACTIVE' ? 'Deactivate' : 'Activate'}
           </Button>
@@ -92,6 +106,42 @@ export function UsersPage() {
     <div className="max-w-full">
       <h1 className="text-2xl">Staff Accounts</h1>
       <LedgerRule />
+
+      {/* Office-holder status panel */}
+      {officeHolders && (
+        <div className="mb-5 grid grid-cols-1 gap-3 sm:grid-cols-2">
+          {/* Director slot */}
+          <div className={`rounded-xl border px-4 py-3 ${officeHolders.director ? 'border-pine-200 bg-pine-50' : 'border-slate-200 bg-slate-50'}`}>
+            <p className="text-xs font-semibold uppercase tracking-wide text-slate-500">Director</p>
+            {officeHolders.director ? (
+              <div className="mt-1 flex items-center justify-between gap-2">
+                <div>
+                  <p className="text-sm font-medium text-ink-900">{officeHolders.director.fullName}</p>
+                  <p className="font-mono text-xs text-slate-500">{officeHolders.director.username}</p>
+                </div>
+                <Badge tone="positive">Active</Badge>
+              </div>
+            ) : (
+              <p className="mt-1 text-sm text-slate-400 italic">No active Director</p>
+            )}
+          </div>
+          {/* Vice Director slot */}
+          <div className={`rounded-xl border px-4 py-3 ${officeHolders.viceDirector ? 'border-pine-200 bg-pine-50' : 'border-slate-200 bg-slate-50'}`}>
+            <p className="text-xs font-semibold uppercase tracking-wide text-slate-500">Vice Director</p>
+            {officeHolders.viceDirector ? (
+              <div className="mt-1 flex items-center justify-between gap-2">
+                <div>
+                  <p className="text-sm font-medium text-ink-900">{officeHolders.viceDirector.fullName}</p>
+                  <p className="font-mono text-xs text-slate-500">{officeHolders.viceDirector.username}</p>
+                </div>
+                <Badge tone="positive">Active</Badge>
+              </div>
+            ) : (
+              <p className="mt-1 text-sm text-slate-400 italic">No active Vice Director</p>
+            )}
+          </div>
+        </div>
+      )}
 
       <div className="mb-5 flex flex-wrap items-center justify-between gap-4">
         <div className="flex flex-wrap items-end gap-3">
@@ -156,6 +206,14 @@ export function UsersPage() {
           setIssuedCredentials(result);
         }}
       />
+
+      {replaceTarget && (
+        <ReplaceOfficeModal
+          role={replaceTarget.role}
+          outgoing={replaceTarget.user}
+          onClose={() => setReplaceTarget(null)}
+        />
+      )}
 
       <UserPermissionsModal
         user={permissionsUser}
