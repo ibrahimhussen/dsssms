@@ -1,8 +1,8 @@
 /* eslint-disable @typescript-eslint/no-unused-vars, @typescript-eslint/no-explicit-any */
 /**
- * Phase 4.16 — Remaining Page Workflow Tests
+ * Phase 4.16 ï¿½ Remaining Page Workflow Tests
  * Smoke-tests every major page: renders without crash, shows a heading/text.
- * DATABASE SAFETY: all hooks/APIs mocked — no real network or DB.
+ * DATABASE SAFETY: all hooks/APIs mocked ï¿½ no real network or DB.
  */
 import { describe, it, expect, vi, beforeEach } from "vitest";
 import { render, screen } from "@testing-library/react";
@@ -29,13 +29,13 @@ vi.mock("../components/ui/Modal",        () => ({ Modal: ({ children, isOpen }: 
 vi.mock("../components/ui/Tabs",         () => ({ Tabs: ({ children }: { children: React.ReactNode }) => <div>{children}</div>, TabList: ({ children }: { children: React.ReactNode }) => <div>{children}</div>, Tab: ({ children }: { children: React.ReactNode }) => <button>{children}</button>, TabPanel: ({ children }: { children: React.ReactNode }) => <div>{children}</div> }));
 vi.mock("../components/ui/Table",        () => ({ Table: ({ children }: { children: React.ReactNode }) => <table>{children}</table> }));
 
-// Hook mocks — exact export names from each hooks file
+// Hook mocks ï¿½ exact export names from each hooks file
 vi.mock("../hooks/useNotifications",           () => { const h = () => ({ data: undefined, isLoading: false, mutateAsync: () => Promise.resolve(), mutate: () => {} }); return { useMyInbox: h, useMarkNotificationRead: h, useMarkAllNotificationsRead: h, useDeleteNotification: h, useSendToParents: h, useBroadcastNotification: h, useSentAnnouncements: h }; });
 vi.mock("../hooks/useStudents",                () => { const h = () => ({ data: undefined, isLoading: false, mutateAsync: () => Promise.resolve(), mutate: () => {} }); return { useStudents: h, useStudent: h, useStudentEnrollmentHistory: h, useCreateStudent: h, useBulkImportStudents: h, useTransferOutStudent: h, useMyStudentProfile: h }; });
 vi.mock("../hooks/useAttendance",              () => { const h = () => ({ data: undefined, isLoading: false, mutateAsync: () => Promise.resolve(), mutate: () => {} }); return { useClassroomAttendance: h, useMarkBulkAttendance: h, useMyAttendanceHistory: h, useStudentAttendanceSummary: h, useStudentAttendanceHistory: h }; });
 vi.mock("../hooks/useFinalization",            () => { const h = () => ({ data: undefined, isLoading: false, mutateAsync: () => Promise.resolve(), mutate: () => {} }); return { useSubmitForReview: h, useReviewSubject: h, useFinalizeSubject: h, useFinalizeClassroom: h, useSubjectFinalization: h, useClassroomFinalization: h, useClassroomSubjectFinalizations: h, useCorrectSubjectFinalization: h, useCorrectClassroomFinalization: h }; });
 vi.mock("../hooks/useAcademicRegister",        () => { const h = () => ({ data: undefined, isLoading: false }); return { useAcademicRegister: h, useGradeRegister: h }; });
-vi.mock("../hooks/useUsers",                   () => { const h = () => ({ data: undefined, isLoading: false, mutateAsync: () => Promise.resolve(), mutate: () => {} }); return { useUsers: h, useCreateStaff: h, useUpdateUserStatus: h, useResetUserPassword: h, useUserPermissions: h, useGrantPermission: h, useRevokePermission: h }; });
+vi.mock("../hooks/useUsers",                   () => { const h = () => ({ data: undefined, isLoading: false, mutateAsync: () => Promise.resolve(), mutate: () => {} }); return { useUsers: h, useCreateStaff: h, useUpdateUserStatus: h, useResetUserPassword: h, useUserPermissions: h, useGrantPermission: h, useRevokePermission: h, useOfficeHolders: h, useReplaceOfficeHolder: h }; });
 vi.mock("../hooks/useClassrooms",              () => { const h = () => ({ data: undefined, isLoading: false, mutateAsync: () => Promise.resolve(), mutate: () => {} }); return { useClassroomOptions: h, useClassrooms: h, useCreateClassroom: h, useDeleteClassroom: h }; });
 vi.mock("../hooks/useSubjects",                () => { const h = () => ({ data: undefined, isLoading: false, mutateAsync: () => Promise.resolve(), mutate: () => {} }); return { useSubjectOptions: h, useSubjects: h, useCreateSubject: h, useDeleteSubject: h }; });
 vi.mock("../hooks/usePromotion",               () => { const h = () => ({ data: undefined, isLoading: false, mutateAsync: () => Promise.resolve(), mutate: () => {} }); return { usePromotionBatches: h, usePromotionBatch: h, useStudentEnrollmentHistory: h, useCreatePromotionBatch: h, useUpdatePromotionEntry: h, useBulkAssignClassroom: h, useSubmitPromotionBatch: h, useApprovePromotionBatch: h, useRejectPromotionBatch: h, useCorrectPromotionEntry: h }; });
@@ -153,7 +153,7 @@ const PAGES: PageDef[] = [
   { name: "ConductPage",           El: ConductPage,           role: "DIRECTOR" },
 ];
 
-describe("Page smoke tests — render without crash", () => {
+describe("Page smoke tests ï¿½ render without crash", () => {
   beforeEach(() => vi.clearAllMocks());
 
   for (const { name, El, role } of PAGES) {
