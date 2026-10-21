@@ -2,6 +2,7 @@ import { useRef, useState } from 'react';
 import { Modal } from '../../components/ui/Modal';
 import { Button } from '../../components/ui/Button';
 import { useBulkImportStudents } from '../../hooks/useStudents';
+import { parseDateString, meetsMinimumAdmissionAge, MINIMUM_ADMISSION_AGE } from '../../lib/age';
 import type { CreateStudentInput, BulkImportResult } from '../../types/student';
 
 interface Props {
@@ -29,7 +30,7 @@ const TEMPLATE_ROWS: ImportRow[] = [
     firstName: 'Fatima',
     lastName: 'Ahmed',
     gender: 'F',
-    dateOfBirth: '2010-03-15',
+    dateOfBirth: '2008-03-15',
     classroomId: 1,
     previousSchoolName: 'Dinsho Primary School',
     previousSchoolType: 'Primary',
@@ -91,6 +92,21 @@ function validateRows(rows: unknown[]): { valid: CreateStudentInput[]; errors: s
     }
     if (!r.dateOfBirth || r.dateOfBirth.trim() === '') {
       errors.push(`Row ${lineNum}: Missing "dateOfBirth" (use YYYY-MM-DD)`);
+      return;
+    }
+    const dob = parseDateString(r.dateOfBirth.trim());
+    if (!dob) {
+      errors.push(`Row ${lineNum}: "dateOfBirth" is not a valid date — use YYYY-MM-DD (e.g. 2008-03-15)`);
+      return;
+    }
+    if (dob > new Date()) {
+      errors.push(`Row ${lineNum}: "dateOfBirth" cannot be in the future`);
+      return;
+    }
+    if (!meetsMinimumAdmissionAge(dob)) {
+      errors.push(
+        `Row ${lineNum}: ${r.firstName} ${r.lastName} must be at least ${MINIMUM_ADMISSION_AGE} years old at admission`,
+      );
       return;
     }
     const classroomId = parseInt(r.classroomId, 10);
@@ -159,7 +175,7 @@ export function BulkImportModal({ isOpen, onClose }: Props) {
       const result = await bulkImport.mutateAsync(validRows);
       setImportResult(result);
       setStep('result');
-    } catch {  // err unused intentionally
+    } catch (err) {  // err used below
       setServerError(err instanceof Error ? err.message : 'Bulk import failed.');
     }
   }

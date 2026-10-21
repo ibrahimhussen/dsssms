@@ -14,6 +14,7 @@ import type { TransferAdmissionFormValues } from '../../lib/validation/student';
 import type { CreateStudentResult } from '../../types/student';
 import { PreviousAcademicSummaryEditor } from './PreviousAcademicSummaryEditor';
 import type { PreviousAcademicSummary } from './PreviousAcademicSummaryEditor';
+import { ageInYears, parseDateString, MINIMUM_ADMISSION_AGE } from '../../lib/age';
 
 interface Props {
   isOpen: boolean;
@@ -39,6 +40,11 @@ export function TransferAdmissionModal({ isOpen, onClose, onCreated }: Props) {
   });
 
   const addGuardian = watch('addGuardian');
+  const dobValue    = watch('dateOfBirth');
+
+  const dobDate     = dobValue ? parseDateString(dobValue) : null;
+  const computedAge = dobDate  ? ageInYears(dobDate)       : null;
+  const ageIsValid  = computedAge !== null && computedAge >= MINIMUM_ADMISSION_AGE;
 
   async function onSubmit(values: TransferAdmissionFormValues) {
     setServerError(null);
@@ -111,6 +117,12 @@ export function TransferAdmissionModal({ isOpen, onClose, onCreated }: Props) {
             <option value="F">Female</option>
           </SelectField>
           <TextField label="Date of birth" type="date" error={errors.dateOfBirth?.message} {...register('dateOfBirth')} />
+          {computedAge !== null && !errors.dateOfBirth && (
+            <p className={`-mt-3 mb-3 text-xs ${ageIsValid ? 'text-pine-700' : 'text-gold-700'}`}>
+              Age at admission: <strong>{computedAge} year{computedAge !== 1 ? 's' : ''}</strong>
+              {!ageIsValid && ` — must be at least ${MINIMUM_ADMISSION_AGE}`}
+            </p>
+          )}
         </div>
         <TextField label="Address (optional)" error={errors.address?.message} {...register('address')} />
         <SelectField label="Admission Classroom" error={errors.classroomId?.message} {...register('classroomId')}>

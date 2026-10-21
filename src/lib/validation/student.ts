@@ -1,4 +1,5 @@
 import { z } from 'zod';
+import { meetsMinimumAdmissionAge, MINIMUM_ADMISSION_AGE, parseDateString } from '../age';
 
 // ── Shared Guardian Section ────────────────────────────────────────────────────
 
@@ -8,6 +9,27 @@ const guardianSection = z.object({
   guardianPhoneNumber: z.string().trim().max(20).optional(),
   guardianRelationship: z.enum(['FATHER', 'MOTHER', 'GUARDIAN', 'OTHER']).optional(),
 });
+
+// ── Shared dateOfBirth refines ────────────────────────────────────────────────
+// The HTML <input type="date"> returns a YYYY-MM-DD string, not a Date object.
+// We validate the string with two schema-level refines so the error message
+// is attached to the dateOfBirth field in the form.
+
+/** Refine: the string must parse to a valid, non-future date. */
+function dobIsValidAndNotFuture(data: { dateOfBirth: string }) {
+  if (!data.dateOfBirth) return true; // presence is checked by z.string().min(1)
+  const dob = parseDateString(data.dateOfBirth);
+  if (!dob) return false; // unparseable
+  return dob <= new Date();
+}
+
+/** Refine: the student must be at least MINIMUM_ADMISSION_AGE years old today. */
+function dobMeetsMinimumAge(data: { dateOfBirth: string }) {
+  if (!data.dateOfBirth) return true;
+  const dob = parseDateString(data.dateOfBirth);
+  if (!dob) return true; // let the previous refine report the invalid-date error
+  return meetsMinimumAdmissionAge(dob);
+}
 
 // ── New Student Admission ─────────────────────────────────────────────────────
 
@@ -31,6 +53,14 @@ export const newAdmissionFormSchema = z
 
     // Guardian
     ...guardianSection.shape,
+  })
+  .refine(dobIsValidAndNotFuture, {
+    message: 'Date of birth cannot be in the future',
+    path: ['dateOfBirth'],
+  })
+  .refine(dobMeetsMinimumAge, {
+    message: `Student must be at least ${MINIMUM_ADMISSION_AGE} years old at admission`,
+    path: ['dateOfBirth'],
   })
   .refine((data) => !data.addGuardian || Boolean(data.guardianFullName), {
     message: "Guardian's full name is required",
@@ -69,6 +99,14 @@ export const transferAdmissionFormSchema = z
 
     // Guardian
     ...guardianSection.shape,
+  })
+  .refine(dobIsValidAndNotFuture, {
+    message: 'Date of birth cannot be in the future',
+    path: ['dateOfBirth'],
+  })
+  .refine(dobMeetsMinimumAge, {
+    message: `Student must be at least ${MINIMUM_ADMISSION_AGE} years old at admission`,
+    path: ['dateOfBirth'],
   })
   .refine((data) => !data.addGuardian || Boolean(data.guardianFullName), {
     message: "Guardian's full name is required",

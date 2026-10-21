@@ -2,12 +2,54 @@ import { z } from 'zod';
 import { Gender, AdmissionType, StudentStatus } from '@prisma/client';
 import { paginationQuerySchema } from '../../../core/http/pagination';
 import { linkParentToStudentSchema } from '../../parents/validation/parent.validation';
+import { meetsMinimumAdmissionAge, MINIMUM_ADMISSION_AGE } from '../../../core/utils/age.util';
+
+/**
+ * Shared dateOfBirth field used in both createStudentSchema and updateStudentSchema.
+ *
+ * Validation chain:
+ *  1. z.coerce.date() — must parse to a valid Date (rejects garbage strings)
+ *  2. refine #1 — must not be in the future (DOB cannot be tomorrow)
+ *  3. refine #2 — student must be at least MINIMUM_ADMISSION_AGE years old today
+ *
+ * bulkImportSchema reuses createStudentSchema, so both single and bulk admission
+ * are covered by the same rules without duplication.
+ */
+const dobSchema = z
+  .coerce
+  .date({ message: 'A valid date of birth is required' })
+  .refine(
+    (dob) => dob <= new Date(),
+    { message: 'Date of birth cannot be in the future' },
+  )
+  .refine(
+    (dob) => meetsMinimumAdmissionAge(dob),
+    { message: `Student must be at least ${MINIMUM_ADMISSION_AGE} years old at admission` },
+  );
+
+/**
+ * Optional DOB used for profile updates.
+ * Applies the same rules but the field itself is optional —
+ * omitting it is fine, supplying an invalid one is not.
+ */
+const dobOptionalSchema = z
+  .coerce
+  .date({ message: 'A valid date of birth is required' })
+  .refine(
+    (dob) => dob <= new Date(),
+    { message: 'Date of birth cannot be in the future' },
+  )
+  .refine(
+    (dob) => meetsMinimumAdmissionAge(dob),
+    { message: `Student must be at least ${MINIMUM_ADMISSION_AGE} years old` },
+  )
+  .optional();
 
 export const createStudentSchema = z.object({
   firstName: z.string().trim().min(1, 'First name is required').max(100),
   lastName: z.string().trim().min(1, 'Last name is required').max(100),
   gender: z.nativeEnum(Gender),
-  dateOfBirth: z.coerce.date({ message: 'A valid date of birth is required' }),
+  dateOfBirth: dobSchema,
   address: z.string().trim().max(255).optional(),
   classroomId: z.coerce.number().int().positive({ message: 'classroomId is required' }),
   // Optional guardians to link at the moment of registration.
@@ -30,7 +72,7 @@ export const updateStudentSchema = z.object({
   firstName: z.string().trim().min(1).max(100).optional(),
   lastName: z.string().trim().min(1).max(100).optional(),
   address: z.string().trim().max(255).optional(),
-  dateOfBirth: z.coerce.date().optional(),
+  dateOfBirth: dobOptionalSchema,
 });
 
 export const transferClassroomSchema = z.object({
