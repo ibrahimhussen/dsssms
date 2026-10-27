@@ -30,6 +30,13 @@ function mapPrismaError(err: Prisma.PrismaClientKnownRequestError): {
         message: 'This action violates a data relationship constraint',
         errorCode: 'FOREIGN_KEY_CONSTRAINT',
       };
+    case 'P2000':
+      // Value too long for column — e.g. an image too large for the DB column type.
+      return {
+        statusCode: 400,
+        message: 'The provided value is too large for the target field',
+        errorCode: 'VALUE_TOO_LONG',
+      };
     default:
       return { statusCode: 500, message: 'A database error occurred', errorCode: 'DATABASE_ERROR' };
   }
