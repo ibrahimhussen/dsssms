@@ -1,5 +1,5 @@
 /* eslint-disable no-useless-assignment */
-import { useMemo, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import {
   MdCheckCircle,
@@ -34,11 +34,6 @@ import type { SubjectFinalization } from '../../types/finalization';
 const FALLBACK_GRADE_OPTIONS = ['Grade 9', 'Grade 10', 'Grade 11', 'Grade 12'];
 
 // -- Helpers -------------------------------------------------------------------
-
-function currentAcademicYear(): string {
-  const y = new Date().getFullYear();
-  return `${y}/${String(y + 1).slice(2)}`;
-}
 
 function semesterLabel(s: Semester) {
   return s === 'SEMESTER_1' ? 'Semester 1' : 'Semester 2';
@@ -220,7 +215,7 @@ export function FinalizationPage() {
 
   // -- Cascading filters -----------------------------------------------------
   const [grade, setGrade]               = useState('');
-  const [academicYear, setAcademicYear] = useState(currentAcademicYear());
+  const [academicYear, setAcademicYear] = useState('');
   const [classroomId, setClassroomId]   = useState<number>(0);
   const [semester, setSemester]         = useState<Semester>('SEMESTER_1');
   const [teacherFilter, setTeacherFilter] = useState('');
@@ -231,6 +226,15 @@ export function FinalizationPage() {
     classroomsData?.items.forEach((c) => s.add(c.academicYear));
     return Array.from(s).sort().reverse();
   }, [classroomsData]);
+
+  // Auto-select the most recent academic year once classrooms have loaded.
+  // This ensures the page defaults to the year that actually exists in the DB
+  // rather than a hardcoded computed value that may not match.
+  useEffect(() => {
+    if (availableYears.length > 0 && !academicYear) {
+      setAcademicYear(availableYears[0]);
+    }
+  }, [availableYears, academicYear]);
 
   // Grade options derived from classrooms; fall back to static list
   const gradeOptions = useMemo(() => {
@@ -470,8 +474,8 @@ export function FinalizationPage() {
             value={academicYear}
             onChange={(e) => handleYearChange(e.target.value)}
           >
-            {availableYears.length === 0 && (
-              <option value={currentAcademicYear()}>{currentAcademicYear()}</option>
+            {!academicYear && (
+              <option value="">Loading…</option>
             )}
             {availableYears.map((y) => (
               <option key={y} value={y}>{y}</option>

@@ -1,9 +1,15 @@
 import { z } from 'zod';
 
+// Matches both plain year ("2026") and slash-separated ("2026/27") —
+// the same pattern used by the classroom creation schema.
+// DB classrooms may use either format depending on when they were created.
 const academicYearField = z
   .string()
   .trim()
-  .regex(/^\d{4}\/\d{2}$/, 'Academic year must be in format YYYY/YY (e.g. 2026/27)');
+  .regex(
+    /^\d{4}(\/\d{2,4})?$/,
+    'Academic year must be in format YYYY (e.g. 2026) or YYYY/YY (e.g. 2026/27)',
+  );
 
 const viewModeField = z.enum(['SEMESTER_1', 'SEMESTER_2', 'FULL_YEAR']);
 

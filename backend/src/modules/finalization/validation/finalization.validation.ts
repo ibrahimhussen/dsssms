@@ -4,7 +4,7 @@ import { Semester } from '@prisma/client';
 const academicYearField = z
   .string()
   .trim()
-  .regex(/^\d{4}\/\d{2}$/, 'Academic year must be in format YYYY/YY');
+  .regex(/^\d{4}(\/\d{2,4})?$/, 'Academic year must be in format YYYY (e.g. 2026) or YYYY/YY (e.g. 2026/27)');
 
 export const submitForReviewSchema = z.object({
   teacherSubjectId: z.coerce.number().int().positive(),
