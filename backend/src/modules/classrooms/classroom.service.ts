@@ -12,10 +12,22 @@ const CLASSROOM_INCLUDE = {
 
 type ClassroomWithRelations = Prisma.ClassroomGetPayload<{ include: typeof CLASSROOM_INCLUDE }>;
 
+/**
+ * Normalises a raw DB className to consistent "Grade N" title-case format.
+ * DB rows may have inconsistent casing ("grade 11", "GRADE 10") depending on
+ * when and how the classroom was created. Normalising at the DTO layer ensures
+ * every API consumer receives a consistent value that matches GradeSubjectConfig
+ * (which always stores "Grade N") and the frontend filter logic.
+ */
+function normalizeClassName(rawName: string): string {
+  const match = rawName.match(/(?:Grade\s*)?(\d+)/i);
+  return match ? `Grade ${match[1]}` : rawName;
+}
+
 function toClassroomSummaryDto(classroom: ClassroomWithRelations): ClassroomSummaryDto {
   return {
     classroomId: classroom.classroomId,
-    className: classroom.className,
+    className: normalizeClassName(classroom.className),
     section: classroom.section,
     academicYear: classroom.academicYear,
     session: classroom.session,
