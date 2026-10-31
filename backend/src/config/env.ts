@@ -19,8 +19,20 @@ const envSchema = z.object({
   BCRYPT_SALT_ROUNDS:       z.coerce.number().int().min(10).max(15).default(12),
   LOGIN_MAX_ATTEMPTS:       z.coerce.number().int().positive().default(5),
   LOGIN_LOCKOUT_MINUTES:    z.coerce.number().int().positive().default(15),
+
+  // General rate limit — applied to every API route.
+  // 1000 requests / 15 min per IP accommodates a school network where many
+  // users share the same NAT address. Lower this in single-user deployments.
   RATE_LIMIT_WINDOW_MINUTES: z.coerce.number().int().positive().default(15),
-  RATE_LIMIT_MAX_REQUESTS:   z.coerce.number().int().positive().default(300),
+  RATE_LIMIT_MAX_REQUESTS:   z.coerce.number().int().positive().default(1000),
+
+  // Login-specific rate limit — stricter than the general limit to deter
+  // brute-force attempts while still allowing an entire school to log in
+  // concurrently during a morning session.
+  // Default: 50 failed login requests per 15 min per IP.
+  // skipSuccessfulRequests=true means successful logins don't count.
+  LOGIN_RATE_LIMIT_WINDOW_MINUTES: z.coerce.number().int().positive().default(15),
+  LOGIN_RATE_LIMIT_MAX_ATTEMPTS:   z.coerce.number().int().positive().default(50),
 
   LOG_LEVEL: z.enum(['fatal', 'error', 'warn', 'info', 'debug', 'trace']).default('info'),
 

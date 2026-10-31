@@ -9,18 +9,26 @@ export class ApiError extends Error {
   public readonly statusCode: number;
   /** Field-level validation errors — present when errorCode === 'VALIDATION_ERROR' */
   public readonly details?: Record<string, string[]>;
+  /**
+   * For HTTP 429 responses: the number of seconds the client should wait
+   * before retrying, taken from the server's Retry-After header.
+   * Undefined for all other error types.
+   */
+  public readonly retryAfterSeconds?: number;
 
   constructor(params: {
     message: string;
     errorCode: string;
     statusCode: number;
     details?: unknown;
+    retryAfterSeconds?: number;
   }) {
     super(params.message);
     this.name = 'ApiError';
     this.errorCode = params.errorCode;
     this.statusCode = params.statusCode;
     this.details = normaliseDetails(params.details);
+    this.retryAfterSeconds = params.retryAfterSeconds;
   }
 
   /** Returns field errors as a flat string, useful for generic error displays. */

@@ -147,11 +147,19 @@ export async function unwrap<T>(promise: Promise<{ data: ApiResponse<T> }>): Pro
   } catch (err) {
     if (err instanceof AxiosError && err.response?.data) {
       const body = err.response.data as Record<string, unknown>;
+      // Extract Retry-After for 429 responses (express-rate-limit sends this header
+      // when standardHeaders: true is set).
+      const retryAfterRaw = err.response.headers?.['retry-after'];
+      const retryAfterSeconds =
+        err.response.status === 429 && retryAfterRaw && !isNaN(Number(retryAfterRaw))
+          ? Math.max(1, Math.ceil(Number(retryAfterRaw)))
+          : undefined;
       throw new ApiError({
         message: String(body.message ?? 'Request failed'),
         errorCode: String(body.errorCode ?? 'UNKNOWN_ERROR'),
         statusCode: err.response.status,
         details: body.details,
+        retryAfterSeconds,
       });
     }
     throw new ApiError({

@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { useLocation, useNavigate } from 'react-router-dom';
@@ -7,6 +7,7 @@ import {
   MdVisibilityOff,
   MdErrorOutline,
   MdSchool,
+  MdTimer,
 } from 'react-icons/md';
 import { useAuth } from '../../context/AuthContext';
 import { loginFormSchema } from '../../lib/validation/auth';
@@ -14,6 +15,7 @@ import type { LoginFormValues } from '../../lib/validation/auth';
 import { getPostLoginRedirect } from '../../lib/role-redirect';
 import { Button } from '../../components/ui/Button';
 import { useSystemSettings } from '../../hooks/useSystemSettings';
+import { ApiError } from '../../lib/api-error';
 
 // ── Inline field component — matches the existing TextField API but gives
 //    us full control over the password-field eye-icon placement ─────────────
@@ -77,6 +79,40 @@ export function LoginPage() {
   const [serverError, setServerError] = useState<string | null>(null);
   const [showPassword, setShowPassword] = useState(false);
 
+  // ── Rate-limit countdown ─────────────────────────────────────────────────
+  // When the server returns HTTP 429 it includes a Retry-After header (seconds).
+  // We read that header, set a countdown, and block the form until it expires.
+  const [rateLimitSecondsLeft, setRateLimitSecondsLeft] = useState(0);
+  const countdownRef = useRef<ReturnType<typeof setInterval> | null>(null);
+
+  useEffect(() => {
+    return () => {
+      if (countdownRef.current) clearInterval(countdownRef.current);
+    };
+  }, []);
+
+  function startRateLimitCountdown(seconds: number) {
+    if (countdownRef.current) clearInterval(countdownRef.current);
+    setRateLimitSecondsLeft(seconds);
+    countdownRef.current = setInterval(() => {
+      setRateLimitSecondsLeft((prev) => {
+        if (prev <= 1) {
+          clearInterval(countdownRef.current!);
+          countdownRef.current = null;
+          setServerError(null); // clear the error once the window expires
+          return 0;
+        }
+        return prev - 1;
+      });
+    }, 1000);
+  }
+
+  function formatCountdown(seconds: number): string {
+    const m = Math.floor(seconds / 60);
+    const s = seconds % 60;
+    return m > 0 ? `${m}m ${s}s` : `${s}s`;
+  }
+
   // School name comes from system settings so it updates without a code change.
   // Falls back to a generic label while loading or if settings are unavailable.
   const { data: settings } = useSystemSettings();
@@ -88,13 +124,26 @@ export function LoginPage() {
     formState: { errors, isSubmitting },
   } = useForm<LoginFormValues>({ resolver: zodResolver(loginFormSchema) });
 
+  const isRateLimited = rateLimitSecondsLeft > 0;
+
   async function onSubmit(values: LoginFormValues) {
+    if (isRateLimited) return;
     setServerError(null);
     try {
       const user = await login(values.username.trim(), values.password);
       const from = (location.state as { from?: { pathname?: string } } | null)?.from?.pathname ?? null;
       navigate(getPostLoginRedirect(user.role, from), { replace: true });
     } catch (err) {
+      // ── HTTP 429 — rate limit hit ────────────────────────────────────────
+      // express-rate-limit sends standardHeaders=true which includes
+      // RateLimit-Reset (epoch seconds) and Retry-After (seconds to wait).
+      // unwrap() reads the Retry-After header and stores it on ApiError.
+      if (err instanceof ApiError && err.statusCode === 429) {
+        const retryAfterSeconds = err.retryAfterSeconds ?? 60;
+        setServerError(err.message);
+        startRateLimitCountdown(retryAfterSeconds);
+        return;
+      }
       setServerError(err instanceof Error ? err.message : 'Sign in failed. Please try again.');
     }
   }
@@ -241,15 +290,31 @@ export function LoginPage() {
                 }
               />
 
-              {/* Server error */}
+              {/* Server error / Rate-limit notice */}
               {serverError && (
                 <div
                   role="alert"
                   aria-live="assertive"
-                  className="flex items-start gap-2.5 rounded-lg border border-danger-600/20 bg-danger-100 px-3 py-2.5"
+                  className={[
+                    'flex items-start gap-2.5 rounded-lg border px-3 py-2.5',
+                    isRateLimited
+                      ? 'border-gold-400/30 bg-gold-50'
+                      : 'border-danger-600/20 bg-danger-100',
+                  ].join(' ')}
                 >
-                  <MdErrorOutline className="mt-0.5 h-4 w-4 shrink-0 text-danger-600" aria-hidden="true" />
-                  <p className="text-[0.875rem] text-danger-600">{serverError}</p>
+                  {isRateLimited
+                    ? <MdTimer className="mt-0.5 h-4 w-4 shrink-0 text-gold-600" aria-hidden="true" />
+                    : <MdErrorOutline className="mt-0.5 h-4 w-4 shrink-0 text-danger-600" aria-hidden="true" />}
+                  <div className="flex flex-col gap-0.5">
+                    <p className={`text-[0.875rem] ${isRateLimited ? 'text-gold-700' : 'text-danger-600'}`}>
+                      {serverError}
+                    </p>
+                    {isRateLimited && (
+                      <p className="text-[0.8125rem] font-semibold text-gold-700">
+                        Try again in {formatCountdown(rateLimitSecondsLeft)}
+                      </p>
+                    )}
+                  </div>
                 </div>
               )}
 
@@ -257,10 +322,14 @@ export function LoginPage() {
               <Button
                 type="submit"
                 isLoading={isSubmitting}
-                disabled={isSubmitting}
+                disabled={isSubmitting || isRateLimited}
                 className="mt-1 w-full py-3 text-base"
               >
-                {isSubmitting ? 'Signing in…' : 'Sign in'}
+                {isSubmitting
+                  ? 'Signing in…'
+                  : isRateLimited
+                  ? `Wait ${formatCountdown(rateLimitSecondsLeft)}`
+                  : 'Sign in'}
               </Button>
             </form>
           </div>
