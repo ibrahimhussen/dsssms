@@ -55,7 +55,7 @@ if (!DEFAULT_PASSWORD) {
 // The explicit assertion satisfies TypeScript 7's stricter narrowing.
 const SEED_PASSWORD: string = DEFAULT_PASSWORD;
 
-const CURRENT_ACADEMIC_YEAR = '2026/27';
+const CURRENT_ACADEMIC_YEAR = '2026';
 
 // Safety flag: when false (the default), reseeding NEVER silently overwrites an
 // existing user's password. Set to true only in a controlled local dev environment
