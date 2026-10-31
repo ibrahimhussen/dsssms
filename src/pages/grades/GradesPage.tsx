@@ -1,6 +1,7 @@
 import { useState } from 'react';
 import { useMyTeachingAssignments } from '../../hooks/useDashboardData';
 import { useClassroomTotals, useDeleteGradeComponent, useGradeScheme, useReleaseGradeComponent } from '../../hooks/useGrades';
+import { useSubmitForReview, useSubjectFinalization } from '../../hooks/useFinalization';
 import { SelectField } from '../../components/ui/SelectField';
 import { TextField } from '../../components/ui/TextField';
 import { Button } from '../../components/ui/Button';
@@ -35,6 +36,8 @@ export function GradesPage() {
   const [isAddOpen, setIsAddOpen] = useState(false);
   const [entryComponentId, setEntryComponentId] = useState<number | null>(null);
   const [pendingDelete, setPendingDelete] = useState<GradeComponent | null>(null);
+  const [submitError, setSubmitError] = useState<string | null>(null);
+  const [submitSuccess, setSubmitSuccess] = useState(false);
 
   const selectedAssignment = assignments?.find((a) => String(a.id) === teacherSubjectId);
   const scope = { teacherSubjectId: Number(teacherSubjectId), semester, academicYear };
@@ -42,14 +45,42 @@ export function GradesPage() {
 
   const { data: scheme, isLoading: isSchemeLoading } = useGradeScheme(hasScope ? scope : {});
   const { data: totals, isLoading: isTotalsLoading } = useClassroomTotals(hasScope ? scope : {});
-  const deleteComponent = useDeleteGradeComponent();
+  const deleteComponent  = useDeleteGradeComponent();
   const releaseComponent = useReleaseGradeComponent();
+  const submitForReview  = useSubmitForReview();
+
+  // Load current finalization status for the selected subject
+  const { data: finalizationStatus } = useSubjectFinalization(
+    Number(teacherSubjectId),
+    semester,
+    academicYear
+  );
 
   async function handleConfirmDelete() {
     if (!pendingDelete) return;
     await deleteComponent.mutateAsync(pendingDelete.gradeComponentId);
     setPendingDelete(null);
   }
+
+  async function handleSubmitForReview() {
+    if (!teacherSubjectId || !semester || !academicYear) return;
+    setSubmitError(null);
+    setSubmitSuccess(false);
+    try {
+      await submitForReview.mutateAsync({
+        teacherSubjectId: Number(teacherSubjectId),
+        semester,
+        academicYear,
+      });
+      setSubmitSuccess(true);
+    } catch (err) {
+      setSubmitError(err instanceof Error ? err.message : 'Submit failed.');
+    }
+  }
+
+  // Determine whether the submit button should be shown and what state it's in
+  const currentStatus = finalizationStatus?.status ?? 'DRAFT';
+  const canSubmit = hasScope && currentStatus === 'DRAFT' && (scheme?.totalMaxMarks ?? 0) === 100 && (scheme?.hasFinalExam ?? false);
 
   return (
     <div className="max-w-full">
@@ -214,6 +245,72 @@ export function GradesPage() {
         onConfirm={() => void handleConfirmDelete()}
         onCancel={() => setPendingDelete(null)}
       />
+
+      {/* -- Submit for Review -------------------------------------------------- */}
+      {hasScope && selectedAssignment && (
+        <div className="mt-8 rounded-2xl border border-slate-200 bg-white p-5 shadow-sm">
+          <h2 className="mb-1 text-lg font-semibold text-ink-900">Submit for Review</h2>
+          <p className="mb-4 text-sm text-slate-500">
+            Once all marks are entered and the grading scheme totals 100 marks, submit your results for
+            Vice Director review.
+          </p>
+
+          {/* Status badge */}
+          <div className="mb-4 flex items-center gap-2">
+            <span className="text-sm text-slate-600">Current status:</span>
+            {currentStatus === 'DRAFT'        && <span className="rounded-full bg-slate-100 px-3 py-0.5 text-xs font-semibold text-slate-600">Draft</span>}
+            {currentStatus === 'UNDER_REVIEW' && <span className="rounded-full bg-gold-100 px-3 py-0.5 text-xs font-semibold text-gold-700">Under Review</span>}
+            {currentStatus === 'APPROVED'     && <span className="rounded-full bg-pine-100 px-3 py-0.5 text-xs font-semibold text-pine-700">Approved</span>}
+            {currentStatus === 'FINALIZED'    && <span className="rounded-full bg-pine-100 px-3 py-0.5 text-xs font-semibold text-pine-700">Finalized</span>}
+          </div>
+
+          {/* Correction reason — shown when results were returned */}
+          {currentStatus === 'DRAFT' && finalizationStatus?.correctionReason && (
+            <div className="mb-4 rounded-lg border border-danger-200 bg-danger-50 px-3 py-2.5">
+              <p className="text-sm font-semibold text-danger-700">Returned for correction:</p>
+              <p className="mt-0.5 text-sm text-danger-600">{finalizationStatus.correctionReason}</p>
+            </div>
+          )}
+
+          {submitError && (
+            <p className="mb-3 rounded-lg bg-danger-50 px-3 py-2 text-sm text-danger-600">{submitError}</p>
+          )}
+          {submitSuccess && (
+            <p className="mb-3 rounded-lg bg-pine-50 px-3 py-2 text-sm text-pine-700">
+              ✓ Results submitted for review successfully.
+            </p>
+          )}
+
+          {currentStatus === 'DRAFT' && (
+            <>
+              {!canSubmit && (
+                <p className="mb-3 text-sm text-slate-500">
+                  {(scheme?.totalMaxMarks ?? 0) < 100
+                    ? `Grading scheme is ${scheme?.totalMaxMarks ?? 0}/100 marks — add components to reach 100 before submitting.`
+                    : !scheme?.hasFinalExam
+                    ? 'A Final Exam component (mandatory) is missing.'
+                    : 'Select a subject to submit.'}
+                </p>
+              )}
+              <Button
+                onClick={() => void handleSubmitForReview()}
+                isLoading={submitForReview.isPending}
+                disabled={!canSubmit}
+              >
+                Submit for Review
+              </Button>
+            </>
+          )}
+
+          {(currentStatus === 'UNDER_REVIEW' || currentStatus === 'APPROVED' || currentStatus === 'FINALIZED') && (
+            <p className="text-sm text-slate-500 italic">
+              {currentStatus === 'UNDER_REVIEW' && 'Your results are under review by the Vice Director.'}
+              {currentStatus === 'APPROVED'     && 'Your results have been approved and are pending finalization.'}
+              {currentStatus === 'FINALIZED'    && 'Your results are finalized and official.'}
+            </p>
+          )}
+        </div>
+      )}
     </div>
   );
 }

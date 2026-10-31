@@ -1,4 +1,3 @@
-/* eslint-disable no-useless-assignment */
 import { useEffect, useMemo, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import {
@@ -14,6 +13,7 @@ import { useGradeSubjectConfig } from '../../hooks/useGradeSubjectConfig';
 import { useAuth } from '../../context/AuthContext';
 import {
   useClassroomSubjectFinalizations,
+  useCorrectSubjectFinalization,
   useReviewSubject,
   useFinalizeSubject,
   useFinalizeClassroom,
@@ -26,6 +26,7 @@ import { Table } from '../../components/ui/Table';
 import type { Column } from '../../components/ui/Table';
 import { Badge } from '../../components/ui/Badge';
 import { ConfirmDialog } from '../../components/ui/ConfirmDialog';
+import { Modal } from '../../components/ui/Modal';
 import type { Semester } from '../../types/grade';
 import type { SubjectFinalization } from '../../types/finalization';
 
@@ -47,6 +48,111 @@ function statusBadge(status: SubjectFinalization['status']) {
     case 'FINALIZED':    return <Badge tone="positive">Finalized</Badge>;
     default:             return <Badge>{status}</Badge>;
   }
+}
+
+// -- Rejection notes dialog ---------------------------------------------------
+
+interface RejectDialogProps {
+  isOpen: boolean;
+  subjectName: string;
+  isLoading: boolean;
+  onConfirm: (notes: string) => void;
+  onCancel: () => void;
+}
+
+function RejectDialog({ isOpen, subjectName, isLoading, onConfirm, onCancel }: RejectDialogProps) {
+  const [notes, setNotes] = useState('');
+  const [error, setError] = useState('');
+
+  function handleConfirm() {
+    if (!notes.trim()) {
+      setError('A reason is required so the teacher knows what to correct.');
+      return;
+    }
+    onConfirm(notes.trim());
+  }
+
+  function handleCancel() {
+    setNotes('');
+    setError('');
+    onCancel();
+  }
+
+  return (
+    <Modal title={`Return for correction — ${subjectName}`} isOpen={isOpen} onClose={handleCancel}>
+      <p className="mb-3 text-sm text-slate-600">
+        Explain what the teacher needs to correct before resubmitting.
+        This message will be visible to the teacher.
+      </p>
+      <textarea
+        className="w-full rounded-lg border border-slate-200 px-3 py-2 text-sm focus:border-pine-700 focus:outline-none focus:ring-2 focus:ring-pine-700/30"
+        rows={4}
+        maxLength={500}
+        placeholder="e.g. Quiz 1 marks appear incorrectly entered for 3 students…"
+        value={notes}
+        onChange={(e) => { setNotes(e.target.value); setError(''); }}
+      />
+      {error && <p className="mt-1 text-xs text-danger-600">{error}</p>}
+      <p className="mt-1 text-right text-xs text-slate-400">{notes.length}/500</p>
+      <div className="mt-4 flex justify-end gap-3">
+        <Button variant="ghost" onClick={handleCancel} disabled={isLoading}>Cancel</Button>
+        <Button variant="danger" isLoading={isLoading} onClick={handleConfirm}>Return for Correction</Button>
+      </div>
+    </Modal>
+  );
+}
+
+// -- Correction reason dialog ------------------------------------------------
+
+interface CorrectDialogProps {
+  isOpen: boolean;
+  subjectName: string;
+  isLoading: boolean;
+  onConfirm: (reason: string) => void;
+  onCancel: () => void;
+}
+
+function CorrectDialog({ isOpen, subjectName, isLoading, onConfirm, onCancel }: CorrectDialogProps) {
+  const [reason, setReason] = useState('');
+  const [error, setError] = useState('');
+
+  function handleConfirm() {
+    if (!reason.trim()) {
+      setError('Please explain why this finalized result needs correction.');
+      return;
+    }
+    onConfirm(reason.trim());
+  }
+
+  function handleCancel() {
+    setReason('');
+    setError('');
+    onCancel();
+  }
+
+  return (
+    <Modal title={`Correct finalized result — ${subjectName}`} isOpen={isOpen} onClose={handleCancel}>
+      <div className="mb-4 flex items-start gap-2 rounded-lg border border-gold-200 bg-gold-50 px-3 py-2.5">
+        <MdWarningAmber className="mt-0.5 h-4 w-4 shrink-0 text-gold-600" />
+        <p className="text-sm text-gold-700">
+          This will reopen the finalized result for re-review. Provide a clear reason for the audit log.
+        </p>
+      </div>
+      <textarea
+        className="w-full rounded-lg border border-slate-200 px-3 py-2 text-sm focus:border-pine-700 focus:outline-none focus:ring-2 focus:ring-pine-700/30"
+        rows={3}
+        maxLength={500}
+        placeholder="e.g. Data entry error found for student X…"
+        value={reason}
+        onChange={(e) => { setReason(e.target.value); setError(''); }}
+      />
+      {error && <p className="mt-1 text-xs text-danger-600">{error}</p>}
+      <div className="mt-4 flex justify-end gap-3">
+        <Button variant="ghost" onClick={handleCancel} disabled={isLoading}>Cancel</Button>
+        <Button variant="danger" isLoading={isLoading} onClick={handleConfirm}>Reopen for Correction</Button>
+      </div>
+    </Modal>
+  );
 }
 
 // -- Summary panel -------------------------------------------------------------
@@ -74,29 +180,35 @@ function SummaryPanel({
 }: SummaryPanelProps) {
   const [showBlockers, setShowBlockers] = useState(false);
 
-  const approvedCount   = subjects.filter((s) => s.status === 'APPROVED' || s.status === 'FINALIZED').length;
+  const draftCount      = subjects.filter((s) => s.status === 'DRAFT').length;
+  const underReviewCount= subjects.filter((s) => s.status === 'UNDER_REVIEW').length;
+  const approvedCount   = subjects.filter((s) => s.status === 'APPROVED').length;
   const finalizedCount  = subjects.filter((s) => s.status === 'FINALIZED').length;
-  const allFinalized    = finalizedCount === requiredCount && requiredCount > 0;
+
+  // Classroom finalization requires EVERY subject to be FINALIZED (not just APPROVED).
+  const allFinalized       = finalizedCount === requiredCount && requiredCount > 0;
   const classroomFinalized = allFinalized;
 
-  // Not-ready reasons
+  // Ready to finalize = all subjects FINALIZED AND no missing results.
+  const noMissingResults = subjects.every((s) => s.missingResultsCount === 0);
+  const readyToFinalize  = allFinalized && noMissingResults;
+
+  // Not-ready blockers for display
   const blockers: string[] = [];
   subjects.forEach((s) => {
-    if (s.status === 'DRAFT')        blockers.push(`${s.subjectName}: Draft � not submitted for review`);
-    if (s.status === 'UNDER_REVIEW') blockers.push(`${s.subjectName}: Under Review � awaiting approval`);
+    if (s.status === 'DRAFT')        blockers.push(`${s.subjectName}: Draft — not yet submitted for review`);
+    if (s.status === 'UNDER_REVIEW') blockers.push(`${s.subjectName}: Under Review — awaiting approval`);
+    if (s.status === 'APPROVED')     blockers.push(`${s.subjectName}: Approved — needs to be finalized before classroom can be finalized`);
     if (s.missingResultsCount > 0)   blockers.push(`${s.subjectName}: ${s.missingResultsCount} student(s) missing results`);
     if (!s.teacherSubjectId)         blockers.push(`${s.subjectName}: No teacher assigned`);
   });
 
-  const allApproved = subjects.length > 0 && subjects.every((s) => s.status === 'APPROVED' || s.status === 'FINALIZED');
-  const readyToFinalize = allApproved && subjects.every((s) => s.missingResultsCount === 0);
-
   const totalStudents = subjects[0]?.studentCount ?? 0;
   const totalMissing  = subjects.reduce((acc, s) => acc + s.missingResultsCount, 0);
 
-  // Status label
-  let statusLabel = '';
-  let statusTone: 'positive' | 'warning' | 'neutral' | 'danger' = 'neutral';
+  // Status label — defaults serve as the "no conditions met" (Pending) case
+  let statusLabel = 'Pending';
+  let statusTone: 'positive' | 'warning' | 'neutral' = 'neutral';
   let StatusIcon: React.ElementType = MdInfoOutline;
 
   if (classroomFinalized) {
@@ -111,10 +223,6 @@ function SummaryPanel({
     statusLabel = 'Not Ready';
     statusTone  = 'warning';
     StatusIcon  = MdWarningAmber;
-  } else {
-    statusLabel = 'Pending';
-    statusTone  = 'neutral';
-    StatusIcon  = MdInfoOutline;
   }
 
   return (
@@ -124,9 +232,9 @@ function SummaryPanel({
         <div>
           <p className="text-xs uppercase tracking-wide text-slate-400 mb-0.5">Finalization Summary</p>
           <p className="font-semibold text-ink-900">
-            {classroom ? `${classroom.className} � Section ${classroom.section}` : '�'}
+            {classroom ? `${classroom.className} — Section ${classroom.section}` : '—'}
             <span className="ml-2 font-normal text-slate-500 text-sm">
-              {academicYear} � {semesterLabel(semester)}
+              {academicYear} — {semesterLabel(semester)}
             </span>
           </p>
         </div>
@@ -138,7 +246,7 @@ function SummaryPanel({
               'text-slate-400'
             }`}
           />
-          <Badge tone={statusTone as 'positive' | 'warning' | 'neutral'}>{statusLabel}</Badge>
+          <Badge tone={statusTone}>{statusLabel}</Badge>
           {readyToFinalize && !classroomFinalized && isOversight && (
             <Button onClick={onFinalizeClick} isLoading={isFinalizing}>
               <MdLock className="h-3.5 w-3.5" /> Finalize Results
@@ -148,14 +256,15 @@ function SummaryPanel({
       </div>
 
       {/* Stats grid */}
-      <div className="grid grid-cols-2 gap-px bg-slate-100 sm:grid-cols-3 lg:grid-cols-6">
+      <div className="grid grid-cols-2 gap-px bg-slate-100 sm:grid-cols-3 lg:grid-cols-7">
         {[
-          { label: 'Students',         value: totalStudents,                      color: '' },
-          { label: 'Req. Subjects',    value: requiredCount,                      color: '' },
-          { label: 'Approved',         value: `${approvedCount}/${requiredCount}`,color: approvedCount === requiredCount ? 'text-pine-700' : 'text-slate-700' },
-          { label: 'Finalized',        value: `${finalizedCount}/${requiredCount}`,color: finalizedCount === requiredCount ? 'text-pine-700' : 'text-slate-700' },
-          { label: 'Missing Results',  value: totalMissing,                       color: totalMissing > 0 ? 'text-gold-600' : 'text-slate-500' },
-          { label: 'Draft',            value: subjects.filter((s) => s.status === 'DRAFT').length, color: 'text-slate-500' },
+          { label: 'Students',       value: totalStudents,    color: '' },
+          { label: 'Req. Subjects',  value: requiredCount,    color: '' },
+          { label: 'Draft',          value: draftCount,       color: draftCount > 0      ? 'text-slate-500' : '' },
+          { label: 'Under Review',   value: underReviewCount, color: underReviewCount > 0 ? 'text-gold-600' : '' },
+          { label: 'Approved',       value: approvedCount,    color: approvedCount > 0   ? 'text-blue-600' : '' },
+          { label: 'Finalized',      value: `${finalizedCount}/${requiredCount}`, color: finalizedCount === requiredCount && requiredCount > 0 ? 'text-pine-700' : 'text-slate-700' },
+          { label: 'Missing Results',value: totalMissing,     color: totalMissing > 0    ? 'text-gold-600' : 'text-slate-500' },
         ].map((stat) => (
           <div key={stat.label} className="bg-white px-4 py-3">
             <p className="text-[0.7rem] uppercase tracking-wide text-slate-400">{stat.label}</p>
@@ -175,10 +284,10 @@ function SummaryPanel({
             <div className="flex items-center gap-2">
               <MdWarningAmber className="h-4 w-4 shrink-0 text-gold-600" />
               <span className="text-sm font-semibold text-gold-700">
-                Not ready for finalization � {blockers.length} issue{blockers.length > 1 ? 's' : ''}
+                Not ready for finalization — {blockers.length} issue{blockers.length > 1 ? 's' : ''}
               </span>
             </div>
-            <span className="text-xs text-gold-600">{showBlockers ? 'Hide ?' : 'Show ?'}</span>
+            <span className="text-xs text-gold-600">{showBlockers ? 'Hide ▲' : 'Show ▼'}</span>
           </button>
           {showBlockers && (
             <ul className="mt-2 list-disc pl-8 space-y-1">
@@ -195,7 +304,7 @@ function SummaryPanel({
         <div className="flex items-center gap-2 border-t border-pine-100 bg-pine-50 px-5 py-2.5">
           <MdCheckCircle className="h-4 w-4 text-pine-700 shrink-0" />
           <p className="text-sm text-pine-800 font-semibold">
-            All subjects finalized � Academic Register is official.
+            All subjects finalized — Academic Register is official.
           </p>
         </div>
       )}
@@ -228,8 +337,6 @@ export function FinalizationPage() {
   }, [classroomsData]);
 
   // Auto-select the most recent academic year once classrooms have loaded.
-  // This ensures the page defaults to the year that actually exists in the DB
-  // rather than a hardcoded computed value that may not match.
   useEffect(() => {
     if (availableYears.length > 0 && !academicYear) {
       setAcademicYear(availableYears[0]);
@@ -257,8 +364,6 @@ export function FinalizationPage() {
   // Required subjects from GradeSubjectConfig
   const { data: configuredSubjects } = useGradeSubjectConfig(grade, academicYear);
   const requiredCount = configuredSubjects?.length ?? 0;
-  const isGradeConfigured = Boolean(grade && academicYear && configuredSubjects !== undefined);
-  void isGradeConfigured; // used implicitly via configuredSubjects.length
 
   // -- Data -----------------------------------------------------------------
   const {
@@ -268,13 +373,20 @@ export function FinalizationPage() {
     refetch,
   } = useClassroomSubjectFinalizations(classroomId, semester, academicYear);
 
-  const submitForReview   = useSubmitForReview();
-  const reviewSubject     = useReviewSubject();
-  const finalizeSubject   = useFinalizeSubject();
-  const finalizeClassroom = useFinalizeClassroom();
+  const submitForReview     = useSubmitForReview();
+  const reviewSubject       = useReviewSubject();
+  const finalizeSubject     = useFinalizeSubject();
+  const finalizeClassroom   = useFinalizeClassroom();
+  const correctSubject      = useCorrectSubjectFinalization();
 
   const [actionError,           setActionError]           = useState<string | null>(null);
   const [classroomConfirmOpen,  setClassroomConfirmOpen]  = useState(false);
+
+  // Rejection-notes dialog state
+  const [rejectTarget, setRejectTarget] = useState<SubjectFinalization | null>(null);
+
+  // Correction-reason dialog state
+  const [correctTarget, setCorrectTarget] = useState<SubjectFinalization | null>(null);
 
   // -- Filtered rows --------------------------------------------------------
   const displayedRows = useMemo(() => {
@@ -288,20 +400,19 @@ export function FinalizationPage() {
   const teacherNames = useMemo(() => {
     const s = new Set<string>();
     subjectFinalizations?.forEach((f) => {
-      if (f.teacherName && f.teacherName !== '� No teacher assigned �') s.add(f.teacherName);
+      if (f.teacherName && !f.teacherName.includes('No teacher assigned')) s.add(f.teacherName);
     });
     return Array.from(s).sort();
   }, [subjectFinalizations]);
 
   // -- Computed readiness ----------------------------------------------------
-  const allApproved = (subjectFinalizations?.length ?? 0) > 0 &&
-    subjectFinalizations?.every((s) => s.status === 'APPROVED' || s.status === 'FINALIZED') === true;
+  // readyToFinalize: every subject must be FINALIZED (not just APPROVED).
+  // The backend's finalizeClassroom() enforces this same condition.
+  const allFinalized     = (subjectFinalizations?.length ?? 0) > 0 &&
+    subjectFinalizations?.every((s) => s.status === 'FINALIZED') === true;
   const noMissingResults = subjectFinalizations?.every((s) => s.missingResultsCount === 0) === true;
-  const readyToFinalize = allApproved && noMissingResults;
-  const allFinalized    = subjectFinalizations?.every((s) => s.status === 'FINALIZED') === true &&
-    (subjectFinalizations?.length ?? 0) > 0;
-  // suppress unused-variable lint � both used inside SummaryPanel and isOversight guard
-  void readyToFinalize; void allFinalized;
+  const readyToFinalize  = allFinalized && noMissingResults;
+  void readyToFinalize; // used inside SummaryPanel
 
   // -- Actions --------------------------------------------------------------
   async function handleSubmitForReview(teacherSubjectId: number) {
@@ -322,12 +433,21 @@ export function FinalizationPage() {
     }
   }
 
-  async function handleReject(teacherSubjectId: number) {
+  async function handleRejectConfirm(notes: string) {
+    if (!rejectTarget) return;
     setActionError(null);
     try {
-      await reviewSubject.mutateAsync({ teacherSubjectId, semester, academicYear, approved: false });
+      await reviewSubject.mutateAsync({
+        teacherSubjectId: rejectTarget.teacherSubjectId,
+        semester,
+        academicYear,
+        approved: false,
+        reviewNotes: notes,
+      });
+      setRejectTarget(null);
     } catch (err) {
-      setActionError(err instanceof Error ? err.message : 'Reject failed.');
+      setActionError(err instanceof Error ? err.message : 'Return for correction failed.');
+      setRejectTarget(null);
     }
   }
 
@@ -352,6 +472,18 @@ export function FinalizationPage() {
     }
   }
 
+  async function handleCorrectConfirm(reason: string) {
+    if (!correctTarget) return;
+    setActionError(null);
+    try {
+      await correctSubject.mutateAsync({ id: correctTarget.id, input: { correctionReason: reason } });
+      setCorrectTarget(null);
+    } catch (err) {
+      setActionError(err instanceof Error ? err.message : 'Correction failed.');
+      setCorrectTarget(null);
+    }
+  }
+
   function handleGradeChange(g: string) {
     setGrade(g);
     setClassroomId(0);
@@ -371,6 +503,12 @@ export function FinalizationPage() {
           <p className="font-medium text-ink-900">{f.subjectName}</p>
           {!f.teacherSubjectId && (
             <p className="text-xs text-gold-600">No teacher assigned</p>
+          )}
+          {/* Show correction reason to teacher when result is returned */}
+          {f.status === 'DRAFT' && f.correctionReason && (
+            <p className="mt-0.5 text-xs text-danger-600 italic">
+              Returned: {f.correctionReason}
+            </p>
           )}
         </div>
       ),
@@ -402,25 +540,27 @@ export function FinalizationPage() {
       render: (f) =>
         f.reviewedByUser
           ? `${f.reviewedByUser.firstName} ${f.reviewedByUser.lastName}`
-          : '�',
+          : '—',
     },
     {
       header: 'Finalized At',
       render: (f) =>
-        f.finalizedAt ? new Date(f.finalizedAt).toLocaleDateString() : '�',
+        f.finalizedAt ? new Date(f.finalizedAt).toLocaleDateString() : '—',
     },
     {
       header: 'Actions',
       render: (f) => (
         <div className="flex flex-wrap gap-2">
+          {/* Teacher: submit a DRAFT that has results */}
           {isTeacher && f.status === 'DRAFT' && f.teacherSubjectId > 0 && (
             <Button
               onClick={() => void handleSubmitForReview(f.teacherSubjectId)}
               isLoading={submitForReview.isPending}
             >
-              Submit
+              Submit for Review
             </Button>
           )}
+          {/* Oversight: approve or return UNDER_REVIEW subjects */}
           {isOversight && f.status === 'UNDER_REVIEW' && (
             <>
               <Button
@@ -432,13 +572,13 @@ export function FinalizationPage() {
               </Button>
               <Button
                 variant="danger"
-                onClick={() => void handleReject(f.teacherSubjectId)}
-                isLoading={reviewSubject.isPending}
+                onClick={() => setRejectTarget(f)}
               >
-                Reject
+                Return for Correction
               </Button>
             </>
           )}
+          {/* Oversight: finalize an APPROVED subject */}
           {isOversight && f.status === 'APPROVED' && (
             <Button
               onClick={() => void handleFinalizeSubject(f.teacherSubjectId)}
@@ -447,7 +587,17 @@ export function FinalizationPage() {
               Finalize
             </Button>
           )}
-          {f.status === 'FINALIZED' && (
+          {/* Oversight: reopen a FINALIZED subject for correction */}
+          {isOversight && f.status === 'FINALIZED' && f.id > 0 && (
+            <Button
+              variant="ghost"
+              onClick={() => setCorrectTarget(f)}
+            >
+              Correct
+            </Button>
+          )}
+          {/* Plain label when no action available */}
+          {f.status === 'FINALIZED' && (!isOversight || f.id === 0) && (
             <span className="text-xs italic text-slate-400">Finalized</span>
           )}
         </div>
@@ -488,7 +638,7 @@ export function FinalizationPage() {
             value={grade}
             onChange={(e) => handleGradeChange(e.target.value)}
           >
-            <option value="">Select grade�</option>
+            <option value="">Select grade…</option>
             {gradeOptions.map((g) => (
               <option key={g} value={g}>{g}</option>
             ))}
@@ -503,16 +653,16 @@ export function FinalizationPage() {
           >
             <option value="">
               {!grade || !academicYear
-                ? 'Select grade & year first�'
+                ? 'Select grade & year first…'
                 : filteredClassrooms.length === 0
                 ? 'No sections found'
-                : 'Select section�'}
+                : 'Select section…'}
             </option>
             {filteredClassrooms.map((c) => (
               <option key={c.classroomId} value={c.classroomId}>
                 {c.className} {c.section}
                 {c.homeroomTeacher
-                  ? ` � ${c.homeroomTeacher.firstName} ${c.homeroomTeacher.lastName}`
+                  ? ` — ${c.homeroomTeacher.firstName} ${c.homeroomTeacher.lastName}`
                   : ''}
               </option>
             ))}
@@ -547,7 +697,7 @@ export function FinalizationPage() {
           <div className="mt-3 flex items-start gap-2 rounded-lg border border-gold-200 bg-gold-50 px-3 py-2.5">
             <MdWarningAmber className="mt-0.5 h-4 w-4 shrink-0 text-gold-600" />
             <p className="text-sm text-gold-700">
-              No required subjects configured for <strong>{grade}</strong> � <strong>{academicYear}</strong>.{' '}
+              No required subjects configured for <strong>{grade}</strong> — <strong>{academicYear}</strong>.{' '}
               <button
                 type="button"
                 className="font-semibold underline hover:no-underline"
@@ -585,7 +735,7 @@ export function FinalizationPage() {
       {classroomId > 0 && isLoading && (
         <div className="flex items-center gap-2 py-12 text-slate-500">
           <span className="h-4 w-4 animate-spin rounded-full border-2 border-ink-900/15 border-t-pine-700" />
-          Loading finalization data�
+          Loading finalization data…
         </div>
       )}
 
@@ -641,13 +791,31 @@ export function FinalizationPage() {
           `Required subjects: ${requiredCount}`,
           `Students: ${subjectFinalizations?.[0]?.studentCount ?? 0}`,
           '',
-          'All required subjects are approved. Students and parents will be notified. This action is recorded in the audit log.',
+          'All required subjects are finalized. Students and parents will be notified. This action is recorded in the audit log.',
         ].join('\n')}
         confirmLabel="Finalize"
         isDangerous={false}
         isLoading={finalizeClassroom.isPending}
         onConfirm={() => void handleFinalizeClassroom()}
         onCancel={() => setClassroomConfirmOpen(false)}
+      />
+
+      {/* Rejection notes dialog */}
+      <RejectDialog
+        isOpen={rejectTarget !== null}
+        subjectName={rejectTarget?.subjectName ?? ''}
+        isLoading={reviewSubject.isPending}
+        onConfirm={(notes) => void handleRejectConfirm(notes)}
+        onCancel={() => setRejectTarget(null)}
+      />
+
+      {/* Correction reason dialog */}
+      <CorrectDialog
+        isOpen={correctTarget !== null}
+        subjectName={correctTarget?.subjectName ?? ''}
+        isLoading={correctSubject.isPending}
+        onConfirm={(reason) => void handleCorrectConfirm(reason)}
+        onCancel={() => setCorrectTarget(null)}
       />
     </div>
   );

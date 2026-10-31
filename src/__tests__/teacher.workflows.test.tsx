@@ -31,6 +31,10 @@ vi.mock('../hooks/useMessaging', () => ({
   useMessageThread:   vi.fn(),
   useReplyToMessage:  vi.fn(),
 }));
+vi.mock('../hooks/useFinalization', () => ({
+  useSubmitForReview:      vi.fn(() => ({ mutateAsync: vi.fn(), isPending: false })),
+  useSubjectFinalization:  vi.fn(() => ({ data: undefined, isLoading: false })),
+}));
 
 // UI stubs
 vi.mock('../components/ui/LedgerRule',    () => ({ LedgerRule: () => <hr /> }));

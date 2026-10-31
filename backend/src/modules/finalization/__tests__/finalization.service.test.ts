@@ -282,3 +282,171 @@ describe("FinalizationService — classroom finalization prerequisites", () => {
     await expect(svc.finalizeClassroom(TEACHER, INPUT)).rejects.toBeInstanceOf(ForbiddenError);
   });
 });
+
+// ─── Regression tests — bug fixes for review/correction workflow ─────────────
+// These tests pin the specific behaviours that were broken and then fixed:
+//   1. Rejection now stores correctionReason so the teacher sees the reason.
+//   2. Approve sets reviewedBy/reviewedAt, never sets correctionReason.
+//   3. Classroom finalization rejects when any subject is APPROVED (not FINALIZED).
+// ─────────────────────────────────────────────────────────────────────────────
+
+describe("FinalizationService — regression: rejection stores correctionReason", () => {
+  let svc: FinalizationService;
+  beforeEach(() => { svc = new FinalizationService(); vi.clearAllMocks(); });
+
+  it("stores correctionReason and lastCorrectionAt when rejecting WITH reviewNotes", async () => {
+    (prisma.subjectFinalization.findUnique as Mock).mockResolvedValue(mkFin(FinalizationStatus.UNDER_REVIEW));
+    (prisma.subjectFinalization.update as Mock).mockResolvedValue(mkFin(FinalizationStatus.DRAFT));
+
+    await svc.reviewSubject(VICE_DIR, {
+      teacherSubjectId: 1,
+      semester: "SEMESTER_1",
+      academicYear: "2026/27",
+      approved: false,
+      reviewNotes: "Quiz 1 marks appear incorrectly entered for 3 students",
+    });
+
+    const updateCall = (prisma.subjectFinalization.update as Mock).mock.calls[0][0];
+    expect(updateCall.data.status).toBe(FinalizationStatus.DRAFT);
+    expect(updateCall.data.correctionReason).toBe("Quiz 1 marks appear incorrectly entered for 3 students");
+    expect(updateCall.data.lastCorrectionAt).toBeInstanceOf(Date);
+    // reviewedBy/At must be null on rejection
+    expect(updateCall.data.reviewedBy).toBeNull();
+    expect(updateCall.data.reviewedAt).toBeNull();
+  });
+
+  it("does NOT store correctionReason when rejecting WITHOUT reviewNotes", async () => {
+    (prisma.subjectFinalization.findUnique as Mock).mockResolvedValue(mkFin(FinalizationStatus.UNDER_REVIEW));
+    (prisma.subjectFinalization.update as Mock).mockResolvedValue(mkFin(FinalizationStatus.DRAFT));
+
+    await svc.reviewSubject(VICE_DIR, {
+      teacherSubjectId: 1,
+      semester: "SEMESTER_1",
+      academicYear: "2026/27",
+      approved: false,
+      // no reviewNotes
+    });
+
+    const updateCall = (prisma.subjectFinalization.update as Mock).mock.calls[0][0];
+    expect(updateCall.data.status).toBe(FinalizationStatus.DRAFT);
+    expect(updateCall.data).not.toHaveProperty("correctionReason");
+    expect(updateCall.data).not.toHaveProperty("lastCorrectionAt");
+  });
+
+  it("does NOT store correctionReason when approving", async () => {
+    (prisma.subjectFinalization.findUnique as Mock).mockResolvedValue(mkFin(FinalizationStatus.UNDER_REVIEW));
+    (prisma.subjectFinalization.update as Mock).mockResolvedValue(mkFin(FinalizationStatus.APPROVED));
+
+    await svc.reviewSubject(VICE_DIR, {
+      teacherSubjectId: 1,
+      semester: "SEMESTER_1",
+      academicYear: "2026/27",
+      approved: true,
+      reviewNotes: "Looks good", // notes provided but approval should not store as correctionReason
+    });
+
+    const updateCall = (prisma.subjectFinalization.update as Mock).mock.calls[0][0];
+    expect(updateCall.data.status).toBe(FinalizationStatus.APPROVED);
+    expect(updateCall.data.reviewedBy).toBe(VICE_DIR.userId);
+    expect(updateCall.data.reviewedAt).toBeInstanceOf(Date);
+    // correctionReason must never be set on approval
+    expect(updateCall.data).not.toHaveProperty("correctionReason");
+    expect(updateCall.data).not.toHaveProperty("lastCorrectionAt");
+  });
+
+  it("ADMIN can also reject with correctionReason stored", async () => {
+    (prisma.subjectFinalization.findUnique as Mock).mockResolvedValue(mkFin(FinalizationStatus.UNDER_REVIEW));
+    (prisma.subjectFinalization.update as Mock).mockResolvedValue(mkFin(FinalizationStatus.DRAFT));
+
+    await svc.reviewSubject(ADMIN, {
+      teacherSubjectId: 1,
+      semester: "SEMESTER_1",
+      academicYear: "2026/27",
+      approved: false,
+      reviewNotes: "Administrative correction needed",
+    });
+
+    const updateCall = (prisma.subjectFinalization.update as Mock).mock.calls[0][0];
+    expect(updateCall.data.correctionReason).toBe("Administrative correction needed");
+    expect(updateCall.data.lastCorrectionAt).toBeInstanceOf(Date);
+  });
+});
+
+describe("FinalizationService — regression: classroom finalization requires FINALIZED (not APPROVED)", () => {
+  let svc: FinalizationService;
+  beforeEach(() => { svc = new FinalizationService(); vi.clearAllMocks(); });
+
+  const INPUT = { classroomId: 1, semester: "SEMESTER_1" as const, academicYear: "2026/27" };
+  const CFG_SUBJECTS = [
+    { subjectId: 1, sortOrder: 0, subject: { subjectId: 1, subjectCode: "ENG", subjectName: "English" } },
+    { subjectId: 2, sortOrder: 1, subject: { subjectId: 2, subjectCode: "MATH", subjectName: "Mathematics" } },
+  ];
+
+  it("rejects classroom finalization when one subject is APPROVED but not FINALIZED", async () => {
+    (prisma.classroom.findUnique as Mock).mockResolvedValue(CLASSROOM);
+    (prisma.gradeSubjectConfig.findMany as Mock).mockResolvedValue(CFG_SUBJECTS);
+    (prisma.teacherSubject.findMany as Mock).mockResolvedValue([
+      { id: 10, subjectId: 1, subject: { subjectName: "English" } },
+      { id: 11, subjectId: 2, subject: { subjectName: "Mathematics" } },
+    ]);
+    // English FINALIZED, Math only APPROVED — must block
+    (prisma.subjectFinalization.findUnique as Mock)
+      .mockResolvedValueOnce({ status: FinalizationStatus.FINALIZED })
+      .mockResolvedValueOnce({ status: FinalizationStatus.APPROVED });
+
+    await expect(svc.finalizeClassroom(DIRECTOR, INPUT)).rejects.toBeInstanceOf(BadRequestError);
+    // classroomFinalization.upsert must never be called when validation fails
+    expect((prisma.classroomFinalization.upsert as Mock)).not.toHaveBeenCalled();
+  });
+
+  it("succeeds when ALL subjects are FINALIZED (APPROVED-only is not enough)", async () => {
+    (prisma.classroom.findUnique as Mock).mockResolvedValue(CLASSROOM);
+    (prisma.gradeSubjectConfig.findMany as Mock).mockResolvedValue(CFG_SUBJECTS);
+    (prisma.teacherSubject.findMany as Mock).mockResolvedValue([
+      { id: 10, subjectId: 1, subject: { subjectName: "English" } },
+      { id: 11, subjectId: 2, subject: { subjectName: "Mathematics" } },
+    ]);
+    (prisma.subjectFinalization.findUnique as Mock).mockResolvedValue({ status: FinalizationStatus.FINALIZED });
+    const clsFin = {
+      id: 200, classroomId: 1, semester: "SEMESTER_1", academicYear: "2026/27",
+      status: FinalizationStatus.FINALIZED, finalizedBy: 30, finalizedAt: new Date(),
+      correctionReason: null, lastCorrectionAt: null, createdAt: new Date(), updatedAt: new Date(),
+      classroom: CLASSROOM, finalizedByUser: null,
+    };
+    (prisma.classroomFinalization.upsert as Mock).mockResolvedValue(clsFin);
+    (prisma.student.findMany as Mock).mockResolvedValue([]);
+
+    const dto = await svc.finalizeClassroom(DIRECTOR, INPUT);
+    expect(dto.status).toBe(FinalizationStatus.FINALIZED);
+  });
+});
+
+describe("FinalizationService — regression: correctSubjectFinalization stores correctionReason", () => {
+  let svc: FinalizationService;
+  beforeEach(() => { svc = new FinalizationService(); vi.clearAllMocks(); });
+
+  it("stores the correction reason and reopens to UNDER_REVIEW", async () => {
+    (prisma.subjectFinalization.findUnique as Mock).mockResolvedValue({ ...mkFin(FinalizationStatus.FINALIZED), id: 100 });
+    (prisma.subjectFinalization.update as Mock).mockResolvedValue(mkFin(FinalizationStatus.UNDER_REVIEW));
+
+    await svc.correctSubjectFinalization(DIRECTOR, 100, { correctionReason: "Score entry error in row 5" });
+
+    const updateCall = (prisma.subjectFinalization.update as Mock).mock.calls[0][0];
+    expect(updateCall.data.status).toBe(FinalizationStatus.UNDER_REVIEW);
+    expect(updateCall.data.correctionReason).toBe("Score entry error in row 5");
+    expect(updateCall.data.lastCorrectionAt).toBeInstanceOf(Date);
+  });
+
+  it("TEACHER cannot correct a finalized subject", async () => {
+    await expect(
+      svc.correctSubjectFinalization(TEACHER, 100, { correctionReason: "error" })
+    ).rejects.toBeInstanceOf(ForbiddenError);
+  });
+
+  it("cannot correct a subject that is only APPROVED (must be FINALIZED)", async () => {
+    (prisma.subjectFinalization.findUnique as Mock).mockResolvedValue({ ...mkFin(FinalizationStatus.APPROVED), id: 100 });
+    await expect(
+      svc.correctSubjectFinalization(DIRECTOR, 100, { correctionReason: "error" })
+    ).rejects.toBeInstanceOf(BadRequestError);
+  });
+});

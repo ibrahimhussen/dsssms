@@ -244,6 +244,11 @@ export class FinalizationService {
         status: newStatus,
         reviewedBy: input.approved ? actor.userId : null,
         reviewedAt: input.approved ? new Date() : null,
+        // Store rejection reason so the teacher knows what to correct
+        ...((!input.approved && input.reviewNotes) && {
+          correctionReason: input.reviewNotes,
+          lastCorrectionAt: new Date(),
+        }),
         updatedAt: new Date(),
       },
       include: SUBJECT_FINALIZATION_INCLUDE,
