@@ -1,5 +1,5 @@
 /* eslint-disable @typescript-eslint/no-explicit-any */
-import { useMemo, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import { useQuery } from '@tanstack/react-query';
 import { MdAutoAwesome, MdBarChart, MdCheckCircle, MdWarningAmber, MdInfoOutline } from 'react-icons/md';
 import { useClassroomOptions } from '../../hooks/useClassrooms';
@@ -16,19 +16,6 @@ import type { AcademicStatus, RegisterViewMode } from '../../types/academic-regi
 import type { Semester } from '../../types/grade';
 
 // ── helpers ──────────────────────────────────────────────────────────────────
-
-function currentAcademicYear(): string {
-  const y = new Date().getFullYear();
-  return `${y}/${String(y + 1).slice(2)}`;
-}
-
-const ACADEMIC_YEAR_OPTIONS: string[] = (() => {
-  const base = new Date().getFullYear();
-  return [-1, 0, 1].map((offset) => {
-    const y = base + offset;
-    return `${y}/${String(y + 1).slice(2)}`;
-  });
-})();
 
 const SEMESTER_LABELS: Record<Semester, string> = {
   SEMESTER_1: 'Semester 1',
@@ -74,16 +61,31 @@ function StatCard({ label, value, tone }: { label: string; value: string | numbe
 // ── Tab: Generate Reports ─────────────────────────────────────────────────────
 
 function GenerateReportsTab() {
-  const { data: classroomsData } = useClassroomOptions();
+  const { data: classroomsData, isLoading: classroomsLoading, error: classroomsError } = useClassroomOptions();
   const generateMutation = useGenerateClassroomReports();
 
-  const [academicYear, setAcademicYear] = useState(currentAcademicYear());
+  const [academicYear, setAcademicYear] = useState('');
   const [semester,     setSemester]     = useState<Semester>('SEMESTER_1');
   const [classroomId,  setClassroomId]  = useState<string>('');
   const [confirmOpen,  setConfirmOpen]  = useState(false);
   const [lastResult,   setLastResult]   = useState<GenerateReportsResult | null>(null);
 
   const allClassrooms = classroomsData?.items ?? [];
+
+  // Academic years derived from classroom records — not hardcoded, so the
+  // dropdown only ever offers years that actually exist in the database.
+  const availableYears = useMemo(() => {
+    const years = new Set<string>();
+    allClassrooms.forEach((c) => years.add(c.academicYear));
+    return Array.from(years).sort().reverse();
+  }, [allClassrooms]);
+
+  // Auto-select the most recent academic year once classrooms have loaded.
+  useEffect(() => {
+    if (availableYears.length > 0 && !academicYear) {
+      setAcademicYear(availableYears[0]);
+    }
+  }, [availableYears, academicYear]);
 
   // Build grade options from classrooms
   const gradeOptions = useMemo(
@@ -157,7 +159,13 @@ function GenerateReportsTab() {
               setLastResult(null);
             }}
           >
-            {ACADEMIC_YEAR_OPTIONS.map((yr) => (
+            {!academicYear && classroomsLoading && (
+              <option value="">Loading…</option>
+            )}
+            {!classroomsLoading && availableYears.length === 0 && (
+              <option value="">No years available</option>
+            )}
+            {availableYears.map((yr) => (
               <option key={yr} value={yr}>{yr}</option>
             ))}
           </SelectField>
@@ -191,7 +199,13 @@ function GenerateReportsTab() {
             onChange={(e) => { setClassroomId(e.target.value); setLastResult(null); }}
             disabled={!grade}
           >
-            <option value="">Select classroom…</option>
+            <option value="">
+              {!grade
+                ? 'Select grade first…'
+                : filteredClassrooms.length === 0
+                ? 'No sections found for this grade/year'
+                : 'Select classroom…'}
+            </option>
             {filteredClassrooms.map((c) => (
               <option key={c.classroomId} value={c.classroomId}>
                 {c.className} {c.section}
@@ -208,6 +222,26 @@ function GenerateReportsTab() {
           </Button>
         </div>
       </div>
+
+      {/* Classroom fetch error */}
+      {classroomsError && (
+        <div className="mb-5 flex items-start gap-2.5 rounded-xl border border-danger-200 bg-danger-50 px-4 py-3">
+          <MdWarningAmber className="mt-0.5 h-4 w-4 shrink-0 text-danger-600" />
+          <p className="text-sm text-danger-700">
+            {classroomsError instanceof Error
+              ? classroomsError.message
+              : 'Could not load classrooms.'}
+          </p>
+        </div>
+      )}
+
+      {/* Classrooms loading */}
+      {classroomsLoading && (
+        <div className="mb-5 flex items-center gap-2 text-slate-400">
+          <span className="h-4 w-4 animate-spin rounded-full border-2 border-slate-200 border-t-pine-700" />
+          <span className="text-sm">Loading classrooms…</span>
+        </div>
+      )}
 
       {/* Error */}
       {generateMutation.error && (
@@ -384,9 +418,9 @@ function GenerateReportsTab() {
 // ── Tab: View Academic Register ───────────────────────────────────────────────
 
 function ViewReportsTab() {
-  const { data: classroomsData } = useClassroomOptions();
+  const { data: classroomsData, isLoading: classroomsLoading, error: classroomsError } = useClassroomOptions();
 
-  const [academicYear, setAcademicYear] = useState(currentAcademicYear());
+  const [academicYear, setAcademicYear] = useState('');
   const [viewMode,     setViewMode]     = useState<RegisterViewMode>('SEMESTER_1');
   const [grade,        setGrade]        = useState('');
   const [classroomSel, setClassroomSel] = useState('');
@@ -399,6 +433,20 @@ function ViewReportsTab() {
   } | null>(null);
 
   const allClassrooms = classroomsData?.items ?? [];
+
+  // Academic years derived from classroom records — not hardcoded.
+  const availableYears = useMemo(() => {
+    const years = new Set<string>();
+    allClassrooms.forEach((c) => years.add(c.academicYear));
+    return Array.from(years).sort().reverse();
+  }, [allClassrooms]);
+
+  // Auto-select the most recent academic year once classrooms have loaded.
+  useEffect(() => {
+    if (availableYears.length > 0 && !academicYear) {
+      setAcademicYear(availableYears[0]);
+    }
+  }, [availableYears, academicYear]);
 
   const gradeOptions = useMemo(
     () => [...new Set(allClassrooms.map((c) => c.className))].sort(),
@@ -471,7 +519,13 @@ function ViewReportsTab() {
         <div className="flex flex-wrap items-end gap-3">
           <SelectField label="Academic Year" className="min-w-[150px]" value={academicYear}
             onChange={(e) => { setAcademicYear(e.target.value); setClassroomSel(''); setCommitted(null); }}>
-            {ACADEMIC_YEAR_OPTIONS.map((yr) => <option key={yr} value={yr}>{yr}</option>)}
+            {!academicYear && classroomsLoading && (
+              <option value="">Loading…</option>
+            )}
+            {!classroomsLoading && availableYears.length === 0 && (
+              <option value="">No years available</option>
+            )}
+            {availableYears.map((yr) => <option key={yr} value={yr}>{yr}</option>)}
           </SelectField>
 
           <SelectField label="Semester" className="min-w-[160px]" value={viewMode}
@@ -490,7 +544,13 @@ function ViewReportsTab() {
           <SelectField label="Classroom" className="min-w-[190px]" value={classroomSel}
             onChange={(e) => { setClassroomSel(e.target.value); setCommitted(null); }}
             disabled={!grade}>
-            <option value="">All Classrooms</option>
+            <option value="">
+              {!grade
+                ? 'Select grade first…'
+                : classroomsForGrade.length === 0
+                ? 'No sections found for this grade/year'
+                : 'All Classrooms'}
+            </option>
             {classroomsForGrade.map((c) => (
               <option key={c.classroomId} value={c.classroomId}>
                 {c.className} {c.section}
@@ -503,6 +563,21 @@ function ViewReportsTab() {
           </Button>
         </div>
       </div>
+
+      {classroomsError && (
+        <div className="mb-5 rounded-xl border border-danger-200 bg-danger-50 px-4 py-3">
+          <p className="text-sm text-danger-700">
+            {classroomsError instanceof Error ? classroomsError.message : 'Could not load classrooms.'}
+          </p>
+        </div>
+      )}
+
+      {classroomsLoading && (
+        <div className="mb-5 flex items-center gap-2 text-slate-400">
+          <span className="h-4 w-4 animate-spin rounded-full border-2 border-slate-200 border-t-pine-700" />
+          <span className="text-sm">Loading classrooms…</span>
+        </div>
+      )}
 
       {queryError && (
         <div className="mb-5 rounded-xl border border-danger-200 bg-danger-50 px-4 py-3">
