@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import { useMyTeachingAssignments } from '../../hooks/useDashboardData';
 import { useClassroomTotals, useDeleteGradeComponent, useGradeScheme, useReleaseGradeComponent } from '../../hooks/useGrades';
 import { useSubmitForReview, useSubjectFinalization } from '../../hooks/useFinalization';
@@ -23,16 +23,11 @@ const CATEGORY_LABELS: Record<GradeCategory, string> = {
   OTHER: 'Other',
 };
 
-function currentAcademicYear(): string {
-  const year = new Date().getFullYear();
-  return `${year}/${String(year + 1).slice(2)}`;
-}
-
 export function GradesPage() {
   const { data: assignments } = useMyTeachingAssignments();
   const [teacherSubjectId, setTeacherSubjectId] = useState<string>('');
   const [semester, setSemester] = useState<Semester>('SEMESTER_1');
-  const [academicYear, setAcademicYear] = useState<string>(currentAcademicYear());
+  const [academicYear, setAcademicYear] = useState<string>('');
   const [isAddOpen, setIsAddOpen] = useState(false);
   const [entryComponentId, setEntryComponentId] = useState<number | null>(null);
   const [pendingDelete, setPendingDelete] = useState<GradeComponent | null>(null);
@@ -40,6 +35,14 @@ export function GradesPage() {
   const [submitSuccess, setSubmitSuccess] = useState(false);
 
   const selectedAssignment = assignments?.find((a) => String(a.id) === teacherSubjectId);
+
+  // Derive academic year from the selected assignment's classroom so it
+  // always matches the DB-stored value (e.g. "2026" not clock-based "2026/27").
+  useEffect(() => {
+    if (selectedAssignment) {
+      setAcademicYear(selectedAssignment.classroom.academicYear);
+    }
+  }, [selectedAssignment]);
   const scope = { teacherSubjectId: Number(teacherSubjectId), semester, academicYear };
   const hasScope = Boolean(teacherSubjectId && semester && academicYear);
 

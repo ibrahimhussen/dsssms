@@ -26,11 +26,6 @@ const DAY_LABELS: Record<DayOfWeek, string> = {
   SATURDAY: 'Saturday',
 };
 
-function currentAcademicYear(): string {
-  const year = new Date().getFullYear();
-  return `${year}/${String(year + 1).slice(2)}`;
-}
-
 export function TimetableAdminPage() {
   const { data: classrooms } = useClassroomOptions();
   const [selectedAcademicYear, setSelectedAcademicYear] = useState<string>('');
@@ -45,13 +40,10 @@ export function TimetableAdminPage() {
   const [isPublishing, setIsPublishing] = useState(false);
   const { user } = useAuth();
 
-  // Available academic years from current system classroom information
+  // Available academic years derived from classroom records — not hardcoded,
+  // so only years that actually exist in the database are offered.
   const availableYears = useMemo(() => {
     const years = Array.from(new Set(classrooms?.items.map((c) => c.academicYear).filter(Boolean) ?? []));
-    const defaultYear = currentAcademicYear();
-    if (!years.includes(defaultYear)) {
-      years.push(defaultYear);
-    }
     return years.sort().reverse();
   }, [classrooms]);
 

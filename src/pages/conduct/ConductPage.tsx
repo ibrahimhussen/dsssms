@@ -1,5 +1,5 @@
 /* eslint-disable @typescript-eslint/no-explicit-any */
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import { useClassroomOptions } from '../../hooks/useClassrooms';
 import { useClassroomConducts, useClassroomConductSummary, useUpdateConduct, useDeleteConduct } from '../../hooks/useConduct';
 import { SelectField } from '../../components/ui/SelectField';
@@ -13,19 +13,24 @@ import { Badge } from '../../components/ui/Badge';
 import type { Semester } from '../../types/grade';
 import type { StudentConduct } from '../../types/conduct';
 
-function currentAcademicYear(): string {
-  const year = new Date().getFullYear();
-  return `${year}/${String(year + 1).slice(2)}`;
-}
-
 export function ConductPage() {
   const { data: classroomsData } = useClassroomOptions();
   const [classroomId, setClassroomId] = useState<number | undefined>(undefined);
   const [semester, setSemester] = useState<Semester>('SEMESTER_1');
-  const [academicYear, setAcademicYear] = useState<string>(currentAcademicYear());
+  const [academicYear, setAcademicYear] = useState<string>('');
   const [selectedStudent, setSelectedStudent] = useState<StudentConduct | null>(null);
   const [showEditModal, setShowEditModal] = useState(false);
   const [_saveError, setSaveError] = useState<string | null>(null);
+
+  const selectedClassroom = classroomsData?.items.find((c) => c.classroomId === classroomId);
+
+  // Derive academic year from the selected classroom so it always matches the
+  // DB-stored value (e.g. "2026" not clock-based "2026/27").
+  useEffect(() => {
+    if (selectedClassroom) {
+      setAcademicYear(selectedClassroom.academicYear);
+    }
+  }, [selectedClassroom]);
 
   const { data: conductData, isLoading, error } = useClassroomConducts(
     classroomId ?? 0,
