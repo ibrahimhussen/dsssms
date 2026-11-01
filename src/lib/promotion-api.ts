@@ -51,6 +51,14 @@ export const promotionApi = {
     return unwrap(apiClient.post<ApiResponse<PromotionBatchDetail>>(`/promotion/${batchId}/submit`));
   },
 
+  recalculateBatch(batchId: number) {
+    return unwrap(apiClient.post<ApiResponse<PromotionBatchDetail>>(`/promotion/${batchId}/recalculate`));
+  },
+
+  deleteBatch(batchId: number) {
+    return unwrap(apiClient.delete<ApiResponse<null>>(`/promotion/${batchId}`));
+  },
+
   approveBatch(batchId: number) {
     return unwrap(apiClient.post<ApiResponse<PromotionBatchDetail>>(`/promotion/${batchId}/approve`));
   },

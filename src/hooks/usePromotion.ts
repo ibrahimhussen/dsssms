@@ -84,6 +84,26 @@ export function useSubmitPromotionBatch() {
   });
 }
 
+export function useRecalculateBatch() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: (batchId: number) => promotionApi.recalculateBatch(batchId),
+    onSuccess: (data) => {
+      qc.setQueryData(batchKey(data.id), data);
+    },
+  });
+}
+
+export function useDeletePromotionBatch() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: (batchId: number) => promotionApi.deleteBatch(batchId),
+    onSuccess: () => {
+      void qc.invalidateQueries({ queryKey: [BATCHES_KEY] });
+    },
+  });
+}
+
 export function useApprovePromotionBatch() {
   const qc = useQueryClient();
   return useMutation({

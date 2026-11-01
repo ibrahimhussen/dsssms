@@ -38,6 +38,20 @@ export class PromotionController {
     ApiResponse.success(res, { message: 'Promotion batch retrieved', data: batch });
   });
 
+  recalculateBatch = asyncHandler(async (req: Request, res: Response) => {
+    if (!req.user) throw new UnauthorizedError();
+    const { id } = req.params as unknown as BatchIdParam;
+    const batch = await promotionService.recalculateBatch(req.user, id, req.ip);
+    ApiResponse.success(res, { message: 'Promotion eligibility recalculated', data: batch });
+  });
+
+  deleteBatch = asyncHandler(async (req: Request, res: Response) => {
+    if (!req.user) throw new UnauthorizedError();
+    const { id } = req.params as unknown as BatchIdParam;
+    await promotionService.deleteBatch(req.user, id, req.ip);
+    ApiResponse.success(res, { message: 'Promotion batch deleted', data: null });
+  });
+
   updateEntry = asyncHandler(async (req: Request, res: Response) => {
     if (!req.user) throw new UnauthorizedError();
     const { id, entryId } = req.params as unknown as EntryIdParam;

@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { MdAdd, MdChevronRight } from 'react-icons/md';
 import { usePromotionBatches, useCreatePromotionBatch } from '../../hooks/usePromotion';
@@ -16,6 +16,26 @@ import { EmptyState } from '../../components/ui/EmptyState';
 import type { PromotionBatchSummary, BatchStatus } from '../../types/promotion';
 
 // ── Helpers ───────────────────────────────────────────────────────────────────
+
+/**
+ * Auto-computes the next academic year from the source year.
+ * "2026" → "2027", "2026/27" → "2027/28", "2026/2027" → "2027/2028".
+ */
+function computeTargetAcademicYear(source: string): string {
+  const trimmed = source.trim();
+  const slashMatch = trimmed.match(/^(\d{4})\/(\d{2,4})$/);
+  if (slashMatch) {
+    const startYear = parseInt(slashMatch[1], 10);
+    const suffixLen = slashMatch[2].length;
+    const nextEnd = startYear + 1 + 1;
+    return `${startYear + 1}/${String(nextEnd).slice(-suffixLen)}`;
+  }
+  const bareMatch = trimmed.match(/^(\d{4})$/);
+  if (bareMatch) return String(parseInt(bareMatch[1], 10) + 1);
+  const anyMatch = trimmed.match(/(\d{4})/);
+  if (anyMatch) return trimmed.replace(/(\d{4})/, String(parseInt(anyMatch[1], 10) + 1));
+  return trimmed;
+}
 
 function statusBadge(status: BatchStatus) {
   switch (status) {
@@ -42,6 +62,20 @@ function CreateBatchModal({ isOpen, onClose, onCreated }: CreateBatchModalProps)
   const [sourceClassroomId, setSourceClassroomId] = useState<string>('');
   const [targetAcademicYear, setTargetAcademicYear] = useState<string>('');
   const [error, setError] = useState<string | null>(null);
+
+  // Auto-fill the target academic year when a source classroom is selected.
+  // The backend will also correct a same-as-source target, but pre-filling
+  // prevents the operator from ever seeing the wrong value.
+  useEffect(() => {
+    if (!sourceClassroomId) {
+      setTargetAcademicYear('');
+      return;
+    }
+    const classroom = classroomsData?.items.find((c) => String(c.classroomId) === sourceClassroomId);
+    if (classroom) {
+      setTargetAcademicYear(computeTargetAcademicYear(classroom.academicYear));
+    }
+  }, [sourceClassroomId, classroomsData]);
 
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault();

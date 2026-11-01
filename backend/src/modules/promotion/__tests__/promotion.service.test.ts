@@ -7,7 +7,7 @@ import { BatchStatus, EligibilityStatus, PromotionDecision } from "@prisma/clien
 
 vi.mock("../../../database/prisma-client", () => ({ prisma: {
   classroom:         { findUnique: vi.fn(), findMany: vi.fn() },
-  promotionBatch:    { findFirst: vi.fn(), findUnique: vi.fn(), findMany: vi.fn(), count: vi.fn(), update: vi.fn() },
+  promotionBatch:    { findFirst: vi.fn(), findUnique: vi.fn(), findMany: vi.fn(), count: vi.fn(), update: vi.fn(), delete: vi.fn() },
   promotionEntry:    { update: vi.fn(), updateMany: vi.fn(), createMany: vi.fn() },
   student:           { findMany: vi.fn(), findUnique: vi.fn(), update: vi.fn() },
   studentEnrollment: { findFirst: vi.fn(), upsert: vi.fn(), create: vi.fn(), updateMany: vi.fn() },
@@ -48,7 +48,7 @@ function mkEntry(sid: number, dec: PromotionDecision, elig: EligibilityStatus, t
     targetClassroom: tcId ? CL10A : null };
 }
 // --- eligibility + createBatch --------------------------------------------
-describe("createBatch � eligibility", () => {
+describe("createBatch � eligibility", () => {
   let svc: PromotionService;
   beforeEach(() => { svc = new PromotionService(); vi.clearAllMocks(); });
 
@@ -315,5 +315,272 @@ describe('historical data preservation', () => {
     expect(mockCreate).toHaveBeenCalledWith(
       expect.objectContaining({ data: expect.objectContaining({ academicYear: '2027/28' }) })
     );
+  });
+});
+
+// ── Regression tests — promotion eligibility fixes ───────────────────────────
+// Bug: PENDING_REVIEW students defaulted to REPEATED (missing data treated as
+// failure).  Fix: PENDING_REVIEW → PROMOTED (optimistic, pending manual review).
+// Bug: No way to refresh eligibility after reports were generated.
+// Fix: recalculateBatch recomputes eligibility for DRAFT batches.
+// Bug: Target year could equal source year (operator typed same year).
+// Fix: Backend auto-computes target when source === target.
+
+describe('regression: PENDING_REVIEW defaults to PROMOTED not REPEATED', () => {
+  let svc: PromotionService;
+  beforeEach(() => { svc = new PromotionService(); vi.clearAllMocks(); });
+
+  it('PENDING_REVIEW student gets PROMOTED decision (not REPEATED)', async () => {
+    (prisma.classroom.findUnique as Mock).mockResolvedValue(CL9A);
+    (prisma.promotionBatch.findFirst as Mock).mockResolvedValue(null);
+    (prisma.systemSetting.findUnique as Mock).mockResolvedValue({ promotionPassMark: '50.00' });
+    (prisma.student.findMany as Mock).mockResolvedValue([STU1]);
+    (prisma.academicReport.findMany as Mock).mockResolvedValue([]); // no reports
+    (prisma.attendance.count as Mock).mockResolvedValue(0);
+
+    let createManyData: { decision: string; eligibilityStatus: string }[];
+    (prisma.$transaction as Mock).mockImplementation(async (fn: (tx: unknown) => Promise<unknown>) => fn({
+      promotionBatch: { create: vi.fn().mockResolvedValue(mkBatch()), findUniqueOrThrow: vi.fn().mockResolvedValue(mkBatch()) },
+      promotionEntry: {
+        createMany: vi.fn().mockImplementation((args: { data: typeof createManyData }) => { createManyData = args.data; }),
+      },
+    }));
+
+    await svc.createBatch(VICE_DIR, { sourceClassroomId: 1, targetAcademicYear: '2027/28' });
+
+    expect(createManyData!).toBeDefined();
+    expect(createManyData![0].eligibilityStatus).toBe(EligibilityStatus.PENDING_REVIEW);
+    expect(createManyData![0].decision).toBe(PromotionDecision.PROMOTED);
+  });
+
+  it('NOT_ELIGIBLE student still gets REPEATED decision', async () => {
+    (prisma.classroom.findUnique as Mock).mockResolvedValue(CL9A);
+    (prisma.promotionBatch.findFirst as Mock).mockResolvedValue(null);
+    (prisma.systemSetting.findUnique as Mock).mockResolvedValue({ promotionPassMark: '50.00' });
+    (prisma.student.findMany as Mock).mockResolvedValue([STU1]);
+    (prisma.academicReport.findMany as Mock).mockResolvedValue([{ studentId: 101, averageMark: '38.00' }]);
+    (prisma.attendance.count as Mock).mockResolvedValue(0);
+
+    let createManyData: { decision: string; eligibilityStatus: string }[];
+    (prisma.$transaction as Mock).mockImplementation(async (fn: (tx: unknown) => Promise<unknown>) => fn({
+      promotionBatch: { create: vi.fn().mockResolvedValue(mkBatch()), findUniqueOrThrow: vi.fn().mockResolvedValue(mkBatch()) },
+      promotionEntry: {
+        createMany: vi.fn().mockImplementation((args: { data: typeof createManyData }) => { createManyData = args.data; }),
+      },
+    }));
+
+    await svc.createBatch(VICE_DIR, { sourceClassroomId: 1, targetAcademicYear: '2027/28' });
+
+    expect(createManyData![0].eligibilityStatus).toBe(EligibilityStatus.NOT_ELIGIBLE);
+    expect(createManyData![0].decision).toBe(PromotionDecision.REPEATED);
+  });
+});
+
+describe('regression: target year auto-computation', () => {
+  let svc: PromotionService;
+  beforeEach(() => { svc = new PromotionService(); vi.clearAllMocks(); });
+
+  function setupBasicCreate() {
+    (prisma.promotionBatch.findFirst as Mock).mockResolvedValue(null);
+    (prisma.systemSetting.findUnique as Mock).mockResolvedValue({ promotionPassMark: '50.00' });
+    (prisma.student.findMany as Mock).mockResolvedValue([STU1]);
+    (prisma.academicReport.findMany as Mock).mockResolvedValue([]);
+    (prisma.attendance.count as Mock).mockResolvedValue(0);
+    (prisma.$transaction as Mock).mockImplementation(async (fn: (tx: unknown) => Promise<unknown>) => fn({
+      promotionBatch: { create: vi.fn().mockResolvedValue(mkBatch()), findUniqueOrThrow: vi.fn().mockResolvedValue(mkBatch()) },
+      promotionEntry: { createMany: vi.fn() },
+    }));
+  }
+
+  it('auto-computes target year when source = target (bare year)', async () => {
+    const CL_BARE = { ...CL9A, academicYear: '2026' };
+    (prisma.classroom.findUnique as Mock).mockResolvedValue(CL_BARE);
+    setupBasicCreate();
+
+    let capturedData: { targetAcademicYear: string };
+    (prisma.$transaction as Mock).mockImplementation(async (fn: (tx: unknown) => Promise<unknown>) => fn({
+      promotionBatch: {
+        create: vi.fn().mockImplementation(async ({ data }: { data: typeof capturedData }) => { capturedData = data; return mkBatch(); }),
+        findUniqueOrThrow: vi.fn().mockResolvedValue(mkBatch()),
+      },
+      promotionEntry: { createMany: vi.fn() },
+    }));
+
+    // Operator enters same year as source — backend should auto-compute "2027"
+    await svc.createBatch(VICE_DIR, { sourceClassroomId: 1, targetAcademicYear: '2026' });
+    expect(capturedData!.targetAcademicYear).toBe('2027');
+  });
+
+  it('auto-computes target year when source = target (slash format)', async () => {
+    (prisma.classroom.findUnique as Mock).mockResolvedValue(CL9A); // academicYear: "2026/27"
+    setupBasicCreate();
+
+    let capturedData: { targetAcademicYear: string };
+    (prisma.$transaction as Mock).mockImplementation(async (fn: (tx: unknown) => Promise<unknown>) => fn({
+      promotionBatch: {
+        create: vi.fn().mockImplementation(async ({ data }: { data: typeof capturedData }) => { capturedData = data; return mkBatch(); }),
+        findUniqueOrThrow: vi.fn().mockResolvedValue(mkBatch()),
+      },
+      promotionEntry: { createMany: vi.fn() },
+    }));
+
+    // Operator enters same year as source — backend should auto-compute "2027/28"
+    await svc.createBatch(VICE_DIR, { sourceClassroomId: 1, targetAcademicYear: '2026/27' });
+    expect(capturedData!.targetAcademicYear).toBe('2027/28');
+  });
+
+  it('keeps operator-supplied target when different from source', async () => {
+    (prisma.classroom.findUnique as Mock).mockResolvedValue(CL9A); // academicYear: "2026/27"
+    setupBasicCreate();
+
+    let capturedData: { targetAcademicYear: string };
+    (prisma.$transaction as Mock).mockImplementation(async (fn: (tx: unknown) => Promise<unknown>) => fn({
+      promotionBatch: {
+        create: vi.fn().mockImplementation(async ({ data }: { data: typeof capturedData }) => { capturedData = data; return mkBatch(); }),
+        findUniqueOrThrow: vi.fn().mockResolvedValue(mkBatch()),
+      },
+      promotionEntry: { createMany: vi.fn() },
+    }));
+
+    await svc.createBatch(VICE_DIR, { sourceClassroomId: 1, targetAcademicYear: '2028/29' });
+    expect(capturedData!.targetAcademicYear).toBe('2028/29');
+  });
+});
+
+describe('regression: recalculateBatch', () => {
+  let svc: PromotionService;
+  beforeEach(() => { svc = new PromotionService(); vi.clearAllMocks(); });
+
+  it('updates PENDING_REVIEW to ELIGIBLE when reports now exist', async () => {
+    const entry = mkEntry(101, PromotionDecision.PROMOTED, EligibilityStatus.PENDING_REVIEW, 2);
+    entry.averageMark = null;
+    const draftBatch = mkBatch({ entries: [entry] });
+    // assertBatchExists → batch, then recalculate re-fetches
+    (prisma.promotionBatch.findUnique as Mock)
+      .mockResolvedValueOnce(draftBatch)   // initial assertBatchExists
+      .mockResolvedValueOnce(draftBatch);  // final assertBatchExists after recalc
+
+    (prisma.classroom.findUnique as Mock).mockResolvedValue(CL9A);
+    (prisma.systemSetting.findUnique as Mock).mockResolvedValue({ promotionPassMark: '50.00' });
+    (prisma.academicReport.findMany as Mock).mockResolvedValue([{ studentId: 101, averageMark: '72.00' }]);
+    (prisma.attendance.count as Mock).mockResolvedValue(0);
+    (prisma.promotionEntry.update as Mock).mockResolvedValue({});
+
+    const result = await svc.recalculateBatch(VICE_DIR, 1);
+    expect(result).toBeDefined();
+
+    const updateCall = (prisma.promotionEntry.update as Mock).mock.calls[0][0];
+    expect(updateCall.data.eligibilityStatus).toBe(EligibilityStatus.ELIGIBLE);
+    expect(updateCall.data.decision).toBe(PromotionDecision.PROMOTED);
+    expect(Number(updateCall.data.averageMark)).toBe(72);
+  });
+
+  it('preserves manually overridden entries (only refreshes display data)', async () => {
+    const entry = mkEntry(101, PromotionDecision.REPEATED, EligibilityStatus.PENDING_REVIEW, 3);
+    entry.overrideReason = 'Manual review — student needs support';
+    entry.averageMark = null;
+    const draftBatch = mkBatch({ entries: [entry] });
+    (prisma.promotionBatch.findUnique as Mock)
+      .mockResolvedValueOnce(draftBatch)
+      .mockResolvedValueOnce(draftBatch);
+
+    (prisma.classroom.findUnique as Mock).mockResolvedValue(CL9A);
+    (prisma.systemSetting.findUnique as Mock).mockResolvedValue({ promotionPassMark: '50.00' });
+    (prisma.academicReport.findMany as Mock).mockResolvedValue([{ studentId: 101, averageMark: '55.00' }]);
+    (prisma.attendance.count as Mock).mockResolvedValue(0);
+    (prisma.promotionEntry.update as Mock).mockResolvedValue({});
+
+    await svc.recalculateBatch(VICE_DIR, 1);
+
+    const updateCall = (prisma.promotionEntry.update as Mock).mock.calls[0][0];
+    // Should NOT change eligibility or decision (manually reviewed)
+    expect(updateCall.data).not.toHaveProperty('eligibilityStatus');
+    expect(updateCall.data).not.toHaveProperty('decision');
+    // Should update display data
+    expect(Number(updateCall.data.averageMark)).toBe(55);
+  });
+
+  it('updates PENDING_REVIEW to NOT_ELIGIBLE when reports show low average', async () => {
+    const entry = mkEntry(101, PromotionDecision.PROMOTED, EligibilityStatus.PENDING_REVIEW, 2);
+    entry.averageMark = null;
+    const draftBatch = mkBatch({ entries: [entry] });
+    (prisma.promotionBatch.findUnique as Mock)
+      .mockResolvedValueOnce(draftBatch)
+      .mockResolvedValueOnce(draftBatch);
+
+    (prisma.classroom.findUnique as Mock).mockResolvedValue(CL9A);
+    (prisma.systemSetting.findUnique as Mock).mockResolvedValue({ promotionPassMark: '50.00' });
+    (prisma.academicReport.findMany as Mock).mockResolvedValue([{ studentId: 101, averageMark: '35.00' }]);
+    (prisma.attendance.count as Mock).mockResolvedValue(0);
+    (prisma.promotionEntry.update as Mock).mockResolvedValue({});
+
+    await svc.recalculateBatch(VICE_DIR, 1);
+
+    const updateCall = (prisma.promotionEntry.update as Mock).mock.calls[0][0];
+    expect(updateCall.data.eligibilityStatus).toBe(EligibilityStatus.NOT_ELIGIBLE);
+    expect(updateCall.data.decision).toBe(PromotionDecision.REPEATED);
+  });
+
+  it('throws BadRequestError for non-DRAFT batch', async () => {
+    const submittedBatch = mkBatch({ status: BatchStatus.SUBMITTED });
+    (prisma.promotionBatch.findUnique as Mock).mockResolvedValue(submittedBatch);
+
+    await expect(svc.recalculateBatch(VICE_DIR, 1)).rejects.toBeInstanceOf(BadRequestError);
+  });
+});
+
+describe('regression: deleteBatch', () => {
+  let svc: PromotionService;
+  beforeEach(() => { svc = new PromotionService(); vi.clearAllMocks(); });
+
+  it('deletes a DRAFT batch', async () => {
+    const draftBatch = mkBatch({ entries: [mkEntry(101, PromotionDecision.PROMOTED, EligibilityStatus.ELIGIBLE, 2)] });
+    (prisma.promotionBatch.findUnique as Mock).mockResolvedValue(draftBatch);
+    (prisma.promotionBatch.delete as Mock).mockResolvedValue({});
+
+    await svc.deleteBatch(VICE_DIR, 1);
+    expect(prisma.promotionBatch.delete as Mock).toHaveBeenCalledWith({ where: { id: 1 } });
+  });
+
+  it('throws BadRequestError for non-DRAFT batch', async () => {
+    const submittedBatch = mkBatch({ status: BatchStatus.SUBMITTED });
+    (prisma.promotionBatch.findUnique as Mock).mockResolvedValue(submittedBatch);
+
+    await expect(svc.deleteBatch(VICE_DIR, 1)).rejects.toBeInstanceOf(BadRequestError);
+  });
+
+  it('throws NotFoundError for unknown batch', async () => {
+    (prisma.promotionBatch.findUnique as Mock).mockResolvedValue(null);
+    await expect(svc.deleteBatch(VICE_DIR, 999)).rejects.toBeInstanceOf(NotFoundError);
+  });
+});
+
+describe('regression: missing attendance does NOT block eligibility', () => {
+  let svc: PromotionService;
+  beforeEach(() => { svc = new PromotionService(); vi.clearAllMocks(); });
+
+  it('student with no attendance but passing average is ELIGIBLE', async () => {
+    (prisma.classroom.findUnique as Mock).mockResolvedValue(CL9A);
+    (prisma.promotionBatch.findFirst as Mock).mockResolvedValue(null);
+    (prisma.systemSetting.findUnique as Mock).mockResolvedValue({ promotionPassMark: '50.00' });
+    (prisma.student.findMany as Mock).mockResolvedValue([STU1]);
+    (prisma.academicReport.findMany as Mock).mockResolvedValue([{ studentId: 101, averageMark: '72.00' }]);
+    // No attendance records at all
+    (prisma.attendance.count as Mock).mockResolvedValue(0);
+
+    let createManyData: { decision: string; eligibilityStatus: string; attendancePercent: null }[];
+    (prisma.$transaction as Mock).mockImplementation(async (fn: (tx: unknown) => Promise<unknown>) => fn({
+      promotionBatch: { create: vi.fn().mockResolvedValue(mkBatch()), findUniqueOrThrow: vi.fn().mockResolvedValue(mkBatch()) },
+      promotionEntry: {
+        createMany: vi.fn().mockImplementation((args: { data: typeof createManyData }) => { createManyData = args.data; }),
+      },
+    }));
+
+    await svc.createBatch(VICE_DIR, { sourceClassroomId: 1, targetAcademicYear: '2027/28' });
+
+    expect(createManyData![0].eligibilityStatus).toBe(EligibilityStatus.ELIGIBLE);
+    expect(createManyData![0].decision).toBe(PromotionDecision.PROMOTED);
+    // Attendance is null (not 0%) when no records exist
+    expect(createManyData![0].attendancePercent).toBeNull();
   });
 });

@@ -42,6 +42,7 @@ export interface PromotionEntry {
   averageMark: number | null;
   attendancePercent: number | null;
   overrideReason: string | null;
+  eligibilityReason: string;
 }
 
 // ── Batch summary (list view) ─────────────────────────────────────────────────

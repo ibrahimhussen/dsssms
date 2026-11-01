@@ -63,6 +63,24 @@ router.post(
   promotionController.bulkAssignClassroom
 );
 
+// ── Recalculate eligibility (Vice Director) ─────────────────────────────────
+
+router.post(
+  '/:id/recalculate',
+  authorizeWithPermissions(MANAGE_ROLES, ['students:promotion:prepare']),
+  validate(batchIdParamSchema, 'params'),
+  promotionController.recalculateBatch
+);
+
+// ── Delete a DRAFT batch (Vice Director) ─────────────────────────────────────
+
+router.delete(
+  '/:id',
+  authorizeWithPermissions(MANAGE_ROLES, ['students:promotion:prepare']),
+  validate(batchIdParamSchema, 'params'),
+  promotionController.deleteBatch
+);
+
 // ── State transitions ──────────────────────────────────────────────────────────
 
 // Vice Director submits for approval

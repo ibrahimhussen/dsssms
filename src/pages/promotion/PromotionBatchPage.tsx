@@ -8,8 +8,10 @@ import {
   MdSchool,
   MdSend,
   MdEdit,
+  MdRefresh,
+  MdDelete,
 } from 'react-icons/md';
-import { usePromotionBatch, useUpdatePromotionEntry, useBulkAssignClassroom, useSubmitPromotionBatch, useCorrectPromotionEntry } from '../../hooks/usePromotion';
+import { usePromotionBatch, useUpdatePromotionEntry, useBulkAssignClassroom, useSubmitPromotionBatch, useCorrectPromotionEntry, useRecalculateBatch, useDeletePromotionBatch } from '../../hooks/usePromotion';
 import { useClassroomOptions } from '../../hooks/useClassrooms';
 import { useAuth } from '../../context/AuthContext';
 import { LedgerRule } from '../../components/ui/LedgerRule';
@@ -420,12 +422,16 @@ export function PromotionBatchPage() {
 
   const { data: batch, isLoading } = usePromotionBatch(batchId);
   const submitBatch = useSubmitPromotionBatch();
+  const recalculate = useRecalculateBatch();
+  const deleteBatch = useDeletePromotionBatch();
 
   const [editEntry, setEditEntry] = useState<PromotionEntry | null>(null);
   const [correctEntryTarget, setCorrectEntryTarget] = useState<PromotionEntry | null>(null);
   const [isBulkAssignOpen, setBulkAssignOpen] = useState(false);
   const [isSubmitConfirmOpen, setSubmitConfirmOpen] = useState(false);
   const [submitError, setSubmitError] = useState<string | null>(null);
+  const [isDeleteConfirmOpen, setDeleteConfirmOpen] = useState(false);
+  const [recalcError, setRecalcError] = useState<string | null>(null);
 
   const canEdit = (user?.role === 'DIRECTOR' || user?.role === 'VICE_DIRECTOR') && batch?.status === 'DRAFT';
   const canSubmit = canEdit && (batch?.entries.every((e) => e.decision === 'GRADUATED' || e.targetClassroomId !== null) ?? false);
@@ -449,6 +455,27 @@ export function PromotionBatchPage() {
     } catch (err) {
       setSubmitError(err instanceof Error ? err.message : 'Could not submit the batch.');
       setSubmitConfirmOpen(false);
+    }
+  }
+
+  async function handleRecalculate() {
+    if (!batchId) return;
+    setRecalcError(null);
+    try {
+      await recalculate.mutateAsync(batchId);
+    } catch (err) {
+      setRecalcError(err instanceof Error ? err.message : 'Could not recalculate eligibility.');
+    }
+  }
+
+  async function handleDelete() {
+    if (!batchId) return;
+    setDeleteConfirmOpen(false);
+    try {
+      await deleteBatch.mutateAsync(batchId);
+      navigate('/promotion');
+    } catch (err) {
+      setRecalcError(err instanceof Error ? err.message : 'Could not delete the batch.');
     }
   }
 
@@ -489,7 +516,12 @@ export function PromotionBatchPage() {
           <span className="text-slate-400 text-sm">—</span>
         ),
     },
-    { header: 'Eligibility', render: (e) => eligibilityBadge(e.eligibilityStatus) },
+    { header: 'Eligibility', render: (e) => (
+      <div>
+        {eligibilityBadge(e.eligibilityStatus)}
+        <p className="mt-0.5 text-xs text-slate-500">{e.eligibilityReason}</p>
+      </div>
+    ) },
     { header: 'Decision', render: (e) => decisionBadge(e.decision) },
     {
       header: 'Target classroom',
@@ -597,6 +629,17 @@ export function PromotionBatchPage() {
           )}
           {canEdit && (
             <Button
+              variant="ghost"
+              onClick={() => void handleRecalculate()}
+              isLoading={recalculate.isPending}
+              title="Recompute eligibility from current academic reports and attendance data"
+            >
+              <MdRefresh className="h-4 w-4" />
+              Recalculate eligibility
+            </Button>
+          )}
+          {canEdit && (
+            <Button
               onClick={() => setSubmitConfirmOpen(true)}
               disabled={!canSubmit}
               title={canSubmit ? undefined : 'All students with PROMOTED or REPEATED decision must have a target classroom assigned'}
@@ -610,12 +653,22 @@ export function PromotionBatchPage() {
               Review &amp; approve
             </Button>
           )}
+          {canEdit && (
+            <Button
+              variant="ghost"
+              onClick={() => setDeleteConfirmOpen(true)}
+              className="text-danger-600 hover:text-danger-700"
+            >
+              <MdDelete className="h-4 w-4" />
+              Delete batch
+            </Button>
+          )}
         </div>
       )}
 
-      {submitError && (
+      {(submitError || recalcError) && (
         <p className="mb-4 rounded-lg bg-danger-100 px-3 py-2.5 text-sm text-danger-600" role="alert">
-          {submitError}
+          {submitError ?? recalcError}
         </p>
       )}
 
@@ -661,6 +714,17 @@ export function PromotionBatchPage() {
         isLoading={submitBatch.isPending}
         onConfirm={() => void handleSubmit()}
         onCancel={() => setSubmitConfirmOpen(false)}
+      />
+
+      <ConfirmDialog
+        isOpen={isDeleteConfirmOpen}
+        title="Delete promotion batch"
+        message={`This will permanently delete this DRAFT promotion batch (${batch.totalStudents} students). No student records will be affected. This action cannot be undone.`}
+        confirmLabel="Delete"
+        isDangerous={true}
+        isLoading={deleteBatch.isPending}
+        onConfirm={() => void handleDelete()}
+        onCancel={() => setDeleteConfirmOpen(false)}
       />
     </div>
   );

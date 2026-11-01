@@ -60,7 +60,21 @@ function resolveUserName(user: {
   return profile ? `${profile.firstName} ${profile.lastName}` : user.username;
 }
 
-function toEntryDto(entry: EntryWithRelations): PromotionEntryDto {
+function eligibilityReasonForEntry(
+  entry: EntryWithRelations,
+  sourceAcademicYear: string
+): string {
+  if (entry.eligibilityStatus === EligibilityStatus.ELIGIBLE) {
+    return `Average mark ${Number(entry.averageMark)}% meets the promotion requirement.`;
+  }
+  if (entry.eligibilityStatus === EligibilityStatus.NOT_ELIGIBLE) {
+    return `Average mark ${Number(entry.averageMark)}% is below the promotion requirement.`;
+  }
+  // PENDING_REVIEW
+  return `No academic reports found for academic year ${sourceAcademicYear}. Generate reports and recalculate eligibility.`;
+}
+
+function toEntryDto(entry: EntryWithRelations, sourceAcademicYear: string): PromotionEntryDto {
   return {
     id: entry.id,
     batchId: entry.batchId,
@@ -74,6 +88,7 @@ function toEntryDto(entry: EntryWithRelations): PromotionEntryDto {
     averageMark: entry.averageMark !== null ? Number(entry.averageMark) : null,
     attendancePercent: entry.attendancePercent !== null ? Number(entry.attendancePercent) : null,
     overrideReason: entry.overrideReason,
+    eligibilityReason: eligibilityReasonForEntry(entry, sourceAcademicYear),
   };
 }
 
@@ -108,7 +123,7 @@ function toBatchSummaryDto(batch: BatchWithRelations): PromotionBatchSummaryDto 
 function toBatchDetailDto(batch: BatchWithRelations): PromotionBatchDetailDto {
   return {
     ...toBatchSummaryDto(batch),
-    entries: batch.entries.map(toEntryDto),
+    entries: batch.entries.map((e) => toEntryDto(e, batch.sourceAcademicYear)),
   };
 }
 
@@ -133,7 +148,7 @@ async function computeEligibility(
   studentId: number,
   academicYear: string,
   passMarkDecimal: number
-): Promise<{ eligibilityStatus: EligibilityStatus; averageMark: number | null; attendancePercent: number | null }> {
+): Promise<{ eligibilityStatus: EligibilityStatus; averageMark: number | null; attendancePercent: number | null; eligibilityReason: string }> {
   // Pull both semester reports for this academic year
   const reports = await prisma.academicReport.findMany({
     where: { studentId, academicYear },
@@ -141,17 +156,22 @@ async function computeEligibility(
 
   let averageMark: number | null = null;
   let eligibilityStatus: EligibilityStatus;
+  let eligibilityReason: string;
 
   if (reports.length === 0) {
-    // No reports at all — results are missing
+    // No reports at all — results are missing, not a failure
     eligibilityStatus = EligibilityStatus.PENDING_REVIEW;
+    eligibilityReason = `No academic reports found for academic year ${academicYear}. Generate reports and recalculate eligibility.`;
   } else {
     const total = reports.reduce((sum, r) => sum + Number(r.averageMark), 0);
     averageMark = Math.round((total / reports.length) * 100) / 100;
-    eligibilityStatus =
-      averageMark >= passMarkDecimal
-        ? EligibilityStatus.ELIGIBLE
-        : EligibilityStatus.NOT_ELIGIBLE;
+    if (averageMark >= passMarkDecimal) {
+      eligibilityStatus = EligibilityStatus.ELIGIBLE;
+      eligibilityReason = `Average mark ${averageMark}% meets the promotion requirement (${passMarkDecimal}%).`;
+    } else {
+      eligibilityStatus = EligibilityStatus.NOT_ELIGIBLE;
+      eligibilityReason = `Average mark ${averageMark}% is below the promotion requirement (${passMarkDecimal}%).`;
+    }
   }
 
   // Attendance percentage (informational — displayed but not a hard block)
@@ -171,7 +191,34 @@ async function computeEligibility(
       ? Math.round((presentOrLate / totalAttendance) * 10000) / 100
       : null;
 
-  return { eligibilityStatus, averageMark, attendancePercent };
+  return { eligibilityStatus, averageMark, attendancePercent, eligibilityReason };
+}
+
+/**
+ * Auto-computes the next academic year from the source year.
+ * "2026" → "2027", "2026/27" → "2027/28", "2026/2027" → "2027/2028".
+ */
+function computeTargetAcademicYear(sourceAcademicYear: string): string {
+  const trimmed = sourceAcademicYear.trim();
+  // Slash format: "2026/27" or "2026/2027"
+  const slashMatch = trimmed.match(/^(\d{4})\/(\d{2,4})$/);
+  if (slashMatch) {
+    const startYear = parseInt(slashMatch[1], 10);
+    const suffixLen = slashMatch[2].length;
+    const nextEnd = startYear + 1 + 1; // e.g. 2026+1=2027, next end year is 2028
+    return `${startYear + 1}/${String(nextEnd).slice(-suffixLen)}`;
+  }
+  // Bare year: "2026" → "2027"
+  const bareMatch = trimmed.match(/^(\d{4})$/);
+  if (bareMatch) {
+    return String(parseInt(bareMatch[1], 10) + 1);
+  }
+  // Unknown format — increment the first 4-digit number if possible
+  const anyMatch = trimmed.match(/(\d{4})/);
+  if (anyMatch) {
+    return trimmed.replace(/(\d{4})/, String(parseInt(anyMatch[1], 10) + 1));
+  }
+  return trimmed;
 }
 
 // ── Service ───────────────────────────────────────────────────────────────────
@@ -192,17 +239,23 @@ export class PromotionService {
     });
     if (!classroom) throw new NotFoundError('Classroom');
 
+    // Auto-compute target academic year if the operator entered the same year as source
+    const targetAcademicYear =
+      input.targetAcademicYear.trim() === classroom.academicYear
+        ? computeTargetAcademicYear(classroom.academicYear)
+        : input.targetAcademicYear.trim();
+
     // Prevent duplicate DRAFT / SUBMITTED batches for the same source classroom → target year
     const existing = await prisma.promotionBatch.findFirst({
       where: {
         sourceClassroomId: input.sourceClassroomId,
-        targetAcademicYear: input.targetAcademicYear,
+        targetAcademicYear,
         status: { in: [BatchStatus.DRAFT, BatchStatus.SUBMITTED, BatchStatus.APPROVED] },
       },
     });
     if (existing) {
       throw new ConflictError(
-        `A promotion batch for this classroom to ${input.targetAcademicYear} already exists (status: ${existing.status})`
+        `A promotion batch for this classroom to ${targetAcademicYear} already exists (status: ${existing.status})`
       );
     }
 
@@ -234,7 +287,7 @@ export class PromotionService {
       const createdBatch = await tx.promotionBatch.create({
         data: {
           sourceAcademicYear: classroom.academicYear,
-          targetAcademicYear: input.targetAcademicYear,
+          targetAcademicYear,
           sourceClassroomId: input.sourceClassroomId,
           preparedById: actor.userId,
         },
@@ -248,12 +301,18 @@ export class PromotionService {
           studentId: s.studentId,
           eligibilityStatus: eligibilityResults[idx].eligibilityStatus,
           // Grade 12 eligible → default GRADUATED, not PROMOTED
+          // ELIGIBLE → PROMOTED
+          // NOT_ELIGIBLE → REPEATED
+          // PENDING_REVIEW → PROMOTED (optimistic — missing data is NOT a failure;
+          //   the vice director must review and confirm before submitting)
           decision:
             isGrade12 && eligibilityResults[idx].eligibilityStatus === EligibilityStatus.ELIGIBLE
               ? PromotionDecision.GRADUATED
               : eligibilityResults[idx].eligibilityStatus === EligibilityStatus.ELIGIBLE
               ? PromotionDecision.PROMOTED
-              : PromotionDecision.REPEATED,
+              : eligibilityResults[idx].eligibilityStatus === EligibilityStatus.NOT_ELIGIBLE
+              ? PromotionDecision.REPEATED
+              : PromotionDecision.PROMOTED,
           averageMark: eligibilityResults[idx].averageMark,
           attendancePercent: eligibilityResults[idx].attendancePercent,
         })),
@@ -277,7 +336,7 @@ export class PromotionService {
       metadata: {
         sourceClassroomId: input.sourceClassroomId,
         sourceClassroomLabel: classroomLabel(classroom),
-        targetAcademicYear: input.targetAcademicYear,
+        targetAcademicYear,
         studentCount: students.length,
       },
     });
@@ -319,6 +378,118 @@ export class PromotionService {
   async getBatchById(id: number): Promise<PromotionBatchDetailDto> {
     const batch = await assertBatchExists(id);
     return toBatchDetailDto(batch);
+  }
+
+  // ── Recalculate eligibility for a DRAFT batch ──────────────────────────────
+  /**
+   * Recomputes eligibility for every entry in a DRAFT batch.  Use after academic
+   * reports have been generated so that entries created before reports existed
+   * are refreshed with the correct eligibility, average mark, and attendance.
+   *
+   * Entries that have been manually reviewed (have an overrideReason) keep their
+   * eligibility and decision — only their display data (average, attendance) is
+   * refreshed.  All other entries get a full recalculation.
+   */
+  async recalculateBatch(
+    actor: AuthenticatedUser,
+    batchId: number,
+    ipAddress?: string
+  ): Promise<PromotionBatchDetailDto> {
+    const batch = await assertBatchExists(batchId);
+    await assertBatchEditable(batch);
+
+    const classroom = await prisma.classroom.findUnique({
+      where: { classroomId: batch.sourceClassroomId },
+    });
+    if (!classroom) throw new NotFoundError('Classroom');
+
+    const settings = await prisma.systemSetting.findUnique({ where: { id: 1 } });
+    const passMarkDecimal = settings ? Number(settings.promotionPassMark) : 50;
+
+    const isGrade12 =
+      classroom.className.trim().toLowerCase().includes('grade 12') ||
+      classroom.className.trim() === '12';
+
+    // Recompute eligibility for every student
+    for (const entry of batch.entries) {
+      const result = await computeEligibility(
+        entry.studentId,
+        classroom.academicYear,
+        passMarkDecimal
+      );
+
+      if (entry.overrideReason) {
+        // Manually reviewed — only refresh display data
+        await prisma.promotionEntry.update({
+          where: { id: entry.id },
+          data: {
+            averageMark: result.averageMark,
+            attendancePercent: result.attendancePercent,
+          },
+        });
+      } else {
+        // Full recalculation — update eligibility, decision, and display data
+        const newDecision =
+          isGrade12 && result.eligibilityStatus === EligibilityStatus.ELIGIBLE
+            ? PromotionDecision.GRADUATED
+            : result.eligibilityStatus === EligibilityStatus.ELIGIBLE
+            ? PromotionDecision.PROMOTED
+            : result.eligibilityStatus === EligibilityStatus.NOT_ELIGIBLE
+            ? PromotionDecision.REPEATED
+            : PromotionDecision.PROMOTED; // PENDING_REVIEW → PROMOTED (not REPEATED)
+
+        await prisma.promotionEntry.update({
+          where: { id: entry.id },
+          data: {
+            eligibilityStatus: result.eligibilityStatus,
+            averageMark: result.averageMark,
+            attendancePercent: result.attendancePercent,
+            decision: newDecision,
+          },
+        });
+      }
+    }
+
+    await recordAudit({
+      userId: actor.userId,
+      action: 'PROMOTION_BATCH_RECALCULATED',
+      entity: 'PromotionBatch',
+      entityId: String(batchId),
+      ipAddress,
+      metadata: { sourceAcademicYear: batch.sourceAcademicYear },
+    });
+
+    const updated = await assertBatchExists(batchId);
+    return toBatchDetailDto(updated);
+  }
+
+  // ── Delete a DRAFT batch ───────────────────────────────────────────────────
+  /**
+   * Deletes a DRAFT promotion batch and all its entries.
+   * Only DRAFT batches can be deleted — once submitted, the batch must be
+   * rejected by the Director to undo it.
+   */
+  async deleteBatch(
+    actor: AuthenticatedUser,
+    batchId: number,
+    ipAddress?: string
+  ): Promise<void> {
+    const batch = await assertBatchExists(batchId);
+    await assertBatchEditable(batch);
+
+    await prisma.promotionBatch.delete({ where: { id: batchId } });
+
+    await recordAudit({
+      userId: actor.userId,
+      action: 'PROMOTION_BATCH_DELETED',
+      entity: 'PromotionBatch',
+      entityId: String(batchId),
+      ipAddress,
+      metadata: {
+        sourceClassroomId: batch.sourceClassroomId,
+        targetAcademicYear: batch.targetAcademicYear,
+      },
+    });
   }
 
   // ── Update a single entry ───────────────────────────────────────────────────
