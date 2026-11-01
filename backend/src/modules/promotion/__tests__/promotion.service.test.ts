@@ -453,7 +453,7 @@ describe('regression: recalculateBatch', () => {
 
   it('updates PENDING_REVIEW to ELIGIBLE when reports now exist', async () => {
     const entry = mkEntry(101, PromotionDecision.PROMOTED, EligibilityStatus.PENDING_REVIEW, 2);
-    entry.averageMark = null;
+    (entry as { averageMark: string | null }).averageMark = null;
     const draftBatch = mkBatch({ entries: [entry] });
     // assertBatchExists → batch, then recalculate re-fetches
     (prisma.promotionBatch.findUnique as Mock)
@@ -477,8 +477,8 @@ describe('regression: recalculateBatch', () => {
 
   it('preserves manually overridden entries (only refreshes display data)', async () => {
     const entry = mkEntry(101, PromotionDecision.REPEATED, EligibilityStatus.PENDING_REVIEW, 3);
-    entry.overrideReason = 'Manual review — student needs support';
-    entry.averageMark = null;
+    (entry as { overrideReason: string | null }).overrideReason = 'Manual review — student needs support';
+    (entry as { averageMark: string | null }).averageMark = null;
     const draftBatch = mkBatch({ entries: [entry] });
     (prisma.promotionBatch.findUnique as Mock)
       .mockResolvedValueOnce(draftBatch)
@@ -502,7 +502,7 @@ describe('regression: recalculateBatch', () => {
 
   it('updates PENDING_REVIEW to NOT_ELIGIBLE when reports show low average', async () => {
     const entry = mkEntry(101, PromotionDecision.PROMOTED, EligibilityStatus.PENDING_REVIEW, 2);
-    entry.averageMark = null;
+    (entry as { averageMark: string | null }).averageMark = null;
     const draftBatch = mkBatch({ entries: [entry] });
     (prisma.promotionBatch.findUnique as Mock)
       .mockResolvedValueOnce(draftBatch)

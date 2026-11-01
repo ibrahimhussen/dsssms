@@ -585,6 +585,15 @@ export class PromotionService {
     const batch = await assertBatchExists(batchId);
     await assertBatchEditable(batch);
 
+    // Guard: target year must differ from source year
+    if (batch.targetAcademicYear === batch.sourceAcademicYear) {
+      throw new BadRequestError(
+        `Target academic year "${batch.targetAcademicYear}" is the same as the source academic year. ` +
+        `Students cannot be promoted within the same academic year. ` +
+        `Delete this batch and create a new one with the correct target year.`
+      );
+    }
+
     // Every PROMOTED entry must have a target classroom assigned
     const promotedWithoutTarget = batch.entries.filter(
       (e) => e.decision === PromotionDecision.PROMOTED && !e.targetClassroomId
@@ -633,6 +642,16 @@ export class PromotionService {
 
     if (batch.status !== BatchStatus.SUBMITTED) {
       throw new BadRequestError(`Batch must be in SUBMITTED status to approve (current: ${batch.status})`);
+    }
+
+    // Guard: target year must differ from source year — promoting within the same
+    // academic year creates a unique-constraint collision on StudentEnrollment.
+    if (batch.targetAcademicYear === batch.sourceAcademicYear) {
+      throw new BadRequestError(
+        `Target academic year "${batch.targetAcademicYear}" is the same as the source academic year. ` +
+        `Students cannot be promoted within the same academic year. ` +
+        `Please correct the batch target year before approving.`
+      );
     }
 
     // Execute all promotions inside a single transaction
