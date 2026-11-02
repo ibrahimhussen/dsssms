@@ -76,7 +76,8 @@ function eligibilityReasonForEntry(
   }
   // PENDING_REVIEW — reason depends on what data exists
   if (entry.averageMark === null) {
-    return `Academic reports for academic year ${sourceAcademicYear} are incomplete. Both semesters are required. Generate/recalculate reports.`;
+    return `Semester 1 and Semester 2 results are required for academic year ${sourceAcademicYear}. ` +
+      `Please ensure both results are generated, finalized, and available before calculating promotion eligibility.`;
   }
   return `Pending review — manual decision required.`;
 }
@@ -187,14 +188,17 @@ async function computeEligibility(
   const s2 = reports.find((r) => r.semester === 'SEMESTER_2');
 
   if (reports.length === 0) {
-    // No reports at all — results are missing, not a failure
+    // No reports at all — both semesters missing
     eligibilityStatus = EligibilityStatus.PENDING_REVIEW;
-    eligibilityReason = `No academic reports found for academic year ${academicYear}. Generate reports and recalculate eligibility.`;
+    eligibilityReason = `Semester 1 and Semester 2 results are missing for academic year ${academicYear}. ` +
+      `Please ensure both results are generated, finalized, and available before calculating promotion eligibility.`;
   } else if (!s1 || !s2) {
-    // Only one semester present — cannot compute full-year result
-    const missing = !s1 ? 'Semester 1' : 'Semester 2';
+    // Exactly one semester present
+    const missingSemester = !s1 ? 'Semester 1' : 'Semester 2';
     eligibilityStatus = EligibilityStatus.PENDING_REVIEW;
-    eligibilityReason = `${missing} report is missing for academic year ${academicYear}. Both semesters are required for full-year promotion eligibility.`;
+    eligibilityReason = `${missingSemester} result is missing for academic year ${academicYear}. ` +
+      `Semester 1 and Semester 2 results are required. ` +
+      `Please ensure both results are generated, finalized, and available before calculating promotion eligibility.`;
   } else {
     // Full-year average = (S1 × 0.5) + (S2 × 0.5)
     const s1avg = Number(s1.averageMark);
