@@ -1,4 +1,4 @@
-import { useState } from 'react';
+ï»¿import { useState } from 'react';
 import { Link } from 'react-router-dom';
 import clsx from 'clsx';
 import {
@@ -179,11 +179,11 @@ export function ParentDashboard() {
             </Link>
             {latestReport && (
               <>
-                <span className="text-slate-300">·</span>
+                <span className="text-slate-300">ï¿½</span>
                 <Button variant="ghost" onClick={() => void handleDownloadReportCard()} isLoading={isDownloadingReportCard}>
                   Download latest report card (PDF)
                 </Button>
-                <span className="text-slate-300">·</span>
+                <span className="text-slate-300">ï¿½</span>
                 <Button variant="ghost" onClick={() => void handleDownloadTranscript()} isLoading={isDownloadingTranscript}>
                   Download transcript (PDF)
                 </Button>

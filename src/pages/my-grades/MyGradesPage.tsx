@@ -1,4 +1,4 @@
-/* eslint-disable @typescript-eslint/no-explicit-any */
+ï»¿/* eslint-disable @typescript-eslint/no-explicit-any */
 import { useEffect, useMemo, useState } from 'react';
 import { useQuery } from '@tanstack/react-query';
 import { useMyGrades } from '../../hooks/useGrades';
@@ -75,8 +75,8 @@ function SubjectCard({ subject, idx }: { subject: SubjectGradeBreakdown; idx: nu
             {subject.subject.subjectName}
           </p>
           <p className="text-xs text-slate-400 mt-0.5">
-            {SEMESTER_LABELS[subject.semester]} · {subject.academicYear}
-            {subject.teacher && ` · ${subject.teacher.firstName} ${subject.teacher.lastName}`}
+            {SEMESTER_LABELS[subject.semester]} ï¿½ {subject.academicYear}
+            {subject.teacher && ` ï¿½ ${subject.teacher.firstName} ${subject.teacher.lastName}`}
           </p>
           <ScoreBar pct={pct} pass={pass} />
         </div>
@@ -123,7 +123,7 @@ function SubjectCard({ subject, idx }: { subject: SubjectGradeBreakdown; idx: nu
                         </span>
                       </td>
                       <td className="px-4 py-2.5 text-right font-mono">
-                        {c.isReleased && c.score !== null ? c.score : <span className="text-slate-300">—</span>}
+                        {c.isReleased && c.score !== null ? c.score : <span className="text-slate-300">ï¿½</span>}
                       </td>
                       <td className="px-4 py-2.5 text-right font-mono text-slate-500">{c.maxMarks}</td>
                       <td className="px-4 py-2.5 text-right font-mono font-semibold">
@@ -391,7 +391,7 @@ export function MyGradesPage() {
                 {latestReport.averageMark.toFixed(1)}%
               </p>
               <p className="text-xs text-slate-500">
-                {SEMESTER_LABELS[latestReport.semester as Semester]} · {latestReport.academicYear}
+                {SEMESTER_LABELS[latestReport.semester as Semester]} ï¿½ {latestReport.academicYear}
               </p>
             </div>
           )}
@@ -419,7 +419,7 @@ export function MyGradesPage() {
       {isGradesLoading ? (
         <div className="flex items-center gap-2 py-16 text-slate-400">
           <span className="h-4 w-4 animate-spin rounded-full border-2 border-slate-200 border-t-pine-700" />
-          <span className="text-sm">Loading assessments…</span>
+          <span className="text-sm">Loading assessmentsï¿½</span>
         </div>
       ) : !gradesData || gradesData.length === 0 ? (
         <EmptyState
@@ -450,7 +450,7 @@ export function MyGradesPage() {
         </div>
 
         {isReportsLoading ? (
-          <p className="text-sm text-slate-400">Loading…</p>
+          <p className="text-sm text-slate-400">Loadingï¿½</p>
         ) : sortedReports.length === 0 ? (
           <div className="rounded-2xl border border-dashed border-slate-300 bg-white px-5 py-8 shadow-sm">
             <EmptyState

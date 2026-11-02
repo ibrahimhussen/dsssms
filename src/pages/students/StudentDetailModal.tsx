@@ -1,4 +1,4 @@
-/* eslint-disable @typescript-eslint/no-explicit-any */
+ï»¿/* eslint-disable @typescript-eslint/no-explicit-any */
 import { useState } from 'react';
 import {
   MdPerson,
@@ -69,7 +69,7 @@ function Field({ label, value }: { label: string; value: React.ReactNode }) {
   return (
     <div className="flex items-start gap-2 py-2 border-b border-slate-100 last:border-0">
       <span className="min-w-[180px] shrink-0 text-[0.8125rem] text-slate-500">{label}</span>
-      <span className="text-[0.875rem] text-ink-900">{value ?? '—'}</span>
+      <span className="text-[0.875rem] text-ink-900">{value ?? 'ï¿½'}</span>
     </div>
   );
 }
@@ -226,7 +226,7 @@ export function StudentDetailModal({ student, onClose }: Props) {
           {enrollmentsLoading ? (
             <div className="flex items-center gap-2 py-8 text-slate-500 text-sm">
               <span className="h-3.5 w-3.5 animate-spin rounded-full border-2 border-ink-900/15 border-t-pine-700" />
-              Loading enrollment history…
+              Loading enrollment historyï¿½
             </div>
           ) : !enrollments || enrollments.length === 0 ? (
             <div className="rounded-xl border border-dashed border-slate-300 py-8 text-center">
@@ -256,7 +256,7 @@ export function StudentDetailModal({ student, onClose }: Props) {
                         <td className="px-4 py-2.5">
                           <Badge tone={d.tone}>{d.label}</Badge>
                         </td>
-                        <td className="px-4 py-2.5 text-xs text-slate-500">{e.notes ?? '—'}</td>
+                        <td className="px-4 py-2.5 text-xs text-slate-500">{e.notes ?? 'ï¿½'}</td>
                       </tr>
                     );
                   })}
@@ -297,7 +297,7 @@ export function StudentDetailModal({ student, onClose }: Props) {
           {prevSubjects && prevSubjects.length > 0 && (
             <>
               <p className="mb-2 text-[0.7rem] font-semibold uppercase tracking-wider text-slate-400">
-                Previous Academic Performance — {s.lastGradeCompleted ?? 'Prior Grade'}
+                Previous Academic Performance ï¿½ {s.lastGradeCompleted ?? 'Prior Grade'}
               </p>
               <div className="overflow-hidden rounded-xl border border-slate-200">
                 <table className="w-full text-sm">
