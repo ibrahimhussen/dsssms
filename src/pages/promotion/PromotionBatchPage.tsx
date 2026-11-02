@@ -603,6 +603,37 @@ export function PromotionBatchPage() {
           <MdCancel className="h-5 w-5 text-danger-600" />
           <span className="text-sm font-semibold text-danger-700">{batch.notEligibleCount} not eligible</span>
         </div>
+        {/* Decision breakdown */}
+        {batch.promotedCount > 0 && (
+          <div className="flex items-center gap-2 rounded-xl border border-pine-200 bg-pine-50 px-4 py-2.5">
+            <MdSchool className="h-5 w-5 text-pine-700" />
+            <span className="text-sm font-semibold text-pine-800">{batch.promotedCount} promoted</span>
+          </div>
+        )}
+        {batch.repeatedCount > 0 && (
+          <div className="flex items-center gap-2 rounded-xl border border-gold-200 bg-gold-50 px-4 py-2.5">
+            <MdWarning className="h-5 w-5 text-gold-600" />
+            <span className="text-sm font-semibold text-gold-700">{batch.repeatedCount} repeated</span>
+          </div>
+        )}
+        {batch.graduatedCount > 0 && (
+          <div className="flex items-center gap-2 rounded-xl border border-pine-200 bg-pine-50 px-4 py-2.5">
+            <MdSchool className="h-5 w-5 text-pine-700" />
+            <span className="text-sm font-semibold text-pine-800">{batch.graduatedCount} graduated</span>
+          </div>
+        )}
+        {batch.correctedCount > 0 && (
+          <div className="flex items-center gap-2 rounded-xl border border-slate-200 bg-slate-50 px-4 py-2.5">
+            <MdEdit className="h-4 w-4 text-slate-600" />
+            <span className="text-sm font-semibold text-slate-700">{batch.correctedCount} corrected</span>
+          </div>
+        )}
+        {batch.unassignedCount > 0 && (
+          <div className="flex items-center gap-2 rounded-xl border border-danger-200 bg-danger-50 px-4 py-2.5">
+            <MdWarning className="h-5 w-5 text-danger-600" />
+            <span className="text-sm font-semibold text-danger-700">{batch.unassignedCount} unassigned</span>
+          </div>
+        )}
         {isGrade12 && (
           <div className="flex items-center gap-2 rounded-xl border border-slate-200 bg-slate-50 px-4 py-2.5">
             <MdSchool className="h-5 w-5 text-slate-600" />

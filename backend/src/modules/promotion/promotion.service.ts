@@ -65,13 +65,20 @@ function eligibilityReasonForEntry(
   sourceAcademicYear: string
 ): string {
   if (entry.eligibilityStatus === EligibilityStatus.ELIGIBLE) {
-    return `Average mark ${Number(entry.averageMark)}% meets the promotion requirement.`;
+    return entry.averageMark !== null
+      ? `Full-year average ${Number(entry.averageMark)}% meets the promotion requirement.`
+      : 'Marked eligible by authorized reviewer.';
   }
   if (entry.eligibilityStatus === EligibilityStatus.NOT_ELIGIBLE) {
-    return `Average mark ${Number(entry.averageMark)}% is below the promotion requirement.`;
+    return entry.averageMark !== null
+      ? `Full-year average ${Number(entry.averageMark)}% is below the promotion requirement.`
+      : 'Marked not eligible.';
   }
-  // PENDING_REVIEW
-  return `No academic reports found for academic year ${sourceAcademicYear}. Generate reports and recalculate eligibility.`;
+  // PENDING_REVIEW — reason depends on what data exists
+  if (entry.averageMark === null) {
+    return `Academic reports for academic year ${sourceAcademicYear} are incomplete. Both semesters are required. Generate/recalculate reports.`;
+  }
+  return `Pending review — manual decision required.`;
 }
 
 function toEntryDto(entry: EntryWithRelations, sourceAcademicYear: string): PromotionEntryDto {
@@ -93,9 +100,22 @@ function toEntryDto(entry: EntryWithRelations, sourceAcademicYear: string): Prom
 }
 
 function toBatchSummaryDto(batch: BatchWithRelations): PromotionBatchSummaryDto {
-  const eligible = batch.entries.filter((e) => e.eligibilityStatus === EligibilityStatus.ELIGIBLE).length;
-  const pending = batch.entries.filter((e) => e.eligibilityStatus === EligibilityStatus.PENDING_REVIEW).length;
+  const eligible    = batch.entries.filter((e) => e.eligibilityStatus === EligibilityStatus.ELIGIBLE).length;
+  const pending     = batch.entries.filter((e) => e.eligibilityStatus === EligibilityStatus.PENDING_REVIEW).length;
   const notEligible = batch.entries.filter((e) => e.eligibilityStatus === EligibilityStatus.NOT_ELIGIBLE).length;
+
+  // Decision breakdown
+  const promotedCount  = batch.entries.filter((e) => e.decision === PromotionDecision.PROMOTED).length;
+  const repeatedCount  = batch.entries.filter((e) => e.decision === PromotionDecision.REPEATED).length;
+  const graduatedCount = batch.entries.filter((e) => e.decision === PromotionDecision.GRADUATED).length;
+  // Corrected = entries that have a non-null overrideReason (manually overridden)
+  const correctedCount = batch.entries.filter((e) => e.overrideReason !== null).length;
+  // Unassigned = PROMOTED or REPEATED with no target classroom
+  const unassignedCount = batch.entries.filter(
+    (e) =>
+      (e.decision === PromotionDecision.PROMOTED || e.decision === PromotionDecision.REPEATED) &&
+      e.targetClassroomId === null
+  ).length;
 
   return {
     id: batch.id,
@@ -112,6 +132,11 @@ function toBatchSummaryDto(batch: BatchWithRelations): PromotionBatchSummaryDto 
     eligibleCount: eligible,
     pendingCount: pending,
     notEligibleCount: notEligible,
+    promotedCount,
+    repeatedCount,
+    graduatedCount,
+    correctedCount,
+    unassignedCount,
     submittedAt: batch.submittedAt?.toISOString() ?? null,
     approvedAt: batch.approvedAt?.toISOString() ?? null,
     completedAt: batch.completedAt?.toISOString() ?? null,
@@ -158,19 +183,29 @@ async function computeEligibility(
   let eligibilityStatus: EligibilityStatus;
   let eligibilityReason: string;
 
+  const s1 = reports.find((r) => r.semester === 'SEMESTER_1');
+  const s2 = reports.find((r) => r.semester === 'SEMESTER_2');
+
   if (reports.length === 0) {
     // No reports at all — results are missing, not a failure
     eligibilityStatus = EligibilityStatus.PENDING_REVIEW;
     eligibilityReason = `No academic reports found for academic year ${academicYear}. Generate reports and recalculate eligibility.`;
+  } else if (!s1 || !s2) {
+    // Only one semester present — cannot compute full-year result
+    const missing = !s1 ? 'Semester 1' : 'Semester 2';
+    eligibilityStatus = EligibilityStatus.PENDING_REVIEW;
+    eligibilityReason = `${missing} report is missing for academic year ${academicYear}. Both semesters are required for full-year promotion eligibility.`;
   } else {
-    const total = reports.reduce((sum, r) => sum + Number(r.averageMark), 0);
-    averageMark = Math.round((total / reports.length) * 100) / 100;
+    // Full-year average = (S1 × 0.5) + (S2 × 0.5)
+    const s1avg = Number(s1.averageMark);
+    const s2avg = Number(s2.averageMark);
+    averageMark = Math.round((s1avg * 0.5 + s2avg * 0.5) * 100) / 100;
     if (averageMark >= passMarkDecimal) {
       eligibilityStatus = EligibilityStatus.ELIGIBLE;
-      eligibilityReason = `Average mark ${averageMark}% meets the promotion requirement (${passMarkDecimal}%).`;
+      eligibilityReason = `Full-year average ${averageMark}% (S1: ${s1avg}%, S2: ${s2avg}%) meets the promotion requirement (${passMarkDecimal}%).`;
     } else {
       eligibilityStatus = EligibilityStatus.NOT_ELIGIBLE;
-      eligibilityReason = `Average mark ${averageMark}% is below the promotion requirement (${passMarkDecimal}%).`;
+      eligibilityReason = `Full-year average ${averageMark}% (S1: ${s1avg}%, S2: ${s2avg}%) is below the promotion requirement (${passMarkDecimal}%).`;
     }
   }
 

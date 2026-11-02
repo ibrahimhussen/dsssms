@@ -52,7 +52,7 @@ describe("createBatch � eligibility", () => {
   let svc: PromotionService;
   beforeEach(() => { svc = new PromotionService(); vi.clearAllMocks(); });
 
-  function setupCreate(students: typeof STU1[], reports: { studentId:number;averageMark:string }[]) {
+  function setupCreate(students: typeof STU1[], reports: { studentId:number; semester:string; averageMark:string }[]) {
     (prisma.classroom.findUnique as Mock).mockResolvedValue(CL9A);
     (prisma.promotionBatch.findFirst as Mock).mockResolvedValue(null);
     (prisma.systemSetting.findUnique as Mock).mockResolvedValue({ promotionPassMark: "50.00" });
@@ -64,7 +64,10 @@ describe("createBatch � eligibility", () => {
   }
 
   it("student with avg >= passMark ? ELIGIBLE", async () => {
-    setupCreate([STU1], [{ studentId:101, averageMark:"72.00" }]);
+    setupCreate([STU1], [
+      { studentId:101, semester:'SEMESTER_1', averageMark:"72.00" },
+      { studentId:101, semester:'SEMESTER_2', averageMark:"74.00" },
+    ]);
     const r = await svc.createBatch(VICE_DIR, { sourceClassroomId:1, targetAcademicYear:"2027/28" });
     expect(r.batch).toBeDefined();
   });
@@ -76,7 +79,7 @@ describe("createBatch � eligibility", () => {
     (prisma.promotionBatch.findFirst as Mock).mockResolvedValue(null);
     (prisma.systemSetting.findUnique as Mock).mockResolvedValue({ promotionPassMark:"50.00" });
     (prisma.student.findMany as Mock).mockResolvedValue([STU1]);
-    (prisma.academicReport.findMany as Mock).mockResolvedValue([{ studentId:101, averageMark:"38.00" }]);
+    (prisma.academicReport.findMany as Mock).mockResolvedValue([{ studentId:101, semester:'SEMESTER_1', averageMark:"38.00" }, { studentId:101, semester:'SEMESTER_2', averageMark:"40.00" }]);
     (prisma.attendance.count as Mock).mockResolvedValue(0);
     (prisma.$transaction as Mock).mockImplementation(async (fn:any) => fn({ promotionBatch:{ create:vi.fn().mockResolvedValue(batch), findUniqueOrThrow:vi.fn().mockResolvedValue(batch) }, promotionEntry:{ createMany:vi.fn() } }));
     const r = await svc.createBatch(VICE_DIR, { sourceClassroomId:1, targetAcademicYear:"2027/28" });
@@ -104,7 +107,7 @@ describe("createBatch � eligibility", () => {
     (prisma.promotionBatch.findFirst as Mock).mockResolvedValue(null);
     (prisma.systemSetting.findUnique as Mock).mockResolvedValue({ promotionPassMark:"50.00" });
     (prisma.student.findMany as Mock).mockResolvedValue([{ ...STU1, classroomId:5 }]);
-    (prisma.academicReport.findMany as Mock).mockResolvedValue([{ studentId:101, averageMark:"72.00" }]);
+    (prisma.academicReport.findMany as Mock).mockResolvedValue([{ studentId:101, semester:'SEMESTER_1', averageMark:"72.00" }, { studentId:101, semester:'SEMESTER_2', averageMark:"74.00" }]);
     (prisma.attendance.count as Mock).mockResolvedValue(0);
     (prisma.$transaction as Mock).mockImplementation(async (fn:any) => fn({ promotionBatch:{ create:vi.fn().mockResolvedValue(batch), findUniqueOrThrow:vi.fn().mockResolvedValue(batch) }, promotionEntry:{ createMany:vi.fn() } }));
     const r = await svc.createBatch(VICE_DIR, { sourceClassroomId:5, targetAcademicYear:"2027/28" });
@@ -358,7 +361,10 @@ describe('regression: PENDING_REVIEW defaults to PROMOTED not REPEATED', () => {
     (prisma.promotionBatch.findFirst as Mock).mockResolvedValue(null);
     (prisma.systemSetting.findUnique as Mock).mockResolvedValue({ promotionPassMark: '50.00' });
     (prisma.student.findMany as Mock).mockResolvedValue([STU1]);
-    (prisma.academicReport.findMany as Mock).mockResolvedValue([{ studentId: 101, averageMark: '38.00' }]);
+    (prisma.academicReport.findMany as Mock).mockResolvedValue([
+      { studentId: 101, semester: 'SEMESTER_1', averageMark: '38.00' },
+      { studentId: 101, semester: 'SEMESTER_2', averageMark: '40.00' },
+    ]);
     (prisma.attendance.count as Mock).mockResolvedValue(0);
 
     let createManyData: { decision: string; eligibilityStatus: string }[];
@@ -462,7 +468,10 @@ describe('regression: recalculateBatch', () => {
 
     (prisma.classroom.findUnique as Mock).mockResolvedValue(CL9A);
     (prisma.systemSetting.findUnique as Mock).mockResolvedValue({ promotionPassMark: '50.00' });
-    (prisma.academicReport.findMany as Mock).mockResolvedValue([{ studentId: 101, averageMark: '72.00' }]);
+    (prisma.academicReport.findMany as Mock).mockResolvedValue([
+      { studentId: 101, semester: 'SEMESTER_1', averageMark: '72.00' },
+      { studentId: 101, semester: 'SEMESTER_2', averageMark: '72.00' },
+    ]);
     (prisma.attendance.count as Mock).mockResolvedValue(0);
     (prisma.promotionEntry.update as Mock).mockResolvedValue({});
 
@@ -486,7 +495,10 @@ describe('regression: recalculateBatch', () => {
 
     (prisma.classroom.findUnique as Mock).mockResolvedValue(CL9A);
     (prisma.systemSetting.findUnique as Mock).mockResolvedValue({ promotionPassMark: '50.00' });
-    (prisma.academicReport.findMany as Mock).mockResolvedValue([{ studentId: 101, averageMark: '55.00' }]);
+    (prisma.academicReport.findMany as Mock).mockResolvedValue([
+      { studentId: 101, semester: 'SEMESTER_1', averageMark: '55.00' },
+      { studentId: 101, semester: 'SEMESTER_2', averageMark: '55.00' },
+    ]);
     (prisma.attendance.count as Mock).mockResolvedValue(0);
     (prisma.promotionEntry.update as Mock).mockResolvedValue({});
 
@@ -510,7 +522,10 @@ describe('regression: recalculateBatch', () => {
 
     (prisma.classroom.findUnique as Mock).mockResolvedValue(CL9A);
     (prisma.systemSetting.findUnique as Mock).mockResolvedValue({ promotionPassMark: '50.00' });
-    (prisma.academicReport.findMany as Mock).mockResolvedValue([{ studentId: 101, averageMark: '35.00' }]);
+    (prisma.academicReport.findMany as Mock).mockResolvedValue([
+      { studentId: 101, semester: 'SEMESTER_1', averageMark: '35.00' },
+      { studentId: 101, semester: 'SEMESTER_2', averageMark: '37.00' },
+    ]);
     (prisma.attendance.count as Mock).mockResolvedValue(0);
     (prisma.promotionEntry.update as Mock).mockResolvedValue({});
 
@@ -564,7 +579,10 @@ describe('regression: missing attendance does NOT block eligibility', () => {
     (prisma.promotionBatch.findFirst as Mock).mockResolvedValue(null);
     (prisma.systemSetting.findUnique as Mock).mockResolvedValue({ promotionPassMark: '50.00' });
     (prisma.student.findMany as Mock).mockResolvedValue([STU1]);
-    (prisma.academicReport.findMany as Mock).mockResolvedValue([{ studentId: 101, averageMark: '72.00' }]);
+    (prisma.academicReport.findMany as Mock).mockResolvedValue([
+      { studentId: 101, semester: 'SEMESTER_1', averageMark: '72.00' },
+      { studentId: 101, semester: 'SEMESTER_2', averageMark: '74.00' },
+    ]);
     // No attendance records at all
     (prisma.attendance.count as Mock).mockResolvedValue(0);
 

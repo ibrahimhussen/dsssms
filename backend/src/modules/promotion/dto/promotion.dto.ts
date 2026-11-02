@@ -52,6 +52,11 @@ export interface PromotionBatchSummaryDto {
   eligibleCount: number;
   pendingCount: number;
   notEligibleCount: number;
+  promotedCount: number;
+  repeatedCount: number;
+  graduatedCount: number;
+  correctedCount: number;
+  unassignedCount: number;
   submittedAt: string | null;
   approvedAt: string | null;
   completedAt: string | null;
