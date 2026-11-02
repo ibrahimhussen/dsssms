@@ -18,6 +18,14 @@ export function useClassrooms(params: ListClassroomsParams) {
   });
 }
 
+export function useClassroomRoster(classroomId: number | null, academicYear: string) {
+  return useQuery({
+    queryKey: ['classrooms', classroomId, 'roster', academicYear],
+    queryFn: () => classroomsApi.getRoster(classroomId!, academicYear),
+    enabled: Boolean(classroomId) && Boolean(academicYear),
+  });
+}
+
 export function useCreateClassroom() {
   const queryClient = useQueryClient();
   return useMutation({

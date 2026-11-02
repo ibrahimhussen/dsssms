@@ -21,6 +21,7 @@ import { Semester } from '@prisma/client';
 
 vi.mock('../../../database/prisma-client', () => ({
   prisma: {
+    studentEnrollment:     { findMany: vi.fn(), count: vi.fn() },
     classroom:             { findUnique: vi.fn(), findMany: vi.fn() },
     teacher:               { findUnique: vi.fn() },
     teacherSubject:        { findFirst: vi.fn(), findMany: vi.fn() },
@@ -158,6 +159,10 @@ function setupGrade9ThreeSections(
   // gradeSubjectConfig.findMany
   (prisma.gradeSubjectConfig.findMany as Mock).mockResolvedValue(configs);
 
+  // studentEnrollment.findMany — no historical records, fall back to student.classroomId
+  (prisma.studentEnrollment.findMany as Mock).mockResolvedValue([]);
+  (prisma.studentEnrollment.count as Mock).mockResolvedValue(0);
+
   // student.findMany — classroom-scoped
   (prisma.student.findMany as Mock).mockImplementation(async (args: Record<string, unknown>) => {
     const where = args.where as Record<string, unknown>;
@@ -165,8 +170,13 @@ function setupGrade9ThreeSections(
     return studentMap[cid] ?? [];
   });
 
-  // student.count — grade-wide
-  (prisma.student.count as Mock).mockResolvedValue(5); // A1+A2+B1+B2+C1
+  // student.count — grade-wide (fallback for classrooms without enrollment records)
+  (prisma.student.count as Mock).mockImplementation(async (args: Record<string, unknown>) => {
+    const where = args.where as Record<string, unknown>;
+    if (where.classroomId) return studentMap[where.classroomId as number]?.length ?? 0;
+    // grade-wide count (used in generateClassroomRegister for totalStudentsInGrade)
+    return Object.values(studentMap).reduce((sum, arr) => sum + arr.length, 0);
+  });
 
   // Shared stubs
   (prisma.attendance.groupBy as Mock).mockResolvedValue([]);
@@ -396,6 +406,10 @@ describe('B. Cross-section gradeRank', () => {
     (prisma.attendance.groupBy as Mock).mockResolvedValue([]);
     (prisma.studentConduct.findMany as Mock).mockResolvedValue([]);
 
+    // studentEnrollment — no historical records, fall back to student.classroomId
+    (prisma.studentEnrollment.findMany as Mock).mockResolvedValue([]);
+    (prisma.studentEnrollment.count as Mock).mockResolvedValue(0);
+
     // student.findMany — classroom-scoped
     (prisma.student.findMany as Mock).mockImplementation(async (args: Record<string, unknown>) => {
       const where = args.where as Record<string, unknown>;
@@ -405,8 +419,16 @@ describe('B. Cross-section gradeRank', () => {
       return [];
     });
 
-    // student.count — total grade
-    (prisma.student.count as Mock).mockResolvedValue(2);
+    // student.count — per-classroom (fallback) or grade-wide (used by generateClassroomRegister)
+    (prisma.student.count as Mock).mockImplementation(async (args: Record<string, unknown>) => {
+      const where = args.where as Record<string, unknown>;
+      if (where.classroomId) {
+        const cid = where.classroomId as number;
+        return cid === 1 ? 1 : cid === 2 ? 1 : 0;
+      }
+      // grade-wide count
+      return 2;
+    });
 
     // teacherSubject — classroom-scoped
     (prisma.teacherSubject.findMany as Mock).mockImplementation(async (args: Record<string, unknown>) => {

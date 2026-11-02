@@ -9,6 +9,11 @@ import {
   ClassroomIdParam,
   UpdateClassroomInput,
 } from './validation/classroom.validation';
+import { z } from 'zod';
+
+const rosterQuerySchema = z.object({
+  academicYear: z.string().trim().min(1, 'academicYear is required'),
+});
 
 export class ClassroomController {
   create = asyncHandler(async (req: Request, res: Response) => {
@@ -40,6 +45,13 @@ export class ClassroomController {
     const { id } = req.params as unknown as ClassroomIdParam;
     await classroomService.deleteClassroom(id);
     ApiResponse.success(res, { message: 'Classroom deleted', data: null });
+  });
+
+  getRoster = asyncHandler(async (req: Request, res: Response) => {
+    const { id } = req.params as unknown as ClassroomIdParam;
+    const { academicYear } = rosterQuerySchema.parse(req.query);
+    const roster = await classroomService.getClassroomRoster(id, academicYear);
+    ApiResponse.success(res, { message: 'Classroom roster retrieved', data: roster });
   });
 }
 

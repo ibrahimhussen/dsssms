@@ -1,9 +1,9 @@
 /* eslint-disable @typescript-eslint/no-unused-vars, @typescript-eslint/no-explicit-any */
 /**
- * Phase 4.14 — Final API/HTTP Integration Tests
+ * Phase 4.14 ï¿½ Final API/HTTP Integration Tests
  *
  * Covers remaining untested route flows:
- *  Y.  Auth — login success, refresh cookie, token rotation, change-password
+ *  Y.  Auth ï¿½ login success, refresh cookie, token rotation, change-password
  *  Z.  Student create (POST /students via mocked $transaction)
  *  AA. Promotion approve full execution path
  *  AB. Backup routes (ADMIN-only RBAC, list, create, delete)
@@ -58,7 +58,7 @@ vi.mock("../../database/prisma-client", () => ({
     systemSetting:         { findUnique: vi.fn(), upsert: vi.fn(), findMany: vi.fn() },
     promotionBatch:        { findFirst: vi.fn(), findUnique: vi.fn(), findMany: vi.fn(), count: vi.fn(), update: vi.fn() },
     promotionEntry:        { update: vi.fn(), updateMany: vi.fn(), createMany: vi.fn(), findMany: vi.fn() },
-    studentEnrollment:     { findFirst: vi.fn(), upsert: vi.fn(), findMany: vi.fn(), create: vi.fn(), updateMany: vi.fn() },
+    studentEnrollment:     { findFirst: vi.fn(), upsert: vi.fn(), findMany: vi.fn(), count: vi.fn(), create: vi.fn(), updateMany: vi.fn() },
     subject:               { findUnique: vi.fn(), findMany: vi.fn(), count: vi.fn(), create: vi.fn(), update: vi.fn(), delete: vi.fn() },
     parent:                { findUnique: vi.fn(), findMany: vi.fn(), count: vi.fn() },
     timetableEntry:        { findMany: vi.fn(), findUnique: vi.fn(), create: vi.fn(), update: vi.fn(), delete: vi.fn() },
@@ -78,7 +78,7 @@ vi.mock("../../modules/notifications/notification.service", async (importOrigina
   const actual = await importOriginal<typeof import("../../modules/notifications/notification.service")>();
   return { ...actual, createAutoNotification: vi.fn().mockResolvedValue(undefined), notifyStudentParents: vi.fn().mockResolvedValue(undefined) };
 });
-// Backup service uses fs — mock it
+// Backup service uses fs ï¿½ mock it
 vi.mock("fs/promises", () => ({
   default: {
     mkdir: vi.fn().mockResolvedValue(undefined),
@@ -356,14 +356,14 @@ describe("AB. Backup routes (ADMIN-only)", () => {
   });
 
   /**
-   * POST /backups — backup creation success path.
+   * POST /backups ï¿½ backup creation success path.
    *
    * The service iterates MODELS_IN_INSERT_ORDER (31 tables) calling
    * delegateFor(prisma, model).findMany(). Every model in that list has its
    * findMany mock re-established via setupBackupMocks() after clearAllMocks().
    * fs.writeFile and fs.stat are mocked so no real file is written.
    */
-  it("POST /backups returns 201 for ADMIN — all 31 backup models queried safely", async () => {
+  it("POST /backups returns 201 for ADMIN ï¿½ all 31 backup models queried safely", async () => {
     // Re-establish all backup model findMany mocks (cleared by beforeEach)
     setupBackupMocks();
 
@@ -422,6 +422,8 @@ describe("AC. Academic register export", () => {
   });
 
   it("GET /academic-register/export returns CSV for DIRECTOR with valid params", async () => {
+    (prisma.studentEnrollment.findMany as Mock).mockResolvedValue([]); // no historical records
+    (prisma.studentEnrollment.count as Mock).mockResolvedValue(0);
     (prisma.classroom.findUnique    as Mock).mockResolvedValue(CL);
     (prisma.gradeSubjectConfig.findMany as Mock).mockResolvedValue([{ subjectId: 1, sortOrder: 0, subject: SUBJECT }]);
     (prisma.student.findMany        as Mock).mockResolvedValue([STU_ROW]);

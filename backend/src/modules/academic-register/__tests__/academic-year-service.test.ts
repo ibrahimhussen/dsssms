@@ -16,6 +16,7 @@ import { AcademicStatus } from '../dto/academic-register.dto';
 
 vi.mock('../../../database/prisma-client', () => ({
   prisma: {
+    studentEnrollment:   { findMany: vi.fn(), count: vi.fn() },
     classroom:             { findUnique: vi.fn(), findMany: vi.fn(), count: vi.fn() },
     teacher:               { findUnique: vi.fn() },
     teacherSubject:        { findFirst: vi.fn(), findMany: vi.fn() },
@@ -73,6 +74,7 @@ function setupMocks(
   configs: typeof CONFIG_ENG[] = [CONFIG_ENG, CONFIG_MATH],
   students: typeof STUDENT[] = [STUDENT],
 ) {
+  (prisma.studentEnrollment.findMany as Mock).mockResolvedValue([]); // no historical records → fall back to student.classroomId
   (prisma.classroom.findUnique    as Mock).mockResolvedValue(classroom);
   (prisma.gradeSubjectConfig.findMany as Mock).mockResolvedValue(configs);
   (prisma.student.findMany        as Mock).mockResolvedValue(students);

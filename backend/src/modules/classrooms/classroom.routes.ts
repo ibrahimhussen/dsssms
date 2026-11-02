@@ -21,6 +21,7 @@ const READ_ROLES = [...MANAGE_ROLES, RoleName.ADMIN, RoleName.TEACHER];
 router.post('/', authorize(...MANAGE_ROLES), validate(createClassroomSchema), classroomController.create);
 router.get('/', authorize(...READ_ROLES), validate(listClassroomsQuerySchema, 'query'), classroomController.list);
 router.get('/:id', authorize(...READ_ROLES), validate(classroomIdParamSchema, 'params'), classroomController.getById);
+router.get('/:id/roster', authorize(...READ_ROLES), validate(classroomIdParamSchema, 'params'), classroomController.getRoster);
 
 router.patch(
   '/:id',

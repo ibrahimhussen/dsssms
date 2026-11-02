@@ -46,6 +46,7 @@ vi.mock('../../database/prisma-client', () => ({
     role:                  { findUnique: vi.fn() },
     refreshToken:          { findUnique: vi.fn(), create: vi.fn(), update: vi.fn(), updateMany: vi.fn() },
     student:               { findMany: vi.fn(), findUnique: vi.fn(), count: vi.fn(), update: vi.fn() },
+    studentEnrollment:     { findMany: vi.fn(), count: vi.fn() },
     classroom:             { findUnique: vi.fn(), findMany: vi.fn() },
     teacher:               { findUnique: vi.fn(), findMany: vi.fn() },
     teacherSubject:        { findFirst: vi.fn(), findMany: vi.fn(), findUnique: vi.fn() },
@@ -450,6 +451,8 @@ describe('E. Academic Register', () => {
     });
 
     it('returns 200 with full register structure for DIRECTOR', async () => {
+      (prisma.studentEnrollment.findMany as Mock).mockResolvedValue([]); // no historical records → fall back to student.classroomId
+      (prisma.studentEnrollment.count as Mock).mockResolvedValue(0);
       (prisma.classroom.findUnique as Mock).mockResolvedValue(CL9A);
       (prisma.gradeSubjectConfig.findMany as Mock).mockResolvedValue([
         { subjectId: 1, sortOrder: 0, subject: { subjectId: 1, subjectCode: 'ENG', subjectName: 'English' } },

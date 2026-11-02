@@ -9,7 +9,7 @@
  *   - no GradeEntry/GradeComponent exists
  *   - the result is missing
  *
- * DATABASE SAFETY: all Prisma calls are mocked — no MySQL connection required.
+ * DATABASE SAFETY: all Prisma calls are mocked ï¿½ no MySQL connection required.
  */
 import { describe, it, expect, vi, beforeEach, type Mock } from 'vitest';
 import { AcademicRegisterService } from '../academic-register.service';
@@ -20,6 +20,7 @@ import { Semester } from '@prisma/client';
 
 vi.mock('../../../database/prisma-client', () => ({
   prisma: {
+    studentEnrollment: { findMany: vi.fn(), count: vi.fn() },
     classroom:            { findUnique: vi.fn(), findMany: vi.fn(), count: vi.fn() },
     teacher:              { findUnique: vi.fn() },
     teacherSubject:       { findFirst: vi.fn(), findMany: vi.fn() },
@@ -105,6 +106,7 @@ function setupDefaultMocks(options: {
     classroomFinalization = null,
   } = options;
 
+  (prisma.studentEnrollment.findMany as Mock).mockResolvedValue([]); // no historical records â†’ fall back to student.classroomId
   (prisma.classroom.findUnique as Mock).mockResolvedValue(CLASSROOM_9A);
   (prisma.gradeSubjectConfig.findMany as Mock).mockResolvedValue(configuredSubjects);
   (prisma.student.findMany    as Mock).mockResolvedValue(students);
@@ -124,7 +126,7 @@ const QUERY_S1 = { classroomId: 1, academicYear: '2026/27', viewMode: 'SEMESTER_
 
 // -- Tests ---------------------------------------------------------------------
 
-describe('AcademicRegisterService — GradeSubjectConfig as source of truth', () => {
+describe('AcademicRegisterService ï¿½ GradeSubjectConfig as source of truth', () => {
   let service: AcademicRegisterService;
 
   beforeEach(() => {
@@ -200,7 +202,7 @@ describe('AcademicRegisterService — GradeSubjectConfig as source of truth', () =
         configuredSubjects: [CONFIG_ENG, CONFIG_MATH],
         teacherSubjects: [
           { id: 10, subjectId: 1 }, // English
-          { id: 11, subjectId: 2 }, // Math — has assignment but no components
+          { id: 11, subjectId: 2 }, // Math ï¿½ has assignment but no components
         ],
         components: [],  // No grade components defined
         entries: [],
@@ -354,7 +356,7 @@ describe('AcademicRegisterService — GradeSubjectConfig as source of truth', () =
     });
 
     it('uses GradeSubjectConfig from the requested academicYear only', async () => {
-      // Mock returns configs for 2026/27 — query for a different year should get empty
+      // Mock returns configs for 2026/27 ï¿½ query for a different year should get empty
       (prisma.classroom.findUnique as Mock).mockResolvedValue(CLASSROOM_9A);
       (prisma.gradeSubjectConfig.findMany as Mock).mockResolvedValue([]);
 
@@ -366,7 +368,7 @@ describe('AcademicRegisterService — GradeSubjectConfig as source of truth', () =
     });
 
     it('[REGRESSION] selecting classroom 9A does not accidentally include 9B students', async () => {
-      // 9B has teacher assignments; 9A has none — but the register should show 9A students
+      // 9B has teacher assignments; 9A has none ï¿½ but the register should show 9A students
       (prisma.classroom.findUnique as Mock).mockResolvedValue(CLASSROOM_9A);
       (prisma.gradeSubjectConfig.findMany as Mock).mockResolvedValue([CONFIG_ENG, CONFIG_MATH]);
       (prisma.student.findMany as Mock).mockResolvedValue([STUDENT_A]); // only 9A students
@@ -496,8 +498,8 @@ describe('AcademicRegisterService — GradeSubjectConfig as source of truth', () =
     });
 
     it('student with all finalized passing results gets PASS status', async () => {
-      // English 72, Math 65, Physics 58 — all above 40 (min subject pass)
-      // avg = 65 — above 50 (promotion pass mark)
+      // English 72, Math 65, Physics 58 ï¿½ all above 40 (min subject pass)
+      // avg = 65 ï¿½ above 50 (promotion pass mark)
       setupDefaultMocks({
         configuredSubjects: [CONFIG_ENG, CONFIG_MATH, CONFIG_PHY],
         teacherSubjects: [
@@ -528,7 +530,7 @@ describe('AcademicRegisterService — GradeSubjectConfig as source of truth', () =
     });
 
     it('student with average below pass mark gets FAIL status', async () => {
-      // avg = 38 — below 50
+      // avg = 38 ï¿½ below 50
       setupDefaultMocks({
         configuredSubjects: [CONFIG_ENG, CONFIG_MATH, CONFIG_PHY],
         teacherSubjects: [
@@ -557,7 +559,7 @@ describe('AcademicRegisterService — GradeSubjectConfig as source of truth', () =
     });
 
     it('attendance does NOT independently determine PASS/FAIL status', async () => {
-      // Student has 50 absences but passing grades — should still be PASS
+      // Student has 50 absences but passing grades ï¿½ should still be PASS
       setupDefaultMocks({
         configuredSubjects: [CONFIG_ENG],
         teacherSubjects: [{ id: 10, subjectId: 1 }],
@@ -571,12 +573,12 @@ describe('AcademicRegisterService — GradeSubjectConfig as source of truth', () =
       ]);
 
       const register = await service.generateClassroomRegister(ACTOR_DIRECTOR, QUERY_S1);
-      // Status must be PASS — attendance does not affect academic status
+      // Status must be PASS ï¿½ attendance does not affect academic status
       expect(register.students[0].academicStatus).toBe(AcademicStatus.PASS);
     });
 
     it('failedSubjects lists only subjects below minimumSubjectPassMark', async () => {
-      // English 72 (pass), Math 35 (fail — below 40)
+      // English 72 (pass), Math 35 (fail ï¿½ below 40)
       setupDefaultMocks({
         configuredSubjects: [CONFIG_ENG, CONFIG_MATH],
         teacherSubjects: [{ id: 10, subjectId: 1 }, { id: 11, subjectId: 2 }],
@@ -653,7 +655,7 @@ describe('AcademicRegisterService — GradeSubjectConfig as source of truth', () =
     });
 
     it('student with incomplete results (missing subject) gets null rank', async () => {
-      // Only English result — Math is missing
+      // Only English result ï¿½ Math is missing
       setupDefaultMocks({
         configuredSubjects: [CONFIG_ENG, CONFIG_MATH],
         teacherSubjects: [{ id: 10, subjectId: 1 }],
@@ -741,7 +743,7 @@ describe('AcademicRegisterService — GradeSubjectConfig as source of truth', () =
       expect(register.metadata.isOfficialView).toBe(true);
     });
 
-    it('PASS does not imply PROMOTED — academicStatus never includes promotion decision', async () => {
+    it('PASS does not imply PROMOTED ï¿½ academicStatus never includes promotion decision', async () => {
       setupDefaultMocks({
         configuredSubjects: [CONFIG_ENG],
         teacherSubjects: [{ id: 10, subjectId: 1 }],
@@ -755,7 +757,7 @@ describe('AcademicRegisterService — GradeSubjectConfig as source of truth', () =
       const status = register.students[0].academicStatus;
 
       expect(status).toBe(AcademicStatus.PASS);
-      // Promotion decisions are separate — academicStatus must only be one of the four academic statuses
+      // Promotion decisions are separate ï¿½ academicStatus must only be one of the four academic statuses
       expect([AcademicStatus.PASS, AcademicStatus.FAIL, AcademicStatus.INCOMPLETE, AcademicStatus.PENDING])
         .toContain(status);
       // Must NOT be a promotion-related string

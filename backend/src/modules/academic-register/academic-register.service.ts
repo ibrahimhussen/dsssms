@@ -325,11 +325,39 @@ export class AcademicRegisterService {
       sortOrder: cs.sortOrder,
     }));
 
-    // ── Students ──────────────────────────────────────────────────────────────
-    const students = await prisma.student.findMany({
-      where: { classroomId: query.classroomId },
-      orderBy: [{ lastName: 'asc' }, { firstName: 'asc' }],
+    // ── Students ─────────────────────────────────────────────────────────────
+    // Load students who were enrolled in this classroom during the requested
+    // academic year, using StudentEnrollment as the authoritative historical
+    // record. This ensures that a historical register for e.g. Grade 9 A in
+    // 2026 correctly shows the original roster even after those students have
+    // been promoted to Grade 10 in 2027 (which updates Student.classroomId).
+    //
+    // Strategy:
+    //   1. Find all StudentEnrollment rows for (classroomId, academicYear).
+    //   2. Fall back to Student.classroomId if no enrollment records exist
+    //      (covers classrooms that were never part of a promotion batch, e.g.
+    //      fresh enrollments where approveBatch has not yet been executed).
+    const enrollmentRows = await prisma.studentEnrollment.findMany({
+      where: { classroomId: query.classroomId, academicYear: query.academicYear },
+      select: { studentId: true },
     });
+
+    let students: Awaited<ReturnType<typeof prisma.student.findMany>>;
+
+    if (enrollmentRows.length > 0) {
+      // Use historical enrollment — authoritative for past academic years
+      const enrolledIds = enrollmentRows.map((e) => e.studentId);
+      students = await prisma.student.findMany({
+        where: { studentId: { in: enrolledIds } },
+        orderBy: [{ lastName: 'asc' }, { firstName: 'asc' }],
+      });
+    } else {
+      // No enrollment records yet (pre-promotion) — fall back to live pointer
+      students = await prisma.student.findMany({
+        where: { classroomId: query.classroomId },
+        orderBy: [{ lastName: 'asc' }, { firstName: 'asc' }],
+      });
+    }
     const studentIds = students.map((s) => s.studentId);
 
     // ── Bulk-load absence counts ──────────────────────────────────────────────
@@ -567,11 +595,20 @@ export class AcademicRegisterService {
       settings
     );
     const gradeRanks = computeCompetitionRanks(gradeRankable);
-    const totalStudentsInGrade = await prisma.student.count({
-      where: {
-        classroom: { className: classroom.className, academicYear: query.academicYear },
-      },
+    // Grade-wide student count — use enrollment-based count for historical accuracy
+    const gradeClassrooms = await prisma.classroom.findMany({
+      where: { className: classroom.className, academicYear: query.academicYear },
+      select: { classroomId: true },
     });
+    let totalStudentsInGrade = 0;
+    for (const gc of gradeClassrooms) {
+      const enrollCount = await prisma.studentEnrollment.count({
+        where: { classroomId: gc.classroomId, academicYear: query.academicYear },
+      });
+      totalStudentsInGrade += enrollCount > 0
+        ? enrollCount
+        : await prisma.student.count({ where: { classroomId: gc.classroomId } });
+    }
 
     for (const student of registerStudents) {
       student.gradeRank = gradeRanks.get(student.studentId) ?? null;
@@ -642,8 +679,14 @@ export class AcademicRegisterService {
     let totalPass = 0;
 
     for (const classroom of classrooms) {
-      const students = await prisma.student.findMany({ where: { classroomId: classroom.classroomId } });
-      totalStudents += students.length;
+      // Use enrollment-based student count for historical accuracy
+      const enrollmentCount = await prisma.studentEnrollment.count({
+        where: { classroomId: classroom.classroomId, academicYear },
+      });
+      const studentCountForSection = enrollmentCount > 0
+        ? enrollmentCount
+        : await prisma.student.count({ where: { classroomId: classroom.classroomId } });
+      totalStudents += studentCountForSection;
 
       const register = await this.generateClassroomRegister(actor, {
         classroomId: classroom.classroomId,
@@ -668,7 +711,7 @@ export class AcademicRegisterService {
       sections.push({
         section: classroom.section,
         classroomId: classroom.classroomId,
-        studentCount: students.length,
+        studentCount: studentCountForSection,
         passCount,
         failCount,
         sectionAverage,
@@ -709,11 +752,17 @@ export class AcademicRegisterService {
     const rankable: { studentId: number; average: number }[] = [];
 
     for (const classroom of classrooms) {
-      const students = await prisma.student.findMany({
-        where: { classroomId: classroom.classroomId },
+      // Use historical enrollment records to get the correct student list
+      const enrollmentRows = await prisma.studentEnrollment.findMany({
+        where: { classroomId: classroom.classroomId, academicYear },
         select: { studentId: true },
       });
-      const studentIds = students.map((s) => s.studentId);
+      const studentIds = enrollmentRows.length > 0
+        ? enrollmentRows.map((e) => e.studentId)
+        : (await prisma.student.findMany({
+            where: { classroomId: classroom.classroomId },
+            select: { studentId: true },
+          })).map((s) => s.studentId);
 
       if (viewMode === 'FULL_YEAR') {
         const [s1, s2] = await Promise.all([

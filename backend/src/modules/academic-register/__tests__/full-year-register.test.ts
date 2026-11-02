@@ -10,6 +10,7 @@ import { Semester } from '@prisma/client';
 
 vi.mock('../../../database/prisma-client', () => ({
   prisma: {
+    studentEnrollment:     { findMany: vi.fn(), count: vi.fn() },
     classroom:             { findUnique: vi.fn(), findMany: vi.fn() },
     teacher:               { findUnique: vi.fn() },
     teacherSubject:        { findFirst: vi.fn(), findMany: vi.fn() },
@@ -51,6 +52,7 @@ const FINALIZED = { status: 'FINALIZED', finalizedAt: new Date() };
 // ── Helpers ───────────────────────────────────────────────────────────────────
 
 function setupBase(cl: typeof CL9A, configs: typeof C1[], students: typeof STU1[], classFin: unknown = null) {
+  (prisma.studentEnrollment.findMany as Mock).mockResolvedValue([]); // no historical records → fall back to student.classroomId
   (prisma.classroom.findUnique as Mock).mockResolvedValue(cl);
   (prisma.gradeSubjectConfig.findMany as Mock).mockResolvedValue(configs);
   (prisma.student.findMany as Mock).mockResolvedValue(students);

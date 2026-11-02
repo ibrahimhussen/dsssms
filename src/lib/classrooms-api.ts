@@ -1,7 +1,7 @@
 import { apiClient, unwrap, unwrapPaginated } from './api-client';
 import { cleanParams } from './clean-params';
 import type { ApiResponse } from '../types/api';
-import type { ClassroomSummary, CreateClassroomInput, ListClassroomsParams } from '../types/classroom';
+import type { ClassroomSummary, ClassroomRoster, CreateClassroomInput, ListClassroomsParams } from '../types/classroom';
 
 export const classroomsApi = {
   list(params: ListClassroomsParams = {}) {
@@ -14,5 +14,13 @@ export const classroomsApi = {
 
   delete(classroomId: number) {
     return unwrap(apiClient.delete<ApiResponse<null>>(`/classrooms/${classroomId}`));
+  },
+
+  getRoster(classroomId: number, academicYear: string) {
+    return unwrap(
+      apiClient.get<ApiResponse<ClassroomRoster>>(`/classrooms/${classroomId}/roster`, {
+        params: { academicYear },
+      })
+    );
   },
 };

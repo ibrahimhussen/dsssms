@@ -1,7 +1,7 @@
-﻿/**
- * Academic Status Tests — Phase 3.2
+/**
+ * Academic Status Tests � Phase 3.2
  * Tests PENDING / INCOMPLETE / PASS / FAIL and status-separation rules.
- * DATABASE SAFETY: all Prisma calls mocked — no MySQL required.
+ * DATABASE SAFETY: all Prisma calls mocked � no MySQL required.
  */
 import { describe, it, expect, vi, beforeEach, type Mock } from 'vitest';
 import { AcademicRegisterService } from '../academic-register.service';
@@ -9,6 +9,7 @@ import { AcademicStatus } from '../dto/academic-register.dto';
 
 vi.mock('../../../database/prisma-client', () => ({
   prisma: {
+    studentEnrollment:     { findMany: vi.fn(), count: vi.fn() },
     classroom:             { findUnique: vi.fn(), findMany: vi.fn() },
     teacher:               { findUnique: vi.fn() },
     teacherSubject:        { findFirst: vi.fn(), findMany: vi.fn() },
@@ -48,9 +49,10 @@ const Q1  = { classroomId: 1, academicYear: '2026/27', viewMode: 'SEMESTER_1' as
 const Q11 = { classroomId: 2, academicYear: '2026/27', viewMode: 'SEMESTER_1' as const };
 const SETTINGS = { promotionPassMark: 50, minimumSubjectPassMark: 40 };
 
-// ── Helpers ───────────────────────────────────────────────────────────────────
+// -- Helpers -------------------------------------------------------------------
 
 function baseSetup(classroom: typeof CL9A, configs: typeof C1[], students: typeof STU[]) {
+  (prisma.studentEnrollment.findMany as Mock).mockResolvedValue([]); // no historical records → fall back to student.classroomId
   (prisma.classroom.findUnique as Mock).mockResolvedValue(classroom);
   (prisma.gradeSubjectConfig.findMany as Mock).mockResolvedValue(configs);
   (prisma.student.findMany as Mock).mockResolvedValue(students);
@@ -91,19 +93,19 @@ function withScores(
   (prisma.gradeEntry.findMany as Mock).mockResolvedValue(ent);
 }
 
-// ── PENDING ───────────────────────────────────────────────────────────────────
+// -- PENDING -------------------------------------------------------------------
 
 describe('PENDING status', () => {
   let svc: AcademicRegisterService;
   beforeEach(() => { svc = new AcademicRegisterService(); vi.clearAllMocks(); });
 
-  it('no data, not finalized → PENDING', async () => {
+  it('no data, not finalized ? PENDING', async () => {
     noResults(CL9A, [C1], [STU]);
     const r = await svc.generateClassroomRegister(ACTOR, Q1);
     expect(r.students[0].academicStatus).toBe(AcademicStatus.PENDING);
   });
 
-  it('subject has assignment but status is DRAFT → PENDING', async () => {
+  it('subject has assignment but status is DRAFT ? PENDING', async () => {
     baseSetup(CL9A, [C1], [STU]);
     (prisma.classroomFinalization.findUnique as Mock).mockResolvedValue(null);
     (prisma.teacherSubject.findMany as Mock).mockResolvedValue([{ id: 10, subjectId: 1 }]);
@@ -114,7 +116,7 @@ describe('PENDING status', () => {
     expect(r.students[0].academicStatus).toBe(AcademicStatus.PENDING);
   });
 
-  it('subject is UNDER_REVIEW (not FINALIZED) → PENDING', async () => {
+  it('subject is UNDER_REVIEW (not FINALIZED) ? PENDING', async () => {
     baseSetup(CL9A, [C1], [STU]);
     (prisma.classroomFinalization.findUnique as Mock).mockResolvedValue(null);
     (prisma.teacherSubject.findMany as Mock).mockResolvedValue([{ id: 10, subjectId: 1 }]);
@@ -125,7 +127,7 @@ describe('PENDING status', () => {
     expect(r.students[0].academicStatus).toBe(AcademicStatus.PENDING);
   });
 
-  it('subject is APPROVED (not FINALIZED) → PENDING', async () => {
+  it('subject is APPROVED (not FINALIZED) ? PENDING', async () => {
     baseSetup(CL9A, [C1], [STU]);
     (prisma.classroomFinalization.findUnique as Mock).mockResolvedValue(null);
     (prisma.teacherSubject.findMany as Mock).mockResolvedValue([{ id: 10, subjectId: 1 }]);
@@ -136,7 +138,7 @@ describe('PENDING status', () => {
     expect(r.students[0].academicStatus).toBe(AcademicStatus.PENDING);
   });
 
-  it('required subject has NO assignment → isFinalized=false → PENDING', async () => {
+  it('required subject has NO assignment ? isFinalized=false ? PENDING', async () => {
     noResults(CL9A, [C1, C2], [STU]);
     const r = await svc.generateClassroomRegister(ACTOR, Q1);
     expect(r.students[0].academicStatus).toBe(AcademicStatus.PENDING);
@@ -158,14 +160,14 @@ describe('PENDING status', () => {
   });
 });
 
-// ── INCOMPLETE ────────────────────────────────────────────────────────────────
+// -- INCOMPLETE ----------------------------------------------------------------
 
 describe('INCOMPLETE status', () => {
   let svc: AcademicRegisterService;
   beforeEach(() => { svc = new AcademicRegisterService(); vi.clearAllMocks(); });
 
-  it('[REGRESSION] all assigned subjects FINALIZED + one has no components → finalResult null → INCOMPLETE', async () => {
-    // Eng finalized with score. Math finalized with score. Physics finalized but NO components → null.
+  it('[REGRESSION] all assigned subjects FINALIZED + one has no components ? finalResult null ? INCOMPLETE', async () => {
+    // Eng finalized with score. Math finalized with score. Physics finalized but NO components ? null.
     baseSetup(CL9A, [C1, C2, C3], [STU]);
     (prisma.classroomFinalization.findUnique as Mock).mockResolvedValue({ status: 'FINALIZED', finalizedAt: new Date() });
     (prisma.teacherSubject.findMany as Mock).mockResolvedValue([
@@ -176,7 +178,7 @@ describe('INCOMPLETE status', () => {
       { teacherSubjectId: 11, status: 'FINALIZED' },
       { teacherSubjectId: 12, status: 'FINALIZED' },
     ]);
-    // Physics (ts id=12) has NO components → service sets finalResult=null
+    // Physics (ts id=12) has NO components ? service sets finalResult=null
     (prisma.gradeComponent.findMany as Mock).mockImplementation(async ({ where }: { where: { teacherSubjectId: { in: number[] } } }) => {
       const ids = where.teacherSubjectId.in;
       return [
@@ -200,8 +202,8 @@ describe('INCOMPLETE status', () => {
     expect(student.academicStatus).toBe(AcademicStatus.INCOMPLETE);
   });
 
-  it('[REGRESSION] no assignment → PENDING, NOT INCOMPLETE', async () => {
-    // Physics has no TeacherSubject → isFinalized=false → allFinalized=false → PENDING
+  it('[REGRESSION] no assignment ? PENDING, NOT INCOMPLETE', async () => {
+    // Physics has no TeacherSubject ? isFinalized=false ? allFinalized=false ? PENDING
     baseSetup(CL9A, [C1, C2, C3], [STU]);
     (prisma.classroomFinalization.findUnique as Mock).mockResolvedValue({ status: 'FINALIZED', finalizedAt: new Date() });
     (prisma.teacherSubject.findMany as Mock).mockResolvedValue([
@@ -235,7 +237,7 @@ describe('INCOMPLETE status', () => {
       { teacherSubjectId: 10, status: 'FINALIZED' },
       { teacherSubjectId: 11, status: 'FINALIZED' },
     ]);
-    // Only English has components; Math (ts=11) has none → null
+    // Only English has components; Math (ts=11) has none ? null
     (prisma.gradeComponent.findMany as Mock).mockImplementation(async ({ where }: { where: { teacherSubjectId: { in: number[] } } }) => {
       const ids = where.teacherSubjectId.in;
       return [{ gradeComponentId: 1, teacherSubjectId: 10, maxMarks: 100 }].filter((c) => ids.includes(c.teacherSubjectId));
@@ -250,25 +252,25 @@ describe('INCOMPLETE status', () => {
   });
 });
 
-// ── PASS ──────────────────────────────────────────────────────────────────────
+// -- PASS ----------------------------------------------------------------------
 
 describe('PASS status', () => {
   let svc: AcademicRegisterService;
   beforeEach(() => { svc = new AcademicRegisterService(); vi.clearAllMocks(); });
 
-  it('all finalized, all above minimumSubjectPassMark, avg above promotionPassMark → PASS', async () => {
+  it('all finalized, all above minimumSubjectPassMark, avg above promotionPassMark ? PASS', async () => {
     withScores(CL9A, [C1, C2, C3], [STU], [72, 65, 58]);
     const r = await svc.generateClassroomRegister(ACTOR, Q1);
     expect(r.students[0].academicStatus).toBe(AcademicStatus.PASS);
   });
 
-  it('average exactly equal to promotionPassMark (50) → PASS', async () => {
+  it('average exactly equal to promotionPassMark (50) ? PASS', async () => {
     withScores(CL9A, [C1, C2, C3], [STU], [50, 50, 50]);
     const r = await svc.generateClassroomRegister(ACTOR, Q1);
     expect(r.students[0].academicStatus).toBe(AcademicStatus.PASS);
   });
 
-  it('subject mark exactly at minimumSubjectPassMark (40) → not in failedSubjects', async () => {
+  it('subject mark exactly at minimumSubjectPassMark (40) ? not in failedSubjects', async () => {
     withScores(CL9A, [C1, C2, C3], [STU], [40, 60, 60]);
     const r = await svc.generateClassroomRegister(ACTOR, Q1);
     expect(r.students[0].failedSubjects).not.toContain('English');
@@ -281,34 +283,34 @@ describe('PASS status', () => {
     expect(r.students[0].sectionRank).toBe(1);
   });
 
-  it('Grade 9: 1 failed subject, avg=52 (exactly the Grade 9 threshold) → PASS', async () => {
-    // avg = (30+62+64)/3 = 52.0, 1 subject below 40. Grade 9 minAvg for 1 failed = 52 → PASS
+  it('Grade 9: 1 failed subject, avg=52 (exactly the Grade 9 threshold) ? PASS', async () => {
+    // avg = (30+62+64)/3 = 52.0, 1 subject below 40. Grade 9 minAvg for 1 failed = 52 ? PASS
     withScores(CL9A, [C1, C2, C3], [STU], [30, 62, 64]);
     const r = await svc.generateClassroomRegister(ACTOR, Q1);
     expect(r.students[0].academicStatus).toBe(AcademicStatus.PASS);
   });
 
-  it('Grade 11: 1 failed subject, avg=53 (exactly the Grade 11 threshold) → PASS', async () => {
-    // avg = (30+63+66)/3 = 53. Grade 11 minAvg for 1 failed = 53 → PASS
+  it('Grade 11: 1 failed subject, avg=53 (exactly the Grade 11 threshold) ? PASS', async () => {
+    // avg = (30+63+66)/3 = 53. Grade 11 minAvg for 1 failed = 53 ? PASS
     withScores(CL11A, [C1, C2, C3], [STU11], [30, 63, 66]);
     const r = await svc.generateClassroomRegister(ACTOR, Q11);
     expect(r.students[0].academicStatus).toBe(AcademicStatus.PASS);
   });
 });
 
-// ── FAIL ──────────────────────────────────────────────────────────────────────
+// -- FAIL ----------------------------------------------------------------------
 
 describe('FAIL status', () => {
   let svc: AcademicRegisterService;
   beforeEach(() => { svc = new AcademicRegisterService(); vi.clearAllMocks(); });
 
-  it('average one below promotionPassMark (49) → FAIL', async () => {
+  it('average one below promotionPassMark (49) ? FAIL', async () => {
     withScores(CL9A, [C1, C2, C3], [STU], [49, 49, 49]);
     const r = await svc.generateClassroomRegister(ACTOR, Q1);
     expect(r.students[0].academicStatus).toBe(AcademicStatus.FAIL);
   });
 
-  it('subject one below minimumSubjectPassMark (39) → in failedSubjects', async () => {
+  it('subject one below minimumSubjectPassMark (39) ? in failedSubjects', async () => {
     withScores(CL9A, [C1, C2], [STU], [39, 80]);
     const r = await svc.generateClassroomRegister(ACTOR, Q1);
     expect(r.students[0].failedSubjects).toContain('English');
@@ -322,27 +324,27 @@ describe('FAIL status', () => {
     expect(r.students[0].failedSubjects).toHaveLength(0);
   });
 
-  it('Grade 9: 4 failed subjects → unconditional FAIL', async () => {
+  it('Grade 9: 4 failed subjects ? unconditional FAIL', async () => {
     withScores(CL9A, [C1, C2, C3, C4], [STU], [30, 30, 30, 30]);
     const r = await svc.generateClassroomRegister(ACTOR, Q1);
     expect(r.students[0].academicStatus).toBe(AcademicStatus.FAIL);
   });
 
-  it('Grade 9: 1 failed subject, avg=51 (above 52 threshold) — wait, 51<52 → FAIL', async () => {
-    // avg=(30+60+63)/3=51. Grade 9 minAvg for 1 failed=52. 51<52 → FAIL
+  it('Grade 9: 1 failed subject, avg=51 (above 52 threshold) � wait, 51<52 ? FAIL', async () => {
+    // avg=(30+60+63)/3=51. Grade 9 minAvg for 1 failed=52. 51<52 ? FAIL
     withScores(CL9A, [C1, C2, C3], [STU], [30, 60, 63]);
     const r = await svc.generateClassroomRegister(ACTOR, Q1);
     expect(r.students[0].academicStatus).toBe(AcademicStatus.FAIL);
   });
 
-  it('Grade 11: 1 failed subject, avg=52 (below Grade 11 threshold of 53) → FAIL', async () => {
-    // avg=(30+62+64)/3=52. Grade 11 minAvg for 1 failed=53. 52<53 → FAIL
+  it('Grade 11: 1 failed subject, avg=52 (below Grade 11 threshold of 53) ? FAIL', async () => {
+    // avg=(30+62+64)/3=52. Grade 11 minAvg for 1 failed=53. 52<53 ? FAIL
     withScores(CL11A, [C1, C2, C3], [STU11], [30, 62, 64]);
     const r = await svc.generateClassroomRegister(ACTOR, Q11);
     expect(r.students[0].academicStatus).toBe(AcademicStatus.FAIL);
   });
 
-  it('Grade 11: 4+ failed subjects → unconditional FAIL', async () => {
+  it('Grade 11: 4+ failed subjects ? unconditional FAIL', async () => {
     withScores(CL11A, [C1, C2, C3, C4, C5], [STU11], [30, 30, 30, 30, 30]);
     const r = await svc.generateClassroomRegister(ACTOR, Q11);
     expect(r.students[0].academicStatus).toBe(AcademicStatus.FAIL);
@@ -355,7 +357,7 @@ describe('FAIL status', () => {
     expect(r.students[0].sectionRank).toBe(1);
   });
 
-  it('attendance does NOT determine PASS/FAIL — high absences with passing grades → PASS', async () => {
+  it('attendance does NOT determine PASS/FAIL � high absences with passing grades ? PASS', async () => {
     withScores(CL9A, [C1], [STU], [80]);
     (prisma.attendance.groupBy as Mock).mockResolvedValue([{ studentId: 101, _count: { _all: 50 } }]);
     const r = await svc.generateClassroomRegister(ACTOR, Q1);
@@ -363,7 +365,7 @@ describe('FAIL status', () => {
   });
 });
 
-// ── Status separation ─────────────────────────────────────────────────────────
+// -- Status separation ---------------------------------------------------------
 
 describe('Status separation: academic vs promotion', () => {
   let svc: AcademicRegisterService;
@@ -383,7 +385,7 @@ describe('Status separation: academic vs promotion', () => {
     expect(r.students[0].academicStatus).not.toBe('REPEATED' as AcademicStatus);
   });
 
-  it('academicStatus is always one of four defined values — never a promotion string', async () => {
+  it('academicStatus is always one of four defined values � never a promotion string', async () => {
     withScores(CL9A, [C1], [STU], [75]);
     const r = await svc.generateClassroomRegister(ACTOR, Q1);
     const valid = [AcademicStatus.PASS, AcademicStatus.FAIL, AcademicStatus.INCOMPLETE, AcademicStatus.PENDING];

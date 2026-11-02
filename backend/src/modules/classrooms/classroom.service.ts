@@ -7,7 +7,7 @@ import { ClassroomSummaryDto } from './dto/classroom.dto';
 
 const CLASSROOM_INCLUDE = {
   homeroomTeacher: true,
-  _count: { select: { students: true } },
+  _count: { select: { students: true, enrollments: true } },
 } satisfies Prisma.ClassroomInclude;
 
 type ClassroomWithRelations = Prisma.ClassroomGetPayload<{ include: typeof CLASSROOM_INCLUDE }>;
@@ -25,6 +25,11 @@ function normalizeClassName(rawName: string): string {
 }
 
 function toClassroomSummaryDto(classroom: ClassroomWithRelations): ClassroomSummaryDto {
+  // Use enrollment count (historical records) when available; fall back to
+  // live student pointer count (for classrooms not yet part of any promotion).
+  const enrollmentCount = classroom._count.enrollments ?? 0;
+  const studentCount = enrollmentCount > 0 ? enrollmentCount : classroom._count.students;
+
   return {
     classroomId: classroom.classroomId,
     className: normalizeClassName(classroom.className),
@@ -38,9 +43,33 @@ function toClassroomSummaryDto(classroom: ClassroomWithRelations): ClassroomSumm
           lastName: classroom.homeroomTeacher.lastName,
         }
       : null,
-    studentCount: classroom._count.students,
+    studentCount,
   };
 }
+
+// ── Historical roster types ───────────────────────────────────────────────────
+
+export interface ClassroomRosterStudentDto {
+  studentId: number;
+  admissionNumber: string;
+  firstName: string;
+  lastName: string;
+  gender: string;
+  enrollmentDecision: string;
+  currentClassroomId: number; // student's live classroomId (may differ from this classroom)
+}
+
+export interface ClassroomRosterDto {
+  classroomId: number;
+  className: string;
+  section: string;
+  academicYear: string;
+  homeroomTeacher: { teacherId: number; firstName: string; lastName: string } | null;
+  students: ClassroomRosterStudentDto[];
+  isHistorical: boolean; // true when academic year != classroom's current academic year or students have moved
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
 
 export class ClassroomService {
   async createClassroom(input: CreateClassroomInput): Promise<ClassroomSummaryDto> {
@@ -99,6 +128,91 @@ export class ClassroomService {
     const classroom = await prisma.classroom.findUnique({ where: { classroomId }, include: CLASSROOM_INCLUDE });
     if (!classroom) throw new NotFoundError('Classroom');
     return toClassroomSummaryDto(classroom);
+  }
+
+  /**
+   * Returns the full student roster for a classroom in a given academic year.
+   *
+   * Uses StudentEnrollment as the authoritative source when records exist,
+   * so historical rosters remain intact even after promotion moves students
+   * to a different classroom. Falls back to Student.classroomId for active
+   * classrooms that have not yet gone through a promotion cycle.
+   */
+  async getClassroomRoster(classroomId: number, academicYear: string): Promise<ClassroomRosterDto> {
+    const classroom = await prisma.classroom.findUnique({
+      where: { classroomId },
+      include: { homeroomTeacher: true },
+    });
+    if (!classroom) throw new NotFoundError('Classroom');
+
+    // Check for historical enrollment records first
+    const enrollmentRows = await prisma.studentEnrollment.findMany({
+      where: { classroomId, academicYear },
+      include: {
+        student: {
+          select: {
+            studentId: true,
+            admissionNumber: true,
+            firstName: true,
+            lastName: true,
+            gender: true,
+            classroomId: true,
+          },
+        },
+      },
+      orderBy: [{ student: { lastName: 'asc' } }, { student: { firstName: 'asc' } }],
+    });
+
+    let students: ClassroomRosterStudentDto[];
+    let isHistorical = false;
+
+    if (enrollmentRows.length > 0) {
+      // Historical roster from StudentEnrollment — authoritative for all years
+      // that have gone through a promotion batch
+      students = enrollmentRows.map((e) => ({
+        studentId: e.student.studentId,
+        admissionNumber: e.student.admissionNumber,
+        firstName: e.student.firstName,
+        lastName: e.student.lastName,
+        gender: e.student.gender,
+        enrollmentDecision: e.decision,
+        currentClassroomId: e.student.classroomId,
+      }));
+      // Mark as historical if any student has moved to a different classroom
+      isHistorical = students.some((s) => s.currentClassroomId !== classroomId);
+    } else {
+      // No enrollment records — fall back to live Student.classroomId
+      // (covers active classrooms not yet processed by promotion)
+      const liveStudents = await prisma.student.findMany({
+        where: { classroomId },
+        orderBy: [{ lastName: 'asc' }, { firstName: 'asc' }],
+      });
+      students = liveStudents.map((s) => ({
+        studentId: s.studentId,
+        admissionNumber: s.admissionNumber,
+        firstName: s.firstName,
+        lastName: s.lastName,
+        gender: s.gender,
+        enrollmentDecision: 'ACTIVE',
+        currentClassroomId: s.classroomId,
+      }));
+    }
+
+    return {
+      classroomId: classroom.classroomId,
+      className: normalizeClassName(classroom.className),
+      section: classroom.section,
+      academicYear,
+      homeroomTeacher: classroom.homeroomTeacher
+        ? {
+            teacherId: classroom.homeroomTeacher.teacherId,
+            firstName: classroom.homeroomTeacher.firstName,
+            lastName: classroom.homeroomTeacher.lastName,
+          }
+        : null,
+      students,
+      isHistorical,
+    };
   }
 
   async updateClassroom(classroomId: number, input: UpdateClassroomInput): Promise<ClassroomSummaryDto> {

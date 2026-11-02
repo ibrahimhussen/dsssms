@@ -1146,7 +1146,7 @@ describe('eligibility message clarity — missing semester messages', () => {
   let svc: PromotionService;
   beforeEach(() => { svc = new PromotionService(); vi.clearAllMocks(); });
 
-  function captureEligibility(reportsFn: (sid: number) => object[]) {
+  function captureEligibility(reportsFn: (sid: number) => { studentId: number; semester: string; averageMark: string }[]) {
     setupCreate(CL9A, [STU1], reportsFn);
     let capturedEntries: { eligibilityStatus: string; averageMark: number | null }[] = [];
     (prisma.$transaction as Mock).mockImplementation(async (fn: any) =>
