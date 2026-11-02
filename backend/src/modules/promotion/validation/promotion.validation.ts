@@ -59,7 +59,7 @@ export const rejectBatchSchema = z.object({
 
 export const correctEntrySchema = z.object({
   targetClassroomId: z.coerce.number().int().positive(),
-  notes: z.string().trim().max(500).optional(),
+  notes: z.string().trim().min(1, 'A correction reason is required').max(500),
 });
 
 // ── List batches ──────────────────────────────────────────────────────────────

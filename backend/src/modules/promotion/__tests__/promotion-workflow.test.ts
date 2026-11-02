@@ -19,15 +19,17 @@ import { BatchStatus, EligibilityStatus, PromotionDecision } from '@prisma/clien
 
 vi.mock('../../../database/prisma-client', () => ({
   prisma: {
-    classroom:         { findUnique: vi.fn(), findMany: vi.fn(), findUniqueOrThrow: vi.fn() },
-    promotionBatch:    { findFirst: vi.fn(), findUnique: vi.fn(), findMany: vi.fn(), count: vi.fn(), update: vi.fn() },
-    promotionEntry:    { update: vi.fn(), updateMany: vi.fn(), createMany: vi.fn() },
-    student:           { findMany: vi.fn(), findUnique: vi.fn(), update: vi.fn() },
-    studentEnrollment: { findFirst: vi.fn(), findMany: vi.fn(), upsert: vi.fn(), create: vi.fn(), updateMany: vi.fn() },
-    academicReport:    { findMany: vi.fn() },
-    attendance:        { count: vi.fn() },
-    systemSetting:     { findUnique: vi.fn() },
-    $transaction:      vi.fn(),
+    classroom:           { findUnique: vi.fn(), findMany: vi.fn(), findUniqueOrThrow: vi.fn() },
+    promotionBatch:      { findFirst: vi.fn(), findUnique: vi.fn(), findMany: vi.fn(), count: vi.fn(), update: vi.fn() },
+    promotionEntry:      { update: vi.fn(), updateMany: vi.fn(), createMany: vi.fn() },
+    student:             { findMany: vi.fn(), findUnique: vi.fn(), update: vi.fn() },
+    studentEnrollment:   { findFirst: vi.fn(), findMany: vi.fn(), upsert: vi.fn(), create: vi.fn(), updateMany: vi.fn() },
+    academicReport:      { findMany: vi.fn() },
+    attendance:          { count: vi.fn() },
+    systemSetting:       { findUnique: vi.fn() },
+    gradeComponent:      { count: vi.fn() },
+    subjectFinalization: { count: vi.fn() },
+    $transaction:        vi.fn(),
   },
 }));
 vi.mock('../../../config/env', () => ({ env: { NODE_ENV: 'test' }, isProduction: false }));
@@ -368,6 +370,10 @@ describe('correctEntry', () => {
       .mockResolvedValueOnce(batch)
       .mockResolvedValueOnce(batch);
     (prisma.classroom.findUnique as Mock).mockResolvedValue(CL10A);
+    // No academic activity in target classroom → allow correction
+    (prisma.gradeComponent.count as Mock).mockResolvedValue(0);
+    (prisma.subjectFinalization.count as Mock).mockResolvedValue(0);
+    (prisma.attendance.count as Mock).mockResolvedValue(0);
 
     const mockTx = {
       studentEnrollment: {
@@ -392,7 +398,7 @@ describe('correctEntry', () => {
       mkBatch({ status: BatchStatus.DRAFT, entries: [] })
     );
     await expect(
-      svc.correctEntry(DIRECTOR, 1, 10100, { targetClassroomId: 2 })
+      svc.correctEntry(DIRECTOR, 1, 10100, { targetClassroomId: 2, notes: 'Test correction' })
     ).rejects.toMatchObject({ statusCode: 400 });
   });
 
@@ -402,7 +408,7 @@ describe('correctEntry', () => {
     );
     (prisma.classroom.findUnique as Mock).mockResolvedValue(CL10A);
     await expect(
-      svc.correctEntry(DIRECTOR, 1, 99999, { targetClassroomId: 2 }) // wrong entryId
+      svc.correctEntry(DIRECTOR, 1, 99999, { targetClassroomId: 2, notes: 'Test correction' }) // wrong entryId
     ).rejects.toMatchObject({ statusCode: 404 });
   });
 
@@ -414,7 +420,7 @@ describe('correctEntry', () => {
     (prisma.promotionBatch.findUnique as Mock).mockResolvedValue(batch);
     (prisma.classroom.findUnique as Mock).mockResolvedValue(null);
     await expect(
-      svc.correctEntry(DIRECTOR, 1, 10100, { targetClassroomId: 999 })
+      svc.correctEntry(DIRECTOR, 1, 10100, { targetClassroomId: 999, notes: 'Test correction' })
     ).rejects.toMatchObject({ statusCode: 404 });
   });
 });

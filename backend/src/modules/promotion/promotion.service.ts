@@ -577,6 +577,22 @@ export class PromotionService {
       },
     });
 
+    await recordAudit({
+      userId: actor.userId,
+      action: 'PROMOTION_ENTRY_UPDATED',
+      entity: 'PromotionEntry',
+      entityId: String(entryId),
+      metadata: {
+        batchId,
+        studentId: entry.studentId,
+        previousDecision: entry.decision,
+        newDecision: input.decision ?? entry.decision,
+        previousTargetClassroomId: entry.targetClassroomId,
+        newTargetClassroomId: input.targetClassroomId,
+        overrideReason: input.overrideReason,
+      },
+    });
+
     const updated = await assertBatchExists(batchId);
     return toBatchDetailDto(updated);
   }
@@ -646,6 +662,19 @@ export class PromotionService {
     if (repeatedWithoutTarget.length > 0) {
       throw new BadRequestError(
         `${repeatedWithoutTarget.length} student(s) marked REPEATED have no target classroom assigned.`
+      );
+    }
+
+    // PENDING_REVIEW entries cannot be submitted — they require a manual decision first
+    const pendingEntries = batch.entries.filter(
+      (e) =>
+        e.eligibilityStatus === EligibilityStatus.PENDING_REVIEW &&
+        !e.overrideReason // no override = not manually reviewed
+    );
+    if (pendingEntries.length > 0) {
+      throw new BadRequestError(
+        `${pendingEntries.length} student(s) still have PENDING_REVIEW eligibility with no manual override. ` +
+        `Recalculate eligibility or add an override reason for each pending student before submitting.`
       );
     }
 
@@ -885,8 +914,49 @@ export class PromotionService {
     const entry = batch.entries.find((e) => e.id === entryId);
     if (!entry) throw new NotFoundError('Promotion entry');
 
+    // notes is now required — validated by schema, but defend in service too
+    if (!input.notes?.trim()) {
+      throw new BadRequestError('A correction reason is required');
+    }
+
     const tc = await prisma.classroom.findUnique({ where: { classroomId: input.targetClassroomId } });
     if (!tc) throw new NotFoundError('Target classroom');
+
+    // ── Academic-activity guard ──────────────────────────────────────────────
+    // Check whether the student already has any academic activity in the new
+    // target classroom. Activity = grade components, or attendance.
+    // If so, we block the correction so it must be reviewed by leadership
+    // before proceeding.
+    const [gradeActivity, attendanceActivity] = await Promise.all([
+      prisma.gradeComponent.count({
+        where: {
+          teacherSubject: { classroomId: input.targetClassroomId },
+          entries: { some: { studentId: entry.studentId } },
+        },
+      }),
+      prisma.attendance.count({
+        where: {
+          studentId: entry.studentId,
+          classroomId: input.targetClassroomId,
+        },
+      }),
+    ]);
+
+    // If the student already has grades in the target classroom, block and require
+    // explicit acknowledgement. (For now we surface this as a clear error so a
+    // Director/Admin can investigate before overriding manually if truly needed.)
+    if (gradeActivity > 0 || attendanceActivity > 0) {
+      throw new BadRequestError(
+        `Student already has academic activity in the target classroom (${gradeActivity} grade record(s), ` +
+        `${attendanceActivity} attendance record(s)). ` +
+        `This correction requires additional authorized review before proceeding.`
+      );
+    }
+    // Record the previous state for the audit log before making changes
+    const previousClassroomId = entry.targetClassroomId;
+    const previousClassroomLabel = entry.targetClassroom
+      ? classroomLabel(entry.targetClassroom)
+      : `classroomId:${previousClassroomId}`;
 
     await prisma.$transaction(async (tx) => {
       // Mark the existing target-year enrollment as CORRECTED
@@ -913,7 +983,7 @@ export class PromotionService {
           decision: EnrollmentDecision.ACTIVE,
           promotedFromId: sourceEnrollment?.id ?? null,
           batchId: batch.id,
-          notes: input.notes ?? `Correction by userId:${actor.userId}`,
+          notes: input.notes,
         },
       });
 
@@ -928,7 +998,7 @@ export class PromotionService {
         where: { id: entryId },
         data: {
           targetClassroomId: input.targetClassroomId,
-          overrideReason: input.notes ?? entry.overrideReason,
+          overrideReason: input.notes,
         },
       });
     });
@@ -941,9 +1011,16 @@ export class PromotionService {
       ipAddress,
       metadata: {
         studentId: entry.studentId,
+        studentName: `${entry.student.firstName} ${entry.student.lastName}`,
         batchId,
+        // Before/after for full audit trail
+        previousClassroomId,
+        previousClassroomLabel,
         newClassroomId: input.targetClassroomId,
-        notes: input.notes,
+        newClassroomLabel: classroomLabel(tc),
+        targetAcademicYear: batch.targetAcademicYear,
+        correctionReason: input.notes,
+        correctedByUserId: actor.userId,
       },
     });
 

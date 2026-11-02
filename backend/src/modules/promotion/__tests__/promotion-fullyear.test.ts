@@ -22,15 +22,17 @@ import { BatchStatus, EligibilityStatus, PromotionDecision } from '@prisma/clien
 
 vi.mock('../../../database/prisma-client', () => ({
   prisma: {
-    classroom:         { findUnique: vi.fn(), findUniqueOrThrow: vi.fn() },
-    promotionBatch:    { findFirst: vi.fn(), findUnique: vi.fn(), findMany: vi.fn(), count: vi.fn(), update: vi.fn(), delete: vi.fn() },
-    promotionEntry:    { update: vi.fn(), updateMany: vi.fn(), createMany: vi.fn() },
-    student:           { findMany: vi.fn(), findUnique: vi.fn(), update: vi.fn() },
-    studentEnrollment: { findFirst: vi.fn(), findMany: vi.fn(), upsert: vi.fn(), create: vi.fn(), updateMany: vi.fn() },
-    academicReport:    { findMany: vi.fn() },
-    attendance:        { count: vi.fn() },
-    systemSetting:     { findUnique: vi.fn() },
-    $transaction:      vi.fn(),
+    classroom:           { findUnique: vi.fn(), findUniqueOrThrow: vi.fn() },
+    promotionBatch:      { findFirst: vi.fn(), findUnique: vi.fn(), findMany: vi.fn(), count: vi.fn(), update: vi.fn(), delete: vi.fn() },
+    promotionEntry:      { update: vi.fn(), updateMany: vi.fn(), createMany: vi.fn() },
+    student:             { findMany: vi.fn(), findUnique: vi.fn(), update: vi.fn() },
+    studentEnrollment:   { findFirst: vi.fn(), findMany: vi.fn(), upsert: vi.fn(), create: vi.fn(), updateMany: vi.fn() },
+    academicReport:      { findMany: vi.fn() },
+    attendance:          { count: vi.fn() },
+    systemSetting:       { findUnique: vi.fn() },
+    gradeComponent:      { count: vi.fn() },
+    subjectFinalization: { count: vi.fn() },
+    $transaction:        vi.fn(),
   },
 }));
 vi.mock('../../../config/env', () => ({ env: { NODE_ENV: 'test' }, isProduction: false }));
@@ -529,6 +531,10 @@ describe('correction after promotion execution', () => {
       .mockResolvedValueOnce(completed)
       .mockResolvedValueOnce(completed);
     (prisma.classroom.findUnique as Mock).mockResolvedValue(CL10A);
+    // No academic activity in target classroom → allow correction
+    (prisma.gradeComponent.count as Mock).mockResolvedValue(0);
+    (prisma.subjectFinalization.count as Mock).mockResolvedValue(0);
+    (prisma.attendance.count as Mock).mockResolvedValue(0);
 
     const mockUpdateMany = vi.fn().mockResolvedValue({});
     const mockCreate     = vi.fn().mockResolvedValue({});
@@ -576,6 +582,10 @@ describe('correction after promotion execution', () => {
       .mockResolvedValueOnce(completed)
       .mockResolvedValueOnce(completed);
     (prisma.classroom.findUnique as Mock).mockResolvedValue(CL10A);
+    // No academic activity in target classroom → allow correction
+    (prisma.gradeComponent.count as Mock).mockResolvedValue(0);
+    (prisma.subjectFinalization.count as Mock).mockResolvedValue(0);
+    (prisma.attendance.count as Mock).mockResolvedValue(0);
 
     const mockCreate = vi.fn().mockResolvedValue({});
     (prisma.$transaction as Mock).mockImplementation(async (fn: any) =>
@@ -586,12 +596,11 @@ describe('correction after promotion execution', () => {
       })
     );
 
-    // notes is optional but defaults to "Correction by userId:X" when not provided
-    await svc.correctEntry(DIRECTOR, 1, 10100, { targetClassroomId: 2 });
+    await svc.correctEntry(DIRECTOR, 1, 10100, { targetClassroomId: 2, notes: 'Correct enrollment' });
     expect(mockCreate).toHaveBeenCalledWith(
       expect.objectContaining({
         data: expect.objectContaining({
-          notes: expect.stringContaining('Correction by userId:'),
+          notes: 'Correct enrollment',
         }),
       })
     );
@@ -603,7 +612,7 @@ describe('correction after promotion execution', () => {
     );
     (prisma.classroom.findUnique as Mock).mockResolvedValue(CL10A);
     await expect(
-      svc.correctEntry(DIRECTOR, 1, 10100, { targetClassroomId: 2 })
+      svc.correctEntry(DIRECTOR, 1, 10100, { targetClassroomId: 2, notes: 'Test correction' })
     ).rejects.toBeInstanceOf(BadRequestError);
   });
 
@@ -615,7 +624,7 @@ describe('correction after promotion execution', () => {
     (prisma.promotionBatch.findUnique as Mock).mockResolvedValue(completed);
     (prisma.classroom.findUnique as Mock).mockResolvedValue(CL10A);
     await expect(
-      svc.correctEntry(DIRECTOR, 1, 99999, { targetClassroomId: 2 })
+      svc.correctEntry(DIRECTOR, 1, 99999, { targetClassroomId: 2, notes: 'Test correction' })
     ).rejects.toBeInstanceOf(NotFoundError);
   });
 });
@@ -710,6 +719,10 @@ describe('transaction rollback on failure', () => {
       .mockResolvedValueOnce(completed)
       .mockResolvedValueOnce(completed);
     (prisma.classroom.findUnique as Mock).mockResolvedValue(CL10A);
+    // No academic activity → pass the guard, then fail in transaction
+    (prisma.gradeComponent.count as Mock).mockResolvedValue(0);
+    (prisma.subjectFinalization.count as Mock).mockResolvedValue(0);
+    (prisma.attendance.count as Mock).mockResolvedValue(0);
     (prisma.$transaction as Mock).mockRejectedValue(new Error('Deadlock detected'));
 
     await expect(
@@ -839,6 +852,288 @@ describe('audit history preserved', () => {
     await svc.recalculateBatch(VICE_DIR, 1);
     expect(recordAudit).toHaveBeenCalledWith(
       expect.objectContaining({ action: 'PROMOTION_BATCH_RECALCULATED' })
+    );
+  });
+});
+
+// ── Production-readiness audit tests ─────────────────────────────────────────
+// Issues found during audit and the fixes applied:
+//
+// ISSUE-1: correctEntry notes was optional — mandatory correction reason
+//          is now enforced at both the Zod schema and service level.
+// ISSUE-2: correctEntry audit log was missing before/after classroom info.
+//          Fixed to include previousClassroomId, previousClassroomLabel,
+//          newClassroomLabel, targetAcademicYear, and correctionReason.
+// ISSUE-3: correctEntry had no academic-activity guard — if the student
+//          already had grades or attendance in the new classroom the
+//          correction was silently allowed. Now blocked with a clear error.
+// ISSUE-4: submitBatch did not block PENDING_REVIEW entries that had no
+//          override reason. Now blocked.
+// ISSUE-5: updateEntry had no audit log. Now records PROMOTION_ENTRY_UPDATED
+//          with before/after decision and classroom info.
+
+describe('audit: mandatory notes enforcement on correction', () => {
+  let svc: PromotionService;
+  beforeEach(() => { svc = new PromotionService(); vi.clearAllMocks(); });
+
+  it('correctEntry throws BadRequestError when notes is an empty string', async () => {
+    const entry = mkEntry(101, PromotionDecision.PROMOTED, EligibilityStatus.ELIGIBLE, 2);
+    const completed = mkBatch({ status: BatchStatus.COMPLETED, entries: [entry] });
+    (prisma.promotionBatch.findUnique as Mock).mockResolvedValue(completed);
+    (prisma.classroom.findUnique as Mock).mockResolvedValue(CL10A);
+
+    await expect(
+      svc.correctEntry(DIRECTOR, 1, 10100, { targetClassroomId: 2, notes: '   ' }) // whitespace only
+    ).rejects.toBeInstanceOf(BadRequestError);
+  });
+});
+
+describe('audit: correctEntry audit log includes before/after classroom info', () => {
+  let svc: PromotionService;
+  beforeEach(() => { svc = new PromotionService(); vi.resetAllMocks(); });
+
+  it('records previousClassroomId, newClassroomId, targetAcademicYear, and correctionReason', async () => {
+    const entry = mkEntry(101, PromotionDecision.PROMOTED, EligibilityStatus.ELIGIBLE, 2);
+    // entry.targetClassroom = CL10A (classroomId=2)
+    const completed = mkBatch({ status: BatchStatus.COMPLETED, entries: [entry] });
+    // Target is now CL9B (classroomId=3) — correcting to a different section
+    (prisma.promotionBatch.findUnique as Mock)
+      .mockResolvedValueOnce(completed)
+      .mockResolvedValueOnce(completed);
+    (prisma.classroom.findUnique as Mock).mockResolvedValue(CL9B); // new target
+    (prisma.gradeComponent.count as Mock).mockResolvedValue(0);
+    (prisma.subjectFinalization.count as Mock).mockResolvedValue(0);
+    (prisma.attendance.count as Mock).mockResolvedValue(0);
+    (prisma.$transaction as Mock).mockImplementation(async (fn: any) =>
+      fn({
+        studentEnrollment: { updateMany: vi.fn(), findFirst: vi.fn().mockResolvedValue({ id: 1 }), create: vi.fn() },
+        student: { update: vi.fn() },
+        promotionEntry: { update: vi.fn() },
+      })
+    );
+
+    await svc.correctEntry(DIRECTOR, 1, 10100, {
+      targetClassroomId: 3,
+      notes: 'Grade 10 A was full — moved to Grade 9 B',
+    });
+
+    expect(recordAudit).toHaveBeenCalledWith(
+      expect.objectContaining({
+        action: 'PROMOTION_ENTRY_CORRECTED',
+        metadata: expect.objectContaining({
+          previousClassroomId: 2,
+          newClassroomId: 3,
+          targetAcademicYear: '2027/28',
+          correctionReason: 'Grade 10 A was full — moved to Grade 9 B',
+        }),
+      })
+    );
+  });
+});
+
+describe('audit: academic-activity guard blocks correction when student has existing records', () => {
+  let svc: PromotionService;
+  beforeEach(() => { svc = new PromotionService(); vi.clearAllMocks(); });
+
+  it('blocks correction when student has grade entries in the target classroom', async () => {
+    const entry = mkEntry(101, PromotionDecision.PROMOTED, EligibilityStatus.ELIGIBLE, 2);
+    const completed = mkBatch({ status: BatchStatus.COMPLETED, entries: [entry] });
+    (prisma.promotionBatch.findUnique as Mock).mockResolvedValue(completed);
+    (prisma.classroom.findUnique as Mock).mockResolvedValue(CL10A);
+    // Student already has grade activity in the new classroom
+    (prisma.gradeComponent.count as Mock).mockResolvedValue(3);
+    (prisma.subjectFinalization.count as Mock).mockResolvedValue(0);
+    (prisma.attendance.count as Mock).mockResolvedValue(0);
+
+    await expect(
+      svc.correctEntry(DIRECTOR, 1, 10100, { targetClassroomId: 2, notes: 'Correction' })
+    ).rejects.toBeInstanceOf(BadRequestError);
+  });
+
+  it('blocks correction when student has attendance records in the target classroom', async () => {
+    const entry = mkEntry(101, PromotionDecision.PROMOTED, EligibilityStatus.ELIGIBLE, 2);
+    const completed = mkBatch({ status: BatchStatus.COMPLETED, entries: [entry] });
+    (prisma.promotionBatch.findUnique as Mock).mockResolvedValue(completed);
+    (prisma.classroom.findUnique as Mock).mockResolvedValue(CL10A);
+    (prisma.gradeComponent.count as Mock).mockResolvedValue(0);
+    (prisma.subjectFinalization.count as Mock).mockResolvedValue(0);
+    // Student has attendance records
+    (prisma.attendance.count as Mock).mockResolvedValue(5);
+
+    await expect(
+      svc.correctEntry(DIRECTOR, 1, 10100, { targetClassroomId: 2, notes: 'Correction' })
+    ).rejects.toBeInstanceOf(BadRequestError);
+  });
+
+  it('allows correction when there is no academic activity in the target classroom', async () => {
+    const entry = mkEntry(101, PromotionDecision.PROMOTED, EligibilityStatus.ELIGIBLE, 2);
+    const completed = mkBatch({ status: BatchStatus.COMPLETED, entries: [entry] });
+    (prisma.promotionBatch.findUnique as Mock)
+      .mockResolvedValueOnce(completed)
+      .mockResolvedValueOnce(completed);
+    (prisma.classroom.findUnique as Mock).mockResolvedValue(CL10A);
+    (prisma.gradeComponent.count as Mock).mockResolvedValue(0);
+    (prisma.subjectFinalization.count as Mock).mockResolvedValue(0);
+    (prisma.attendance.count as Mock).mockResolvedValue(0);
+    (prisma.$transaction as Mock).mockImplementation(async (fn: any) =>
+      fn({
+        studentEnrollment: { updateMany: vi.fn(), findFirst: vi.fn().mockResolvedValue({ id: 1 }), create: vi.fn() },
+        student: { update: vi.fn() },
+        promotionEntry: { update: vi.fn() },
+      })
+    );
+
+    await expect(
+      svc.correctEntry(DIRECTOR, 1, 10100, { targetClassroomId: 2, notes: 'Correction allowed' })
+    ).resolves.toBeDefined();
+  });
+});
+
+describe('audit: submitBatch blocks PENDING_REVIEW entries without override', () => {
+  let svc: PromotionService;
+  beforeEach(() => { svc = new PromotionService(); vi.clearAllMocks(); });
+
+  it('throws BadRequestError when a PENDING_REVIEW entry has no override reason', async () => {
+    const pendingEntry = mkEntry(101, PromotionDecision.PROMOTED, EligibilityStatus.PENDING_REVIEW, 2);
+    // overrideReason is null — no manual review done
+    const batch = mkBatch({
+      status: BatchStatus.DRAFT,
+      entries: [pendingEntry],
+    });
+    (prisma.promotionBatch.findUnique as Mock).mockResolvedValue(batch);
+
+    await expect(svc.submitBatch(VICE_DIR, 1)).rejects.toBeInstanceOf(BadRequestError);
+  });
+
+  it('allows submit when PENDING_REVIEW entry has an override reason (manually reviewed)', async () => {
+    const pendingEntry = {
+      ...mkEntry(101, PromotionDecision.PROMOTED, EligibilityStatus.PENDING_REVIEW, 2),
+      overrideReason: 'Director reviewed manually — S2 results submitted late',
+    };
+    const submitted = mkBatch({
+      status: BatchStatus.DRAFT,
+      entries: [pendingEntry],
+    });
+    const afterSubmit = { ...submitted, status: BatchStatus.SUBMITTED };
+    (prisma.promotionBatch.findUnique as Mock)
+      .mockResolvedValueOnce(submitted)
+      .mockResolvedValueOnce(afterSubmit);
+    (prisma.promotionBatch.update as Mock).mockResolvedValue({});
+
+    const result = await svc.submitBatch(VICE_DIR, 1);
+    expect(result.status).toBe(BatchStatus.SUBMITTED);
+  });
+
+  it('allows submit when all entries are ELIGIBLE (no pending)', async () => {
+    const eligibleEntry = mkEntry(101, PromotionDecision.PROMOTED, EligibilityStatus.ELIGIBLE, 2);
+    const submitted = mkBatch({
+      status: BatchStatus.DRAFT,
+      entries: [eligibleEntry],
+    });
+    const afterSubmit = { ...submitted, status: BatchStatus.SUBMITTED };
+    (prisma.promotionBatch.findUnique as Mock)
+      .mockResolvedValueOnce(submitted)
+      .mockResolvedValueOnce(afterSubmit);
+    (prisma.promotionBatch.update as Mock).mockResolvedValue({});
+
+    const result = await svc.submitBatch(VICE_DIR, 1);
+    expect(result.status).toBe(BatchStatus.SUBMITTED);
+  });
+});
+
+describe('audit: updateEntry records audit log with before/after state', () => {
+  let svc: PromotionService;
+  beforeEach(() => { svc = new PromotionService(); vi.clearAllMocks(); });
+
+  it('records PROMOTION_ENTRY_UPDATED with previous and new decision', async () => {
+    const entry = mkEntry(101, PromotionDecision.PROMOTED, EligibilityStatus.ELIGIBLE, 2);
+    const after  = mkEntry(101, PromotionDecision.REPEATED, EligibilityStatus.ELIGIBLE, 3);
+    (prisma.promotionBatch.findUnique as Mock)
+      .mockResolvedValueOnce(mkBatch({ entries: [entry] }))
+      .mockResolvedValueOnce(mkBatch({ entries: [after] }));
+    (prisma.classroom.findUnique as Mock).mockResolvedValue({ ...CL9B, academicYear: '2027/28' });
+    (prisma.promotionEntry.update as Mock).mockResolvedValue({});
+
+    await svc.updateEntry(VICE_DIR, 1, 10100, {
+      decision: PromotionDecision.REPEATED,
+      targetClassroomId: 3,
+      overrideReason: 'Academic support needed',
+    });
+
+    expect(recordAudit).toHaveBeenCalledWith(
+      expect.objectContaining({
+        action: 'PROMOTION_ENTRY_UPDATED',
+        metadata: expect.objectContaining({
+          previousDecision: PromotionDecision.PROMOTED,
+          newDecision: PromotionDecision.REPEATED,
+          overrideReason: 'Academic support needed',
+        }),
+      })
+    );
+  });
+});
+
+describe('audit: RBAC — unauthorized roles are blocked', () => {
+  let svc: PromotionService;
+  beforeEach(() => { svc = new PromotionService(); vi.clearAllMocks(); });
+
+  // Note: role enforcement is done in the route middleware (authorizeWithPermissions),
+  // not the service itself. These tests verify that the service correctly uses
+  // the `actor` parameter so that route-level auth is meaningful.
+  // Specifically, approveBatch and correctEntry record actor.userId in the audit
+  // log — confirming the actor identity is tracked through.
+
+  it('approveBatch records the approving Director user ID in the audit log', async () => {
+    const entry = mkEntry(101, PromotionDecision.PROMOTED, EligibilityStatus.ELIGIBLE, 2);
+    const submitted = mkBatch({ status: BatchStatus.SUBMITTED, entries: [entry] });
+    const completed = mkBatch({ status: BatchStatus.COMPLETED, entries: [entry] });
+    (prisma.promotionBatch.findUnique as Mock)
+      .mockResolvedValueOnce(submitted)
+      .mockResolvedValueOnce(completed);
+    (prisma.student.findUnique as Mock).mockResolvedValue({ userId: 201, firstName: 'A', lastName: 'B' });
+    (prisma.$transaction as Mock).mockImplementation(async (fn: any) =>
+      fn({
+        student: { update: vi.fn() },
+        studentEnrollment: { upsert: vi.fn().mockResolvedValue({ id: 1 }), create: vi.fn() },
+        classroom: { findUniqueOrThrow: vi.fn().mockResolvedValue(CL10A) },
+        promotionBatch: { update: vi.fn() },
+      })
+    );
+
+    await svc.approveBatch(DIRECTOR, 1);
+    expect(recordAudit).toHaveBeenCalledWith(
+      expect.objectContaining({
+        action: 'PROMOTION_BATCH_APPROVED',
+        userId: 30, // DIRECTOR.userId
+      })
+    );
+  });
+
+  it('correctEntry records correcting user ID in the audit log', async () => {
+    const entry = mkEntry(101, PromotionDecision.PROMOTED, EligibilityStatus.ELIGIBLE, 2);
+    const completed = mkBatch({ status: BatchStatus.COMPLETED, entries: [entry] });
+    (prisma.promotionBatch.findUnique as Mock)
+      .mockResolvedValueOnce(completed)
+      .mockResolvedValueOnce(completed);
+    (prisma.classroom.findUnique as Mock).mockResolvedValue(CL10A);
+    (prisma.gradeComponent.count as Mock).mockResolvedValue(0);
+    (prisma.subjectFinalization.count as Mock).mockResolvedValue(0);
+    (prisma.attendance.count as Mock).mockResolvedValue(0);
+    (prisma.$transaction as Mock).mockImplementation(async (fn: any) =>
+      fn({
+        studentEnrollment: { updateMany: vi.fn(), findFirst: vi.fn().mockResolvedValue({ id: 1 }), create: vi.fn() },
+        student: { update: vi.fn() },
+        promotionEntry: { update: vi.fn() },
+      })
+    );
+
+    await svc.correctEntry(DIRECTOR, 1, 10100, { targetClassroomId: 2, notes: 'Corrected by Director' });
+    expect(recordAudit).toHaveBeenCalledWith(
+      expect.objectContaining({
+        action: 'PROMOTION_ENTRY_CORRECTED',
+        userId: 30, // DIRECTOR.userId
+        metadata: expect.objectContaining({ correctedByUserId: 30 }),
+      })
     );
   });
 });
