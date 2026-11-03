@@ -2,6 +2,7 @@ import { Request, Response } from 'express';
 import { asyncHandler } from '../../core/http/async-handler';
 import { ApiResponse } from '../../core/http/api-response';
 import { classroomService } from './classroom.service';
+import { UnauthorizedError } from '../../core/errors/app-error';
 import {
   CreateClassroomInput,
   ListClassroomsQuery,
@@ -48,8 +49,15 @@ export class ClassroomController {
   });
 
   getRoster = asyncHandler(async (req: Request, res: Response) => {
+    if (!req.user) throw new UnauthorizedError();
     const { id } = req.params as unknown as ClassroomIdParam;
     const { academicYear } = rosterQuerySchema.parse(req.query);
+
+    // Teachers can only view rosters for classrooms they are assigned to teach
+    if (req.user.role === 'TEACHER') {
+      await classroomService.assertTeacherAssignedToClassroom(req.user.userId, id);
+    }
+
     const roster = await classroomService.getClassroomRoster(id, academicYear);
     ApiResponse.success(res, { message: 'Classroom roster retrieved', data: roster });
   });

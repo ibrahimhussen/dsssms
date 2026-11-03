@@ -27,6 +27,7 @@ const CREDENTIAL_ROLES = [RoleName.ADMIN];
 
 // Student's own profile — must be declared before the generic '/:id' route.
 router.get('/me', authorize(RoleName.STUDENT), studentController.getMyProfile);
+router.get('/me/enrollments', authorize(RoleName.STUDENT), studentController.getMyEnrollmentHistory);
 
 router.post('/', authorizeWithPermissions(MANAGE_ROLES, ['students:create']), validate(createStudentSchema), studentController.create);
 router.post('/bulk', authorizeWithPermissions(MANAGE_ROLES, ['students:bulk_import']), validate(bulkImportSchema), studentController.bulkImport);
@@ -48,7 +49,7 @@ router.post('/accounts/generate/:id', authorizeWithPermissions(CREDENTIAL_ROLES,
 // Reset one student's password — Admin only
 router.post('/:id/reset-password', authorizeWithPermissions(CREDENTIAL_ROLES, ['students:update']), validate(studentIdParamSchema, 'params'), studentController.resetStudentPassword);
 router.get('/:id', authorizeWithPermissions(READ_ROLES, ['students:view']), validate(studentIdParamSchema, 'params'), studentController.getById);
-router.get('/:id/enrollments', authorizeWithPermissions(READ_ROLES, ['students:view']), validate(studentIdParamSchema, 'params'), studentController.getEnrollmentHistory);
+router.get('/:id/enrollments', authenticate, validate(studentIdParamSchema, 'params'), studentController.getEnrollmentHistory);
 
 router.patch(
   '/:id',

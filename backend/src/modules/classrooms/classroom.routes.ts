@@ -15,8 +15,8 @@ const router = Router();
 
 router.use(authenticate);
 
-const MANAGE_ROLES = [RoleName.DIRECTOR, RoleName.VICE_DIRECTOR];
-const READ_ROLES = [...MANAGE_ROLES, RoleName.ADMIN, RoleName.TEACHER];
+const MANAGE_ROLES = [RoleName.DIRECTOR, RoleName.VICE_DIRECTOR, RoleName.ADMIN];
+const READ_ROLES = [...MANAGE_ROLES, RoleName.TEACHER];
 
 router.post('/', authorize(...MANAGE_ROLES), validate(createClassroomSchema), classroomController.create);
 router.get('/', authorize(...READ_ROLES), validate(listClassroomsQuerySchema, 'query'), classroomController.list);

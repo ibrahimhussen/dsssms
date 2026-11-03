@@ -1,6 +1,6 @@
 import { Prisma } from '@prisma/client';
 import { prisma } from '../../database/prisma-client';
-import { ConflictError, NotFoundError } from '../../core/errors/app-error';
+import { ConflictError, ForbiddenError, NotFoundError } from '../../core/errors/app-error';
 import { getPaginationParams, buildPaginationMeta, PaginationQuery } from '../../core/http/pagination';
 import { CreateClassroomInput, ListClassroomsQuery, UpdateClassroomInput } from './validation/classroom.validation';
 import { ClassroomSummaryDto } from './dto/classroom.dto';
@@ -256,6 +256,23 @@ export class ClassroomService {
     const teacher = await prisma.teacher.findUnique({ where: { teacherId } });
     if (!teacher) throw new NotFoundError('Teacher');
     return teacher;
+  }
+
+  /**
+   * Verifies that the given user (by userId) is a teacher with at least one
+   * TeacherSubject assignment in the specified classroom. Throws ForbiddenError
+   * if the teacher is not assigned to this classroom.
+   */
+  async assertTeacherAssignedToClassroom(userId: number, classroomId: number): Promise<void> {
+    const teacher = await prisma.teacher.findUnique({ where: { userId } });
+    if (!teacher) throw new ForbiddenError('No teacher profile found for this account');
+
+    const assignment = await prisma.teacherSubject.findFirst({
+      where: { teacherId: teacher.teacherId, classroomId },
+    });
+    if (!assignment) {
+      throw new ForbiddenError('You may only view rosters for classrooms you are assigned to teach');
+    }
   }
 }
 

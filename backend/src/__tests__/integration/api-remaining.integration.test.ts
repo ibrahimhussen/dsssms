@@ -1,6 +1,6 @@
 /* eslint-disable @typescript-eslint/no-unused-vars, @typescript-eslint/no-explicit-any */
 /**
- * Phase 4.13 — Remaining API/HTTP Integration Tests
+ * Phase 4.13 ï¿½ Remaining API/HTTP Integration Tests
  * Covers all routes not tested in Phase 4.12.
  * DATABASE SAFETY: all Prisma mocked. No real DB required.
  */
@@ -110,7 +110,7 @@ describe("K. Auth remaining", () => {
   });
 
   it("POST /logout returns 200 when no refresh token provided (token is optional)", async () => {
-    // refreshToken is optional in schema — logout with just cookies is valid
+    // refreshToken is optional in schema ï¿½ logout with just cookies is valid
     const { authService } = await import("../../modules/auth/auth.service");
     vi.spyOn(authService, "logout").mockResolvedValue(undefined);
     const r = await request(app).post("/api/v1/auth/logout").send({});
@@ -184,9 +184,12 @@ describe("L. Classrooms", () => {
     expect(r.body.data.classroomId).toBe(1);
   });
 
-  it("DELETE /:id returns 403 for ADMIN (manage = DIRECTOR/VD only)", async () => {
+  it("DELETE /:id returns 200 for ADMIN (ADMIN has classroom management access)", async () => {
+    // ADMIN is now included in MANAGE_ROLES per the role-based roster management spec
+    (prisma.classroom.findUnique as Mock).mockResolvedValue({ ...CL, _count: { students: 0 } });
+    (prisma.classroom.delete as Mock).mockResolvedValue({});
     const r = await request(app).delete("/api/v1/classrooms/1").set("Authorization", `Bearer ${adminTok}`);
-    expect(r.status).toBe(403);
+    expect(r.status).toBe(200);
   });
 });
 
@@ -593,7 +596,7 @@ describe("V. Grade-Subject-Config", () => {
   });
 
   it("POST /grade-subject-config/copy returns 404 when source year has no config", async () => {
-    // No validation schema on /copy — service throws 404 when source year empty
+    // No validation schema on /copy ï¿½ service throws 404 when source year empty
     (prisma.gradeSubjectConfig.findMany as Mock).mockResolvedValue([]); // empty source
     const r = await request(app).post("/api/v1/grade-subject-config/copy").set("Authorization", `Bearer ${dirTok}`).send({ className: "Grade 9", sourceAcademicYear: "2020/21", targetAcademicYear: "2027/28" });
     expect(r.status).toBe(404);

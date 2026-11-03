@@ -4,6 +4,7 @@ import { ApiResponse } from '../../core/http/api-response';
 import { buildExcelWorkbook } from '../../core/export/excel-export.util';
 import { studentService } from './student.service';
 import { UnauthorizedError } from '../../core/errors/app-error';
+import { assertCanAccessStudentRecords } from '../../core/authorization/student-access';
 import {
   CreateStudentInput,
   ListStudentsQuery,
@@ -148,7 +149,11 @@ export class StudentController {
   });
 
   getEnrollmentHistory = asyncHandler(async (req: Request, res: Response) => {
+    if (!req.user) throw new UnauthorizedError();
     const { id } = req.params as unknown as StudentIdParam;
+    // Allow students to view their own history and parents to view their linked
+    // children's history, in addition to oversight/teaching staff.
+    await assertCanAccessStudentRecords(req.user, id);
     const history = await studentService.getEnrollmentHistory(id);
     ApiResponse.success(res, { message: 'Enrollment history retrieved', data: history });
   });
@@ -157,6 +162,13 @@ export class StudentController {
     if (!req.user) throw new UnauthorizedError();
     const student = await studentService.getStudentByUserId(req.user.userId);
     ApiResponse.success(res, { message: 'Your profile', data: student });
+  });
+
+  getMyEnrollmentHistory = asyncHandler(async (req: Request, res: Response) => {
+    if (!req.user) throw new UnauthorizedError();
+    const student = await studentService.getStudentByUserId(req.user.userId);
+    const history = await studentService.getEnrollmentHistory(student.studentId);
+    ApiResponse.success(res, { message: 'Your enrollment history', data: history });
   });
 
   update = asyncHandler(async (req: Request, res: Response) => {
