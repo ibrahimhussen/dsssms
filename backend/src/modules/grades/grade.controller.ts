@@ -65,6 +65,18 @@ export class GradeController {
     ApiResponse.success(res, { message: 'Student grades retrieved', data: breakdown });
   });
 
+  getStudentGradesByYear = asyncHandler(async (req: Request, res: Response) => {
+    if (!req.user) throw new UnauthorizedError();
+    const { studentId } = req.params as unknown as StudentIdParam;
+    const academicYear = req.query.academicYear as string | undefined;
+    if (!academicYear?.trim()) {
+      res.status(422).json({ success: false, message: 'academicYear query parameter is required' });
+      return;
+    }
+    const breakdown = await gradeService.getStudentGradesByYear(req.user, studentId, academicYear.trim());
+    ApiResponse.success(res, { message: 'Student historical grades retrieved', data: breakdown });
+  });
+
   /** Releases a component's scores to students — teacher-only, owner only. */
   releaseComponent = asyncHandler(async (req: Request, res: Response) => {
     if (!req.user) throw new UnauthorizedError();

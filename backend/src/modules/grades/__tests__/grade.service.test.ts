@@ -27,6 +27,7 @@ vi.mock('../../../database/prisma-client', () => ({
     gradeComponent:  { findMany: vi.fn(), findUnique: vi.fn(), create: vi.fn(), delete: vi.fn(), update: vi.fn(), count: vi.fn() },
     gradeEntry:      { findMany: vi.fn(), count: vi.fn(), upsert: vi.fn() },
     student:         { findUnique: vi.fn(), findMany: vi.fn(), count: vi.fn() },
+    studentEnrollment: { findUnique: vi.fn() },
     $transaction:    vi.fn(),
     // used by assertCanAccessStudentRecords for TEACHER role
     parentLink:      { findFirst: vi.fn() },
@@ -936,5 +937,153 @@ describe('regression: recordComponentEntries — score saving and validation', (
       records: [{ studentId: 101, score: 0 }],
     });
     expect(result.recordsSaved).toBe(1);
+  });
+});
+
+// ── 9. getStudentGradesByYear (historical classroom lookup) ───────────────────
+// Core regression: after promotion, Student.classroomId points to the NEW
+// classroom. getStudentGradesByYear must use StudentEnrollment to find the
+// ORIGINAL classroom for the queried academic year.
+
+describe('9. getStudentGradesByYear — historical enrollment lookup', () => {
+  let svc: GradeService;
+  beforeEach(() => { svc = new GradeService(); vi.clearAllMocks(); });
+
+  // STU1 was in classroomId=1 (Grade 9) in 2026; after promotion classroomId=2 (Grade 10)
+  const STU1_PROMOTED = { ...STU1, classroomId: 2 }; // live pointer updated after promotion
+  const ENROLLMENT_2026 = { id: 1, studentId: 101, classroomId: 1, academicYear: '2026', decision: 'PROMOTED' };
+  const TS_HISTORY = {
+    id: 1, teacherId: 100, subjectId: 1, classroomId: 1,
+    subject: { subjectId: 1, subjectCode: 'ENG', subjectName: 'English' },
+    teacher: TEACHER,
+  };
+
+  it('uses StudentEnrollment classroom (not student.classroomId) for historical year', async () => {
+    (prisma.student.findUnique as Mock).mockResolvedValue(STU1_PROMOTED); // lives in classroomId=2
+    (prisma.studentEnrollment.findUnique as Mock).mockResolvedValue(ENROLLMENT_2026); // was in classroomId=1
+
+    // TeacherSubjects are looked up for classroomId from enrollment (1), not live (2)
+    (prisma.teacherSubject.findMany as Mock).mockImplementation(async ({ where }: any) => {
+      // Must be queried for classroomId=1 (historical)
+      expect(where.classroomId).toBe(1);
+      return [TS_HISTORY];
+    });
+
+    (prisma.gradeComponent.findMany as Mock).mockResolvedValue([
+      { ...mkComp(1, 1, GradeCategory.QUIZ, 10, 'Quiz', true),
+        academicYear: '2026', semester: Semester.SEMESTER_1,
+        entries: [{ gradeComponentId: 1, studentId: 101, score: mkDecimal(8) }] },
+    ]);
+
+    const result = await svc.getStudentGradesByYear(ACTOR_DIR, 101, '2026');
+
+    expect(result).toHaveLength(1);
+    expect(result[0].subject.subjectName).toBe('English');
+    expect(result[0].academicYear).toBe('2026');
+    expect(result[0].components[0].score).toBe(8);
+  });
+
+  it('falls back to student.classroomId when no enrollment record exists', async () => {
+    (prisma.student.findUnique as Mock).mockResolvedValue(STU1); // classroomId=1
+    (prisma.studentEnrollment.findUnique as Mock).mockResolvedValue(null); // no enrollment
+
+    (prisma.teacherSubject.findMany as Mock).mockImplementation(async ({ where }: any) => {
+      // Must fall back to student.classroomId=1
+      expect(where.classroomId).toBe(1);
+      return [TS_HISTORY];
+    });
+    (prisma.gradeComponent.findMany as Mock).mockResolvedValue([]);
+
+    const result = await svc.getStudentGradesByYear(ACTOR_DIR, 101, '2026');
+    expect(result).toHaveLength(0); // no components, but no error
+  });
+
+  it('returns empty array when no grade components exist for that year', async () => {
+    (prisma.student.findUnique as Mock).mockResolvedValue(STU1);
+    (prisma.studentEnrollment.findUnique as Mock).mockResolvedValue(ENROLLMENT_2026);
+    (prisma.teacherSubject.findMany as Mock).mockResolvedValue([TS_HISTORY]);
+    (prisma.gradeComponent.findMany as Mock).mockResolvedValue([]); // nothing recorded yet
+
+    const result = await svc.getStudentGradesByYear(ACTOR_STU, 101, '2026');
+    expect(result).toHaveLength(0);
+  });
+
+  it('does NOT expose unreleased component scores', async () => {
+    (prisma.student.findUnique as Mock).mockResolvedValue(STU1);
+    (prisma.studentEnrollment.findUnique as Mock).mockResolvedValue(ENROLLMENT_2026);
+    (prisma.teacherSubject.findMany as Mock).mockResolvedValue([TS_HISTORY]);
+    (prisma.gradeComponent.findMany as Mock).mockResolvedValue([
+      { ...mkComp(1, 1, GradeCategory.QUIZ, 10, 'Quiz', false), // isReleased: false
+        academicYear: '2026', semester: Semester.SEMESTER_1,
+        entries: [{ gradeComponentId: 1, studentId: 101, score: mkDecimal(7) }] },
+    ]);
+
+    const result = await svc.getStudentGradesByYear(ACTOR_STU, 101, '2026');
+
+    expect(result[0].components[0].isReleased).toBe(false);
+    expect(result[0].components[0].score).toBeNull(); // hidden before release
+  });
+
+  it('groups results by semester within the academic year', async () => {
+    (prisma.student.findUnique as Mock).mockResolvedValue(STU1);
+    (prisma.studentEnrollment.findUnique as Mock).mockResolvedValue(ENROLLMENT_2026);
+    (prisma.teacherSubject.findMany as Mock).mockResolvedValue([TS_HISTORY]);
+    (prisma.gradeComponent.findMany as Mock).mockResolvedValue([
+      { ...mkComp(1, 1, GradeCategory.QUIZ, 10, 'Q1-S1', true),
+        academicYear: '2026', semester: Semester.SEMESTER_1,
+        entries: [{ gradeComponentId: 1, studentId: 101, score: mkDecimal(8) }] },
+      { ...mkComp(2, 1, GradeCategory.QUIZ, 10, 'Q1-S2', true),
+        academicYear: '2026', semester: Semester.SEMESTER_2,
+        entries: [{ gradeComponentId: 2, studentId: 101, score: mkDecimal(9) }] },
+    ]);
+
+    const result = await svc.getStudentGradesByYear(ACTOR_STU, 101, '2026');
+
+    // Should return two rows — one per semester
+    expect(result).toHaveLength(2);
+    const sems = result.map((r) => r.semester).sort();
+    expect(sems).toContain('SEMESTER_1');
+    expect(sems).toContain('SEMESTER_2');
+  });
+
+  it('throws NotFoundError when student does not exist', async () => {
+    const { NotFoundError } = await import('../../../core/errors/app-error');
+    (prisma.student.findUnique as Mock).mockResolvedValue(null);
+    await expect(svc.getStudentGradesByYear(ACTOR_DIR, 999, '2026')).rejects.toBeInstanceOf(NotFoundError);
+  });
+
+  it('calls assertCanAccessStudentRecords to enforce RBAC', async () => {
+    (prisma.student.findUnique as Mock).mockResolvedValue(STU1);
+    (prisma.studentEnrollment.findUnique as Mock).mockResolvedValue(null);
+    (prisma.teacherSubject.findMany as Mock).mockResolvedValue([]);
+
+    await svc.getStudentGradesByYear(ACTOR_STU, 101, '2026');
+    expect(assertCanAccessStudentRecords).toHaveBeenCalledWith(ACTOR_STU, 101);
+  });
+
+  it('historical lookup: promoted student sees Grade 9 subjects for 2026 not Grade 10', async () => {
+    // After promotion: student.classroomId=2 (Grade 10), enrollment 2026 → classroomId=1 (Grade 9)
+    const TS_GRADE10 = { id: 99, teacherId: 100, subjectId: 9, classroomId: 2,
+      subject: { subjectId: 9, subjectCode: 'CHEM10', subjectName: 'Chemistry' }, teacher: TEACHER };
+
+    (prisma.student.findUnique as Mock).mockResolvedValue(STU1_PROMOTED);
+    (prisma.studentEnrollment.findUnique as Mock).mockResolvedValue(ENROLLMENT_2026); // → classroomId=1
+
+    // Service queries classroomId from enrollment (1), NOT from student.classroomId (2)
+    (prisma.teacherSubject.findMany as Mock).mockImplementation(async ({ where }: any) => {
+      if (where.classroomId === 1) return [TS_HISTORY]; // Grade 9 subjects
+      if (where.classroomId === 2) return [TS_GRADE10]; // Grade 10 subjects (should NOT be used)
+      return [];
+    });
+    (prisma.gradeComponent.findMany as Mock).mockResolvedValue([
+      { ...mkComp(1, 1, GradeCategory.QUIZ, 10, 'English Quiz', true),
+        academicYear: '2026', semester: Semester.SEMESTER_1,
+        entries: [{ gradeComponentId: 1, studentId: 101, score: mkDecimal(7) }] },
+    ]);
+
+    const result = await svc.getStudentGradesByYear(ACTOR_DIR, 101, '2026');
+
+    expect(result).toHaveLength(1);
+    expect(result[0].subject.subjectName).toBe('English'); // Grade 9 subject, not Chemistry
   });
 });

@@ -39,6 +39,7 @@ import { ProfilePage } from '../pages/profile/ProfilePage';
 import { PromotionPage } from '../pages/promotion/PromotionPage';
 import { PromotionBatchPage } from '../pages/promotion/PromotionBatchPage';
 import { PromotionApprovePage } from '../pages/promotion/PromotionApprovePage';
+import { StudentAcademicHistoryPage } from '../pages/academic-history/StudentAcademicHistoryPage';
 import { ParentChildrenPage } from '../pages/parent/ParentChildrenPage';
 import { ParentAttendancePage } from '../pages/parent/ParentAttendancePage';
 import { ParentAssessmentPage } from '../pages/parent/ParentAssessmentPage';
@@ -87,6 +88,9 @@ export const router = createBrowserRouter([
           { path: '/promotion', element: <ProtectedRoute allowedRoles={['DIRECTOR', 'VICE_DIRECTOR']}><PromotionPage /></ProtectedRoute> },
           { path: '/promotion/:id', element: <ProtectedRoute allowedRoles={['DIRECTOR', 'VICE_DIRECTOR']}><PromotionBatchPage /></ProtectedRoute> },
           { path: '/promotion/:id/approve', element: <ProtectedRoute allowedRoles={['DIRECTOR']}><PromotionApprovePage /></ProtectedRoute> },
+
+          // Academic history — all authenticated roles (backend enforces per-user access)
+          { path: '/academic-history', element: <StudentAcademicHistoryPage /> },
 
           { path: '/grade-subject-config', element: <ProtectedRoute allowedRoles={['ADMIN', 'DIRECTOR', 'VICE_DIRECTOR']}><GradeSubjectConfigPage /></ProtectedRoute> },
 

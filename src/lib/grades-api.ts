@@ -53,6 +53,14 @@ export const gradesApi = {
     );
   },
 
+  getStudentGradesByYear(studentId: number, academicYear: string) {
+    return unwrap(
+      apiClient.get<ApiResponse<SubjectGradeBreakdown[]>>(`/grades/student/${studentId}/history`, {
+        params: { academicYear },
+      })
+    );
+  },
+
   releaseComponent(gradeComponentId: number) {
     return unwrap(apiClient.post<ApiResponse<GradeComponent>>(`/grades/components/${gradeComponentId}/release`, {}));
   },

@@ -82,6 +82,14 @@ export function useStudentGrades(studentId: number | undefined, params: StudentG
   });
 }
 
+export function useStudentGradesByYear(studentId: number | undefined, academicYear: string) {
+  return useQuery({
+    queryKey: ['grades', 'student', studentId, 'history', academicYear],
+    queryFn: () => gradesApi.getStudentGradesByYear(studentId!, academicYear),
+    enabled: Boolean(studentId) && Boolean(academicYear),
+  });
+}
+
 export function useReleaseGradeComponent() {
   const queryClient = useQueryClient();
   return useMutation({

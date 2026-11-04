@@ -304,6 +304,94 @@ export class GradeService {
       (a, b) => b.academicYear.localeCompare(a.academicYear) || a.subject.subjectName.localeCompare(b.subject.subjectName)
     );
   }
+
+  /**
+   * Retrieves a student's grade breakdown for a SPECIFIC academic year using
+   * their historical StudentEnrollment to find the correct classroom — NOT the
+   * live Student.classroomId pointer. This ensures that after a student is
+   * promoted from Grade 9 (2026) to Grade 10 (2027), querying their 2026 grades
+   * correctly finds Grade 9 subjects, not Grade 10 subjects.
+   *
+   * Authorization uses assertCanAccessStudentRecords so students, parents, and
+   * teachers with the right access can all use this endpoint.
+   */
+  async getStudentGradesByYear(
+    actor: AuthenticatedUser,
+    studentId: number,
+    academicYear: string
+  ): Promise<SubjectGradeBreakdownDto[]> {
+    await assertCanAccessStudentRecords(actor, studentId);
+
+    const student = await prisma.student.findUnique({ where: { studentId } });
+    if (!student) throw new NotFoundError('Student');
+
+    // Find the historical classroom via StudentEnrollment
+    const enrollment = await prisma.studentEnrollment.findUnique({
+      where: { studentId_academicYear: { studentId, academicYear } },
+    });
+
+    // Use enrollment classroom if available; fall back to live pointer for current year
+    const classroomId = enrollment?.classroomId ?? student.classroomId;
+
+    const teacherSubjects = await prisma.teacherSubject.findMany({
+      where: { classroomId },
+      include: { subject: true, teacher: true },
+    });
+
+    const results: SubjectGradeBreakdownDto[] = [];
+
+    for (const ts of teacherSubjects) {
+      const components = await prisma.gradeComponent.findMany({
+        where: {
+          teacherSubjectId: ts.id,
+          academicYear,
+        },
+        include: { entries: { where: { studentId } } },
+        orderBy: { createdAt: 'asc' },
+      });
+
+      if (components.length === 0) continue;
+
+      // Group by semester within this academic year
+      const bySemester = new Map<Semester, typeof components>();
+      for (const c of components) {
+        const list = bySemester.get(c.semester) ?? [];
+        list.push(c);
+        bySemester.set(c.semester, list);
+      }
+
+      for (const [semester, comps] of bySemester) {
+        const componentBreakdown = comps.map((c) => ({
+          gradeComponentId: c.gradeComponentId,
+          category:   c.category,
+          name:       c.name,
+          maxMarks:   Number(c.maxMarks),
+          isReleased: c.isReleased,
+          score: c.isReleased ? (c.entries[0] ? Number(c.entries[0].score) : null) : null,
+        }));
+
+        results.push({
+          teacherSubjectId: ts.id,
+          subject: {
+            subjectId:   ts.subject.subjectId,
+            subjectCode: ts.subject.subjectCode,
+            subjectName: ts.subject.subjectName,
+          },
+          teacher: { teacherId: ts.teacher.teacherId, firstName: ts.teacher.firstName, lastName: ts.teacher.lastName },
+          semester,
+          academicYear,
+          components: componentBreakdown,
+          totalScore:    componentBreakdown.reduce((sum, c) => sum + (c.isReleased && c.score !== null ? c.score : 0), 0),
+          totalMaxMarks: componentBreakdown.reduce((sum, c) => sum + (c.isReleased ? c.maxMarks : 0), 0),
+        });
+      }
+    }
+
+    return results.sort(
+      (a, b) => a.subject.subjectName.localeCompare(b.subject.subjectName)
+    );
+  }
+
   /**
    * Releases a component's results to students.
    * Only the owning teacher can release. Once released, students see their score.

@@ -82,4 +82,11 @@ router.get(
   gradeController.getStudentGrades
 );
 
+// Historical student grades by academic year — uses StudentEnrollment for correct classroom lookup
+router.get(
+  '/student/:studentId/history',
+  validate(studentIdParamSchema, 'params'),
+  gradeController.getStudentGradesByYear
+);
+
 export const gradeRoutes = router;
