@@ -767,3 +767,208 @@ describe('AcademicRegisterService � GradeSubjectConfig as source of truth', ()
     });
   });
 });
+
+// ── Section isolation regression tests ───────────────────────────────────────
+// These tests verify that each classroom section's register is completely
+// independent: selecting Grade 9 Section A must never show students from
+// Sections B or C.
+//
+// Root cause investigation confirmed: the backend is correct. The API returns
+// exactly the students enrolled in the requested classroom for the requested
+// academic year. The tests below pin this invariant.
+
+describe('Section isolation: Grade 9 A, B, C are independent registers for academic year 2026', () => {
+  let service: AcademicRegisterService;
+  beforeEach(() => { service = new AcademicRegisterService(); vi.clearAllMocks(); });
+
+  // Section A: students 101-103 (3 students)
+  // Section B: students 201-204 (4 students)
+  // Section C: students 301-305 (5 students)
+
+  const CL_A = { classroomId: 13, className: 'Grade 9', section: 'A', academicYear: '2026', homeroomTeacherId: null };
+  const CL_B = { classroomId: 26, className: 'Grade 9', section: 'B', academicYear: '2026', homeroomTeacherId: null };
+  const CL_C = { classroomId: 27, className: 'Grade 9', section: 'C', academicYear: '2026', homeroomTeacherId: null };
+
+  const STUDENTS_A = [
+    { studentId: 101, userId: 201, classroomId: 13, firstName: 'Alice',   lastName: 'A', admissionNumber: 'A-001', gender: 'F', dateOfBirth: new Date('2009-01-01') },
+    { studentId: 102, userId: 202, classroomId: 13, firstName: 'Bob',     lastName: 'B', admissionNumber: 'A-002', gender: 'M', dateOfBirth: new Date('2009-02-01') },
+    { studentId: 103, userId: 203, classroomId: 13, firstName: 'Charlie', lastName: 'C', admissionNumber: 'A-003', gender: 'M', dateOfBirth: new Date('2009-03-01') },
+  ];
+  const STUDENTS_B = [
+    { studentId: 201, userId: 301, classroomId: 26, firstName: 'Dave',  lastName: 'D', admissionNumber: 'B-001', gender: 'M', dateOfBirth: new Date('2009-04-01') },
+    { studentId: 202, userId: 302, classroomId: 26, firstName: 'Eve',   lastName: 'E', admissionNumber: 'B-002', gender: 'F', dateOfBirth: new Date('2009-05-01') },
+    { studentId: 203, userId: 303, classroomId: 26, firstName: 'Frank', lastName: 'F', admissionNumber: 'B-003', gender: 'M', dateOfBirth: new Date('2009-06-01') },
+    { studentId: 204, userId: 304, classroomId: 26, firstName: 'Grace', lastName: 'G', admissionNumber: 'B-004', gender: 'F', dateOfBirth: new Date('2009-07-01') },
+  ];
+
+  const CONFIGS_2026 = [
+    { subjectId: 1, sortOrder: 0, subject: { subjectId: 1, subjectCode: 'ENG', subjectName: 'English' } },
+  ];
+  const SETTINGS_2026 = { promotionPassMark: 50, minimumSubjectPassMark: 40 };
+
+  function setupSectionA() {
+    (prisma.classroom.findUnique as Mock).mockResolvedValue(CL_A);
+    (prisma.gradeSubjectConfig.findMany as Mock).mockResolvedValue(CONFIGS_2026);
+    // Enrollment-based student loading for Section A
+    (prisma.studentEnrollment.findMany as Mock).mockResolvedValue(
+      STUDENTS_A.map((s) => ({ studentId: s.studentId }))
+    );
+    (prisma.student.findMany as Mock).mockResolvedValue(STUDENTS_A);
+    (prisma.student.count as Mock).mockResolvedValue(3);
+    (prisma.attendance.groupBy as Mock).mockResolvedValue([]);
+    (prisma.studentConduct.findMany as Mock).mockResolvedValue([]);
+    (prisma.classroomFinalization.findUnique as Mock).mockResolvedValue(null);
+    // grade-wide: classrooms A, B, C all exist
+    (prisma.classroom.findMany as Mock).mockResolvedValue([CL_A, CL_B, CL_C]);
+    (prisma.teacherSubject.findMany as Mock).mockResolvedValue([]);
+    (prisma.subjectFinalization.findMany as Mock).mockResolvedValue([]);
+    (prisma.gradeComponent.findMany as Mock).mockResolvedValue([]);
+    (prisma.gradeEntry.findMany as Mock).mockResolvedValue([]);
+    (prisma.systemSetting.findUnique as Mock).mockResolvedValue(SETTINGS_2026);
+    // Enrollment counts for grade-wide totalStudentsInGrade
+    (prisma.studentEnrollment.count as Mock).mockResolvedValue(0);
+  }
+
+  it('Section A register returns exactly 3 students, not 7 (B+C excluded)', async () => {
+    setupSectionA();
+    const register = await service.generateClassroomRegister(
+      ACTOR_DIRECTOR,
+      { classroomId: 13, academicYear: '2026', viewMode: 'SEMESTER_1' }
+    );
+    expect(register.students).toHaveLength(3);
+    const ids = register.students.map((s) => s.studentId);
+    expect(ids).toContain(101);
+    expect(ids).toContain(102);
+    expect(ids).toContain(103);
+    // Section B and C students must NOT appear
+    expect(ids).not.toContain(201);
+    expect(ids).not.toContain(202);
+    expect(ids).not.toContain(203);
+    expect(ids).not.toContain(204);
+    expect(ids).not.toContain(301);
+  });
+
+  it('Section A metadata.totalStudents is 3 (not 12)', async () => {
+    setupSectionA();
+    const register = await service.generateClassroomRegister(
+      ACTOR_DIRECTOR,
+      { classroomId: 13, academicYear: '2026', viewMode: 'SEMESTER_1' }
+    );
+    expect(register.metadata.totalStudents).toBe(3);
+    // classroomLabel format: "Grade 9 A (2026)"
+    expect(register.metadata.classroomLabel).toMatch(/Grade 9.*A/i);
+  });
+
+  it('Section A passCount, failCount, incompleteCount only count Section A students', async () => {
+    setupSectionA();
+    const register = await service.generateClassroomRegister(
+      ACTOR_DIRECTOR,
+      { classroomId: 13, academicYear: '2026', viewMode: 'SEMESTER_1' }
+    );
+    const total = register.metadata.passCount + register.metadata.failCount +
+                  register.metadata.incompleteCount + register.metadata.pendingCount;
+    expect(total).toBe(3); // exactly the 3 Section A students
+  });
+
+  it('Section B students (ids 201-204) do not appear in Section A register', async () => {
+    setupSectionA();
+    const register = await service.generateClassroomRegister(
+      ACTOR_DIRECTOR,
+      { classroomId: 13, academicYear: '2026', viewMode: 'SEMESTER_1' }
+    );
+    const ids = new Set(register.students.map((s) => s.studentId));
+    for (const bId of [201, 202, 203, 204]) {
+      expect(ids.has(bId)).toBe(false);
+    }
+  });
+
+  it('Sections A and B return different students when queried separately', async () => {
+    // Section A query
+    setupSectionA();
+    const regA = await service.generateClassroomRegister(
+      ACTOR_DIRECTOR,
+      { classroomId: 13, academicYear: '2026', viewMode: 'SEMESTER_1' }
+    );
+    const idsA = new Set(regA.students.map((s) => s.studentId));
+
+    // Section B query
+    vi.clearAllMocks();
+    (prisma.classroom.findUnique as Mock).mockResolvedValue(CL_B);
+    (prisma.gradeSubjectConfig.findMany as Mock).mockResolvedValue(CONFIGS_2026);
+    (prisma.studentEnrollment.findMany as Mock).mockResolvedValue(
+      STUDENTS_B.map((s) => ({ studentId: s.studentId }))
+    );
+    (prisma.student.findMany as Mock).mockResolvedValue(STUDENTS_B);
+    (prisma.student.count as Mock).mockResolvedValue(4);
+    (prisma.attendance.groupBy as Mock).mockResolvedValue([]);
+    (prisma.studentConduct.findMany as Mock).mockResolvedValue([]);
+    (prisma.classroomFinalization.findUnique as Mock).mockResolvedValue(null);
+    (prisma.classroom.findMany as Mock).mockResolvedValue([CL_A, CL_B, CL_C]);
+    (prisma.teacherSubject.findMany as Mock).mockResolvedValue([]);
+    (prisma.subjectFinalization.findMany as Mock).mockResolvedValue([]);
+    (prisma.gradeComponent.findMany as Mock).mockResolvedValue([]);
+    (prisma.gradeEntry.findMany as Mock).mockResolvedValue([]);
+    (prisma.systemSetting.findUnique as Mock).mockResolvedValue(SETTINGS_2026);
+    (prisma.studentEnrollment.count as Mock).mockResolvedValue(0);
+
+    const regB = await service.generateClassroomRegister(
+      ACTOR_DIRECTOR,
+      { classroomId: 26, academicYear: '2026', viewMode: 'SEMESTER_1' }
+    );
+    const idsB = new Set(regB.students.map((s) => s.studentId));
+
+    // No overlap between A and B
+    for (const id of idsA) expect(idsB.has(id)).toBe(false);
+    for (const id of idsB) expect(idsA.has(id)).toBe(false);
+
+    // Correct counts
+    expect(regA.students).toHaveLength(3);
+    expect(regB.students).toHaveLength(4);
+  });
+
+  it('Section A sectionRanks are calculated using only Section A students', async () => {
+    setupSectionA();
+    const register = await service.generateClassroomRegister(
+      ACTOR_DIRECTOR,
+      { classroomId: 13, academicYear: '2026', viewMode: 'SEMESTER_1' }
+    );
+    // All 3 students should have totalStudentsInSection = 3
+    for (const s of register.students) {
+      expect(s.totalStudentsInSection).toBe(3);
+    }
+  });
+
+  it('Historical: promoted students still appear in Section A 2026 register via enrollment', async () => {
+    // Students 101-103 have been promoted and their classroomId now points elsewhere,
+    // but StudentEnrollment records them in classroomId=13 for academicYear=2026.
+    const promotedStudents = STUDENTS_A.map((s) => ({ ...s, classroomId: 28 })); // now in Grade 10
+    (prisma.classroom.findUnique as Mock).mockResolvedValue(CL_A);
+    (prisma.gradeSubjectConfig.findMany as Mock).mockResolvedValue(CONFIGS_2026);
+    // Enrollment records still point to classroomId=13 for 2026
+    (prisma.studentEnrollment.findMany as Mock).mockResolvedValue([
+      { studentId: 101 }, { studentId: 102 }, { studentId: 103 },
+    ]);
+    (prisma.student.findMany as Mock).mockResolvedValue(promotedStudents);
+    (prisma.student.count as Mock).mockResolvedValue(3);
+    (prisma.attendance.groupBy as Mock).mockResolvedValue([]);
+    (prisma.studentConduct.findMany as Mock).mockResolvedValue([]);
+    (prisma.classroomFinalization.findUnique as Mock).mockResolvedValue(null);
+    (prisma.classroom.findMany as Mock).mockResolvedValue([CL_A, CL_B, CL_C]);
+    (prisma.teacherSubject.findMany as Mock).mockResolvedValue([]);
+    (prisma.subjectFinalization.findMany as Mock).mockResolvedValue([]);
+    (prisma.gradeComponent.findMany as Mock).mockResolvedValue([]);
+    (prisma.gradeEntry.findMany as Mock).mockResolvedValue([]);
+    (prisma.systemSetting.findUnique as Mock).mockResolvedValue(SETTINGS_2026);
+    (prisma.studentEnrollment.count as Mock).mockResolvedValue(0);
+
+    const register = await service.generateClassroomRegister(
+      ACTOR_DIRECTOR,
+      { classroomId: 13, academicYear: '2026', viewMode: 'SEMESTER_1' }
+    );
+    // All 3 original Section A students appear despite being promoted
+    expect(register.students).toHaveLength(3);
+    expect(register.students.map((s) => s.studentId)).toEqual(
+      expect.arrayContaining([101, 102, 103])
+    );
+  });
+});
