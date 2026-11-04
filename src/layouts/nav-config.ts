@@ -71,10 +71,11 @@ export const NAV_ENTRIES: NavEntry[] = [
   ]),
 
   group('Academic Management', MdSchool, ['ADMIN'], [
-    item('Grade Subject Config', '/grade-subject-config', MdAssignment),
-    item('Roster',               '/academic-register',    MdMenuBook),
-    item('Results Finalization', '/finalization',         MdFactCheck),
-    item('Student Transcripts',  '/transcript',           MdDescription),
+    item('Grade Subject Config',   '/grade-subject-config', MdAssignment),
+    item('Roster',                 '/academic-register',    MdMenuBook),
+    item('Results Finalization',   '/finalization',         MdFactCheck),
+    item('Student Transcripts',    '/transcript',           MdDescription),
+    item('Student Academic History', '/academic-history',   MdHistory),
   ]),
 
   group('System Management', MdFolder, ['ADMIN'], [
@@ -97,13 +98,14 @@ export const NAV_ENTRIES: NavEntry[] = [
   ]),
 
   group('Academic Management', MdSchool, ['DIRECTOR'], [
-    item('Subjects',             '/subjects',             MdMenuBook),
-    item('Teaching Assignments', '/teaching-assignments', MdAssignment),
-    item('Roster',               '/academic-register',    MdMenuBook),
-    item('Results Finalization', '/finalization',         MdFactCheck),
-    item('Academic Reports',     '/academic-reports',     MdDescription),
-    item('Grade Subject Config', '/grade-subject-config', MdAssignment),
-    item('Student Transcripts',  '/transcript',           MdMenuBook),
+    item('Subjects',               '/subjects',             MdMenuBook),
+    item('Teaching Assignments',   '/teaching-assignments', MdAssignment),
+    item('Roster',                 '/academic-register',    MdMenuBook),
+    item('Results Finalization',   '/finalization',         MdFactCheck),
+    item('Academic Reports',       '/academic-reports',     MdDescription),
+    item('Grade Subject Config',   '/grade-subject-config', MdAssignment),
+    item('Student Transcripts',    '/transcript',           MdMenuBook),
+    item('Student Academic History', '/academic-history',   MdHistory),
   ]),
 
   group('Attendance', MdFactCheck, ['DIRECTOR'], [
@@ -130,15 +132,16 @@ export const NAV_ENTRIES: NavEntry[] = [
   // ════════════════ VICE DIRECTOR GROUPS ═══════════════════════════════════════
 
   group('Academic Management', MdSchool, ['VICE_DIRECTOR'], [
-    item('Students',             '/students',             FaUserGraduate),
-    item('Classrooms',           '/classrooms',           MdMeetingRoom),
-    item('Subjects',             '/subjects',             MdMenuBook),
-    item('Teaching Assignments', '/teaching-assignments', MdAssignment),
-    item('Roster',               '/academic-register',    MdMenuBook),
-    item('Results Finalization', '/finalization',         MdFactCheck),
-    item('Grade Subject Config', '/grade-subject-config', MdAssignment),
-    item('Academic Reports',     '/academic-reports',     MdDescription),
-    item('Student Transcripts',  '/transcript',           MdMenuBook),
+    item('Students',               '/students',             FaUserGraduate),
+    item('Classrooms',             '/classrooms',           MdMeetingRoom),
+    item('Subjects',               '/subjects',             MdMenuBook),
+    item('Teaching Assignments',   '/teaching-assignments', MdAssignment),
+    item('Roster',                 '/academic-register',    MdMenuBook),
+    item('Results Finalization',   '/finalization',         MdFactCheck),
+    item('Grade Subject Config',   '/grade-subject-config', MdAssignment),
+    item('Academic Reports',       '/academic-reports',     MdDescription),
+    item('Student Transcripts',    '/transcript',           MdMenuBook),
+    item('Student Academic History', '/academic-history',   MdHistory),
   ]),
 
   group('Attendance', MdFactCheck, ['VICE_DIRECTOR'], [
@@ -164,11 +167,12 @@ export const NAV_ENTRIES: NavEntry[] = [
   // ════════════════ PARENT GROUPS ══════════════════════════════════════════════
 
   group('Academic', MdSchool, ['PARENT'], [
-    item('Academic Overview', '/parent/children',    MdGroups),
-    item('Assessment',        '/parent/assessment',  MdAssessment),
-    item('Report Card',       '/parent/report-card', MdDescription),
-    item('Results',           '/parent/results',     MdDescription),
-    item('Transcript',        '/parent/transcript',  MdMenuBook),
+    item('Academic Overview',    '/parent/children',    MdGroups),
+    item('Assessment',           '/parent/assessment',  MdAssessment),
+    item('Report Card',          '/parent/report-card', MdDescription),
+    item('Results',              '/parent/results',     MdDescription),
+    item('Transcript',           '/parent/transcript',  MdMenuBook),
+    item('Academic History',     '/academic-history',   MdHistory),
   ]),
 
   group('Attendance', MdFactCheck, ['PARENT'], [
@@ -182,22 +186,24 @@ export const NAV_ENTRIES: NavEntry[] = [
 
   // ════════════════ TEACHER (flat — no groups) ══════════════════════════════════
 
-  item('My Classes',       '/my-classes',    MdMeetingRoom,  { allowedRoles: ['TEACHER'] }),
-  item('Class Timetable',  '/timetable',     MdSchedule,     { allowedRoles: ['TEACHER'] }),
-  item('Take Attendance',  '/attendance',    MdFactCheck,    { allowedRoles: ['TEACHER'] }),
-  item('Enter Grades',     '/grades',        MdDescription,  { allowedRoles: ['TEACHER'] }),
-  item('Assignments',      '/homework',      MdAssignment,   { allowedRoles: ['TEACHER'] }),
-  item('Messages',         '/messages',      MdMessage,      { allowedRoles: ['TEACHER'] }),
-  item('Discipline Records', '/discipline-records', MdGavel, { allowedRoles: ['TEACHER'] }),
+  item('My Classes',         '/my-classes',        MdMeetingRoom,  { allowedRoles: ['TEACHER'] }),
+  item('Class Timetable',    '/timetable',         MdSchedule,     { allowedRoles: ['TEACHER'] }),
+  item('Take Attendance',    '/attendance',        MdFactCheck,    { allowedRoles: ['TEACHER'] }),
+  item('Enter Grades',       '/grades',            MdDescription,  { allowedRoles: ['TEACHER'] }),
+  item('Assignments',        '/homework',          MdAssignment,   { allowedRoles: ['TEACHER'] }),
+  item('Academic History',   '/academic-history',  MdHistory,      { allowedRoles: ['TEACHER'] }),
+  item('Messages',           '/messages',          MdMessage,      { allowedRoles: ['TEACHER'] }),
+  item('Discipline Records', '/discipline-records', MdGavel,       { allowedRoles: ['TEACHER'] }),
 
   // ════════════════ STUDENT (flat — no groups) ══════════════════════════════════
 
-  item('My Timetable',  '/timetable',     MdSchedule,    { allowedRoles: ['STUDENT'] }),
-  item('My Attendance', '/my-attendance', MdFactCheck,   { allowedRoles: ['STUDENT'] }),
-  item('Assessments',   '/my-grades',     MdDescription, { allowedRoles: ['STUDENT'] }),
-  item('Report Card',   '/report-card',   MdAssessment,  { allowedRoles: ['STUDENT'] }),
-  item('Transcript',    '/transcript',    MdMenuBook,    { allowedRoles: ['STUDENT'] }),
-  item('Assignments',   '/my-homework',   MdAssignment,  { allowedRoles: ['STUDENT'] }),
+  item('My Timetable',      '/timetable',        MdSchedule,    { allowedRoles: ['STUDENT'] }),
+  item('My Attendance',     '/my-attendance',    MdFactCheck,   { allowedRoles: ['STUDENT'] }),
+  item('Assessments',       '/my-grades',        MdDescription, { allowedRoles: ['STUDENT'] }),
+  item('Report Card',       '/report-card',      MdAssessment,  { allowedRoles: ['STUDENT'] }),
+  item('Transcript',        '/transcript',       MdMenuBook,    { allowedRoles: ['STUDENT'] }),
+  item('Academic History',  '/academic-history', MdHistory,     { allowedRoles: ['STUDENT'] }),
+  item('Assignments',       '/my-homework',      MdAssignment,  { allowedRoles: ['STUDENT'] }),
 
   // ════════════════ UNIVERSAL BOTTOM ════════════════════════════════════════════
 
