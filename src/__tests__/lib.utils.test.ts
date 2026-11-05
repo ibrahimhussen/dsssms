@@ -152,7 +152,6 @@ describe('C. triggerBlobDownload', () => {
     const clicks: string[] = [];
     const appendedLinks: HTMLAnchorElement[] = [];
 
-    const origAppend = document.body.appendChild.bind(document.body);
     vi.spyOn(document.body, 'appendChild').mockImplementation((el: Node) => {
       const a = el as HTMLAnchorElement;
       appendedLinks.push(a);

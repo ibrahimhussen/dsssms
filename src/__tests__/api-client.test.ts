@@ -3,7 +3,7 @@
  * api-client unwrap / unwrapPaginated tests
  * Tests the response-envelope parsing without hitting real HTTP.
  */
-import { describe, it, expect, vi, beforeEach } from 'vitest';
+import { describe, it, expect, vi } from 'vitest';
 
 // Mock axios and token-storage before importing api-client
 vi.mock('axios', async (orig) => {
@@ -43,13 +43,15 @@ import { AxiosError } from 'axios';
 
 // ── Helpers ───────────────────────────────────────────────────────────────────
 
-function successResponse<T>(data: T, pagination?: object) {
+import type { PaginationMeta } from '../types/api';
+
+function successResponse<T>(data: T, pagination?: PaginationMeta) {
   return Promise.resolve({
     data: { success: true as const, message: 'OK', data, ...(pagination ? { pagination } : {}) },
   });
 }
 
-function errorResponse(message: string, errorCode: string, statusCode = 400, details?: unknown) {
+function errorResponse(message: string, errorCode: string, _statusCode = 400, details?: unknown) {
   return Promise.resolve({
     data: { success: false as const, message, errorCode, ...(details ? { details } : {}) },
   });
@@ -62,7 +64,13 @@ function axiosNetworkError(message = 'Network Error') {
 
 function axiosHttpError(statusCode: number, body: object) {
   const err = new AxiosError('Request failed');
-  (err as AxiosError & { response: unknown }).response = { status: statusCode, data: body };
+  (err as AxiosError & { response: unknown }).response = {
+    status: statusCode,
+    statusText: 'Error',
+    headers: {},
+    config: {} as import('axios').InternalAxiosRequestConfig,
+    data: body,
+  };
   return Promise.reject(err);
 }
 

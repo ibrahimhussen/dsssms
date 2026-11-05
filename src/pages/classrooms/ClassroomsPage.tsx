@@ -1,5 +1,5 @@
 import { useMemo, useState } from 'react';
-import { MdHistory, MdWarningAmber } from 'react-icons/md';
+import { MdHistory } from 'react-icons/md';
 import { useClassrooms, useClassroomRoster, useDeleteClassroom, useClassroomOptions } from '../../hooks/useClassrooms';
 import { Table } from '../../components/ui/Table';
 import type { Column } from '../../components/ui/Table';
