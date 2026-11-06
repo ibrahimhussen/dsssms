@@ -3,6 +3,7 @@ import { asyncHandler } from '../../core/http/async-handler';
 import { ApiResponse } from '../../core/http/api-response';
 import { buildExcelWorkbook } from '../../core/export/excel-export.util';
 import { buildBulkImportTemplate } from './bulk-import-template';
+import { parseBulkImportWorkbook } from './bulk-import-parser';
 import { studentService } from './student.service';
 import { UnauthorizedError } from '../../core/errors/app-error';
 import { assertCanAccessStudentRecords } from '../../core/authorization/student-access';
@@ -45,6 +46,16 @@ export class StudentController {
     res.setHeader('Content-Type', 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet');
     res.setHeader('Content-Disposition', 'attachment; filename="students_bulk_import_template.xlsx"');
     res.send(buffer);
+  });
+
+  bulkImportParse = asyncHandler(async (req: Request, res: Response) => {
+    const file = (req as Request & { file?: Express.Multer.File }).file;
+    if (!file) {
+      res.status(400).json({ success: false, message: 'No file uploaded', errorCode: 'BAD_REQUEST' });
+      return;
+    }
+    const result = await parseBulkImportWorkbook(file.buffer);
+    ApiResponse.success(res, { message: 'Workbook parsed', data: result });
   });
 
   transferOut = asyncHandler(async (req: Request, res: Response) => {

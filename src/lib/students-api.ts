@@ -77,6 +77,18 @@ export const studentsApi = {
     triggerBlobDownload(response.data, 'students_bulk_import_template.xlsx');
   },
 
+  async parseBulkImportWorkbook(file: File): Promise<{ valid: CreateStudentInput[]; errors: string[] }> {
+    const form = new FormData();
+    form.append('file', file);
+    return unwrap(
+      apiClient.post<ApiResponse<{ valid: CreateStudentInput[]; errors: string[] }>>(
+        '/students/bulk/parse',
+        form,
+        { headers: { 'Content-Type': 'multipart/form-data' } },
+      ),
+    );
+  },
+
   transferOut(studentId: number, input: TransferOutInput) {
     return unwrap(
       apiClient.post<ApiResponse<StudentSummary>>(`/students/${studentId}/transfer-out`, input)

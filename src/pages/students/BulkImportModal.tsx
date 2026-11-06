@@ -1,316 +1,24 @@
 /**
  * Bulk Student Import Modal — upgraded to full Excel workbook support.
  *
+ * The workbook is parsed on the server (POST /students/bulk/parse) so that
+ * ExcelJS runs in Node, not in the browser bundle.  The server returns
+ * { valid: CreateStudentInput[], errors: string[] } which we preview here
+ * before calling the existing /students/bulk endpoint for the actual import.
+ *
  * Supports both NEW_STUDENT and TRANSFER admissions with the complete field
  * set matching the individual admission forms.
  */
 import { useRef, useState } from 'react';
-import ExcelJS from 'exceljs';
 import { Modal } from '../../components/ui/Modal';
 import { Button } from '../../components/ui/Button';
 import { useBulkImportStudents } from '../../hooks/useStudents';
 import { studentsApi } from '../../lib/students-api';
-import { parseDateString, meetsMinimumAdmissionAge, MINIMUM_ADMISSION_AGE } from '../../lib/age';
 import type { CreateStudentInput, BulkImportResult } from '../../types/student';
-import type { PreviousAcademicSummary, PreviousSubjectMark } from './PreviousAcademicSummaryEditor';
 
 interface Props {
   isOpen: boolean;
   onClose: () => void;
-}
-
-// ── Row shapes read from each Excel sheet ─────────────────────────────────────
-
-interface StudentRow {
-  importRef:              string;
-  admissionType:          string;
-  firstName:              string;
-  lastName:               string;
-  gender:                 string;
-  dateOfBirth:            string;
-  address?:               string;
-  classroomId:            string | number;
-  previousSchoolName?:    string;
-  previousSchoolType?:    string;
-  previousSchoolLocation?:string;
-  lastGradeCompleted?:    string;
-  completionYear?:        string;
-  previousStudentId?:     string;
-  transferReason?:        string;
-  transferCertificateRef?:string;
-}
-
-interface GuardianRow {
-  importRef:              string;
-  guardianFullName:       string;
-  guardianPhoneNumber?:   string;
-  relationship:           string;
-  guardianEmail?:         string;
-}
-
-interface PrevAcademicRow {
-  importRef:      string;
-  subjectName:    string;
-  mark?:          string | number;
-  grade?:         string;
-  overallAverage?:string | number;
-  notes?:         string;
-}
-
-// ── Parse all sheets from an uploaded .xlsx workbook ─────────────────────────
-
-function isExampleRow(importRef: string): boolean {
-  return importRef.startsWith('STU-00') && (importRef === 'STU-001' || importRef === 'STU-002');
-}
-
-async function parseWorkbook(file: File): Promise<{
-  students:    StudentRow[];
-  guardians:   GuardianRow[];
-  prevAcademic:PrevAcademicRow[];
-}> {
-  const arrayBuffer = await file.arrayBuffer();
-  const wb = new ExcelJS.Workbook();
-  await wb.xlsx.load(arrayBuffer);
-
-  function sheetToObjects(sheetName: string): Record<string, unknown>[] {
-    const ws = wb.getWorksheet(sheetName);
-    if (!ws) return [];
-    const rows: Record<string, unknown>[] = [];
-    const headers: string[] = [];
-    let headerFound = false;
-    ws.eachRow((row, rowNum) => {
-      if (rowNum === 1) {
-        row.eachCell((cell) => headers.push(String(cell.value ?? '').trim()));
-        headerFound = true;
-        return;
-      }
-      if (!headerFound) return;
-      const obj: Record<string, unknown> = {};
-      row.eachCell({ includeEmpty: true }, (cell, colNum) => {
-        const key = headers[colNum - 1];
-        if (key) obj[key] = cell.value ?? '';
-      });
-      rows.push(obj);
-    });
-    return rows;
-  }
-
-  const rawStudents    = sheetToObjects('Students');
-  const rawGuardians   = sheetToObjects('Guardians');
-  const rawPrevAcademic= sheetToObjects('PrevAcademic');
-
-  function str(v: unknown): string { return String(v ?? '').trim(); }
-
-  const students = rawStudents
-    .map((r) => ({
-      importRef:              str(r['ImportRef *'] ?? r['importRef']),
-      admissionType:          str(r['admissionType *'] ?? r['admissionType']),
-      firstName:              str(r['firstName *'] ?? r['firstName']),
-      lastName:               str(r['lastName *'] ?? r['lastName']),
-      gender:                 str(r['gender * (M/F)'] ?? r['gender']),
-      dateOfBirth:            str(r['dateOfBirth * (YYYY-MM-DD)'] ?? r['dateOfBirth']),
-      address:                str(r['address']),
-      classroomId:            r['classroomId *'] ?? r['classroomId'],
-      previousSchoolName:     str(r['previousSchoolName']),
-      previousSchoolType:     str(r['previousSchoolType']),
-      previousSchoolLocation: str(r['previousSchoolLocation']),
-      lastGradeCompleted:     str(r['lastGradeCompleted']),
-      completionYear:         str(r['completionYear (YYYY)'] ?? r['completionYear']),
-      previousStudentId:      str(r['previousStudentId']),
-      transferReason:         str(r['transferReason']),
-      transferCertificateRef: str(r['transferCertificateRef']),
-    } as StudentRow))
-    .filter((r) => r.importRef && !isExampleRow(r.importRef));
-
-  const guardians = rawGuardians
-    .map((r) => ({
-      importRef:            str(r['ImportRef * (from Students sheet)'] ?? r['importRef']),
-      guardianFullName:     str(r['guardianFullName *'] ?? r['guardianFullName']),
-      guardianPhoneNumber:  str(r['guardianPhoneNumber']),
-      relationship:         str(r['relationship *'] ?? r['relationship']),
-      guardianEmail:        str(r['guardianEmail (optional)'] ?? r['guardianEmail']),
-    } as GuardianRow))
-    .filter((r) => r.importRef && !isExampleRow(r.importRef));
-
-  const prevAcademic = rawPrevAcademic
-    .map((r) => ({
-      importRef:      str(r['ImportRef * (from Students sheet)'] ?? r['importRef']),
-      subjectName:    str(r['subjectName *'] ?? r['subjectName']),
-      mark:           r['mark (0–100)'] ?? r['mark'],
-      grade:          str(r['grade (e.g. A, B, C)'] ?? r['grade']),
-      overallAverage: r['overallAverage (leave blank if using per-subject marks)'] ?? r['overallAverage'],
-      notes:          str(r['notes']),
-    } as PrevAcademicRow))
-    .filter((r) => r.importRef && !isExampleRow(r.importRef));
-
-  return { students, guardians, prevAcademic };
-}
-
-// ── Validate and assemble CreateStudentInput records ─────────────────────────
-
-interface ParseResult {
-  valid:  CreateStudentInput[];
-  errors: string[];
-}
-
-function assembleInputs(
-  students:    StudentRow[],
-  guardians:   GuardianRow[],
-  prevAcademic:PrevAcademicRow[]
-): ParseResult {
-  const valid: CreateStudentInput[] = [];
-  const errors: string[] = [];
-
-  // Build lookup maps
-  const guardiansByRef   = new Map<string, GuardianRow[]>();
-  const academicByRef    = new Map<string, PrevAcademicRow[]>();
-
-  for (const g of guardians) {
-    if (!guardiansByRef.has(g.importRef)) guardiansByRef.set(g.importRef, []);
-    guardiansByRef.get(g.importRef)!.push(g);
-  }
-  for (const a of prevAcademic) {
-    if (!academicByRef.has(a.importRef)) academicByRef.set(a.importRef, []);
-    academicByRef.get(a.importRef)!.push(a);
-  }
-
-  // Check for duplicate ImportRefs in the Students sheet
-  const seenRefs = new Set<string>();
-
-  students.forEach((row, idx) => {
-    const line = `Students row ${idx + 2}`;
-
-    if (!row.importRef) { errors.push(`${line}: ImportRef is required`); return; }
-    if (seenRefs.has(row.importRef)) {
-      errors.push(`${line}: Duplicate ImportRef "${row.importRef}"`);
-      return;
-    }
-    seenRefs.add(row.importRef);
-
-    if (!row.firstName) { errors.push(`${line} (${row.importRef}): firstName is required`); return; }
-    if (!row.lastName)  { errors.push(`${line} (${row.importRef}): lastName is required`); return; }
-    if (row.gender !== 'M' && row.gender !== 'F') {
-      errors.push(`${line} (${row.importRef}): gender must be M or F`);
-      return;
-    }
-    if (!row.dateOfBirth) { errors.push(`${line} (${row.importRef}): dateOfBirth is required (YYYY-MM-DD)`); return; }
-
-    // Handle ExcelJS date objects (Excel may return Date objects)
-    let dobStr = row.dateOfBirth;
-    if (typeof dobStr !== 'string') {
-      try {
-        const d = new Date(dobStr as unknown as string);
-        dobStr = d.toISOString().slice(0, 10);
-      } catch {
-        errors.push(`${line} (${row.importRef}): dateOfBirth is not a valid date`);
-        return;
-      }
-    }
-    const dob = parseDateString(dobStr);
-    if (!dob) { errors.push(`${line} (${row.importRef}): dateOfBirth "${dobStr}" is not valid — use YYYY-MM-DD`); return; }
-    if (dob > new Date()) { errors.push(`${line} (${row.importRef}): dateOfBirth cannot be in the future`); return; }
-    if (!meetsMinimumAdmissionAge(dob)) {
-      errors.push(`${line} (${row.importRef}): ${row.firstName} ${row.lastName} must be at least ${MINIMUM_ADMISSION_AGE} years old`);
-      return;
-    }
-
-    const classroomId = Number(row.classroomId);
-    if (!classroomId || isNaN(classroomId) || classroomId <= 0) {
-      errors.push(`${line} (${row.importRef}): classroomId must be a valid positive number`);
-      return;
-    }
-
-    const admType = row.admissionType?.trim();
-    if (admType !== 'NEW_STUDENT' && admType !== 'TRANSFER') {
-      errors.push(`${line} (${row.importRef}): admissionType must be NEW_STUDENT or TRANSFER`);
-      return;
-    }
-
-    // Transfer-specific required fields
-    if (admType === 'TRANSFER') {
-      if (!row.previousSchoolName) {
-        errors.push(`${line} (${row.importRef}): previousSchoolName is required for TRANSFER admissions`);
-        return;
-      }
-      if (!row.lastGradeCompleted) {
-        errors.push(`${line} (${row.importRef}): lastGradeCompleted is required for TRANSFER admissions`);
-        return;
-      }
-    }
-
-    // Build parents array
-    const gRows = guardiansByRef.get(row.importRef) ?? [];
-    const guardianErrors: string[] = [];
-    const parents: CreateStudentInput['parents'] = [];
-
-    gRows.forEach((g, gi) => {
-      if (!g.guardianFullName) {
-        guardianErrors.push(`Guardians row for ${row.importRef} #${gi + 1}: guardianFullName is required`);
-        return;
-      }
-      const rel = g.relationship?.toUpperCase();
-      if (!['FATHER', 'MOTHER', 'GUARDIAN', 'OTHER'].includes(rel)) {
-        guardianErrors.push(`Guardians row for ${row.importRef}: relationship "${g.relationship}" is invalid (use FATHER, MOTHER, GUARDIAN, or OTHER)`);
-        return;
-      }
-      parents.push({
-        newParent: {
-          fullName: g.guardianFullName,
-          phoneNumber: g.guardianPhoneNumber || undefined,
-          email: g.guardianEmail || undefined,
-        },
-        relationship: rel as 'FATHER' | 'MOTHER' | 'GUARDIAN' | 'OTHER',
-      });
-    });
-
-    if (guardianErrors.length > 0) {
-      errors.push(...guardianErrors);
-      return;
-    }
-
-    // Build previousAcademicSummary
-    const aRows = academicByRef.get(row.importRef) ?? [];
-    let prevAcademicSummary: PreviousAcademicSummary | undefined;
-
-    if (aRows.length > 0) {
-      const subjects: PreviousSubjectMark[] = [];
-      let overallAverage: number | '' = '';
-      let notes = '';
-
-      aRows.forEach((a) => {
-        if (a.subjectName) {
-          const markNum = a.mark !== '' && a.mark !== null && a.mark !== undefined ? Number(a.mark) : '';
-          subjects.push({ subjectName: a.subjectName, mark: markNum, grade: a.grade ?? '' });
-        }
-        if (a.overallAverage !== '' && a.overallAverage != null) overallAverage = Number(a.overallAverage);
-        if (a.notes) notes = a.notes;
-      });
-
-      prevAcademicSummary = { subjects, overallAverage: overallAverage || undefined, notes: notes || undefined };
-    }
-
-    valid.push({
-      admissionType:          admType as 'NEW_STUDENT' | 'TRANSFER',
-      firstName:              row.firstName.trim(),
-      lastName:               row.lastName.trim(),
-      gender:                 row.gender as 'M' | 'F',
-      dateOfBirth:            dobStr,
-      address:                row.address || undefined,
-      classroomId,
-      previousSchoolName:     row.previousSchoolName || undefined,
-      previousSchoolType:     row.previousSchoolType || undefined,
-      previousSchoolLocation: row.previousSchoolLocation || undefined,
-      lastGradeCompleted:     row.lastGradeCompleted || undefined,
-      completionYear:         row.completionYear || undefined,
-      previousStudentId:      row.previousStudentId || undefined,
-      transferReason:         row.transferReason || undefined,
-      transferCertificateRef: row.transferCertificateRef || undefined,
-      previousAcademicSummary: prevAcademicSummary,
-      parents:                parents.length > 0 ? parents : undefined,
-    });
-  });
-
-  return { valid, errors };
 }
 
 // ── Component ─────────────────────────────────────────────────────────────────
@@ -343,7 +51,6 @@ export function BulkImportModal({ isOpen, onClose }: Props) {
     const file = e.target.files?.[0];
     if (!file) return;
 
-    // Accept both .xlsx and legacy .csv
     if (file.name.endsWith('.csv')) {
       setParseErrors(['Please use the Excel (.xlsx) template. CSV is no longer supported for bulk import.']);
       setValidRows([]);
@@ -353,22 +60,17 @@ export function BulkImportModal({ isOpen, onClose }: Props) {
 
     setParsing(true);
     try {
-      const { students, guardians, prevAcademic } = await parseWorkbook(file);
-
-      if (students.length === 0) {
+      const { valid, errors } = await studentsApi.parseBulkImportWorkbook(file);
+      if (valid.length === 0 && errors.length === 0) {
         setParseErrors(['No student rows found. Make sure you are using the correct template and have deleted the example rows.']);
-        setValidRows([]);
-        setStep('preview');
-        return;
+      } else {
+        setParseErrors(errors);
       }
-
-      const { valid, errors } = assembleInputs(students, guardians, prevAcademic);
-      setParseErrors(errors);
       setValidRows(valid);
       setStep('preview');
     } catch (err) {
       setParseErrors([
-        'Could not read the Excel file. Make sure you are uploading the correct .xlsx template.',
+        'Could not parse the Excel file. Make sure you are uploading the correct .xlsx template.',
         ...(err instanceof Error ? [err.message] : []),
       ]);
       setValidRows([]);

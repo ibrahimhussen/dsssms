@@ -1,4 +1,5 @@
 import { Router } from 'express';
+import multer from 'multer';
 import { RoleName } from '@prisma/client';
 import { studentController } from './student.controller';
 import { authenticate } from '../../middlewares/authenticate.middleware';
@@ -25,6 +26,9 @@ const READ_ROLES     = [...MANAGE_ROLES, RoleName.TEACHER];
 // Credential management is Admin-only — Director/Vice Director manage students but not accounts
 const CREDENTIAL_ROLES = [RoleName.ADMIN];
 
+// Bulk import workbook upload — 10 MB is more than enough for a school-scale sheet
+const bulkUpload = multer({ storage: multer.memoryStorage(), limits: { fileSize: 10 * 1024 * 1024 } });
+
 // Student's own profile — must be declared before the generic '/:id' route.
 router.get('/me', authorize(RoleName.STUDENT), studentController.getMyProfile);
 router.get('/me/enrollments', authorize(RoleName.STUDENT), studentController.getMyEnrollmentHistory);
@@ -32,6 +36,7 @@ router.get('/me/enrollments', authorize(RoleName.STUDENT), studentController.get
 router.post('/', authorizeWithPermissions(MANAGE_ROLES, ['students:create']), validate(createStudentSchema), studentController.create);
 router.post('/bulk', authorizeWithPermissions(MANAGE_ROLES, ['students:bulk_import']), validate(bulkImportSchema), studentController.bulkImport);
 router.get('/bulk/template', authorizeWithPermissions(MANAGE_ROLES, ['students:bulk_import']), studentController.bulkImportTemplate);
+router.post('/bulk/parse', authorizeWithPermissions(MANAGE_ROLES, ['students:bulk_import']), bulkUpload.single('file'), studentController.bulkImportParse);
 router.post('/:id/transfer-out', authorizeWithPermissions(MANAGE_ROLES, ['students:transfer']), validate(studentIdParamSchema, 'params'), validate(transferOutSchema), studentController.transferOut);
 
 router.get('/', authorizeWithPermissions(READ_ROLES, ['students:view']), validate(listStudentsQuerySchema, 'query'), studentController.list);
