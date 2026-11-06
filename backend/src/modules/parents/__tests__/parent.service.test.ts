@@ -11,9 +11,11 @@ import { describe, it, expect, vi, beforeEach, type Mock } from 'vitest';
 
 vi.mock('../../../database/prisma-client', () => ({
   prisma: {
-    user:   { findUnique: vi.fn(), create: vi.fn(), findMany: vi.fn(), count: vi.fn() },
-    role:   { findUnique: vi.fn() },
-    parent: { findUnique: vi.fn(), findMany: vi.fn(), count: vi.fn() },
+    user:         { findUnique: vi.fn(), create: vi.fn(), findMany: vi.fn(), count: vi.fn(), update: vi.fn() },
+    role:         { findUnique: vi.fn() },
+    parent:       { findUnique: vi.fn(), findMany: vi.fn(), count: vi.fn() },
+    refreshToken: { updateMany: vi.fn() },
+    auditLog:     { create: vi.fn() },
   },
 }));
 
@@ -63,6 +65,21 @@ function mkCreatedUserWithParent() {
   };
 }
 
+function mkParentWithRole(overrides: { roleName?: string; parentId?: number } = {}) {
+  return {
+    parentId: overrides.parentId ?? 10,
+    userId: 100,
+    fullName: 'Papa P',
+    phoneNumber: '+251911',
+    user: {
+      userId: 100,
+      username: 'papap',
+      email: null,
+      role: { roleName: overrides.roleName ?? 'PARENT' },
+    },
+  };
+}
+
 // ── Tests ─────────────────────────────────────────────────────────────────────
 
 describe('ParentService', () => {
@@ -71,7 +88,6 @@ describe('ParentService', () => {
   beforeEach(() => {
     service = new ParentService();
     vi.resetAllMocks();
-    // Re-apply utility mock implementations after reset
     (hashPassword as Mock).mockResolvedValue('hashed');
     (buildBaseUsername as Mock).mockReturnValue('papap');
     (ensureUniqueUsername as Mock).mockResolvedValue('papap');
@@ -88,7 +104,7 @@ describe('ParentService', () => {
     };
 
     it('creates a parent user and returns DTO with credentials', async () => {
-      (prisma.user.findUnique as Mock).mockResolvedValue(null);   // no duplicate email
+      (prisma.user.findUnique as Mock).mockResolvedValue(null);
       (prisma.role.findUnique as Mock).mockResolvedValue({ roleId: 5, roleName: 'PARENT' });
       (prisma.user.create     as Mock).mockResolvedValue(mkCreatedUserWithParent());
 
@@ -108,20 +124,16 @@ describe('ParentService', () => {
     });
 
     it('throws 409 ConflictError when the email is already taken', async () => {
-      (prisma.user.findUnique as Mock).mockResolvedValue({ userId: 50 }); // email exists
-
+      (prisma.user.findUnique as Mock).mockResolvedValue({ userId: 50 });
       await expect(service.createParent(createInput)).rejects.toMatchObject({ statusCode: 409 });
-
       expect(prisma.role.findUnique).not.toHaveBeenCalled();
       expect(prisma.user.create).not.toHaveBeenCalled();
     });
 
     it('throws 422 ValidationError when the PARENT role is not configured', async () => {
       (prisma.user.findUnique as Mock).mockResolvedValue(null);
-      (prisma.role.findUnique as Mock).mockResolvedValue(null); // PARENT role missing
-
+      (prisma.role.findUnique as Mock).mockResolvedValue(null);
       await expect(service.createParent(createInput)).rejects.toMatchObject({ statusCode: 422 });
-
       expect(prisma.user.create).not.toHaveBeenCalled();
     });
 
@@ -132,7 +144,6 @@ describe('ParentService', () => {
 
       await service.createParent(noEmailInput);
 
-      // findUnique for email should NOT have been called (no email provided)
       const emailLookupCalls = (prisma.user.findUnique as Mock).mock.calls.filter(
         (call) => call[0]?.where?.email !== undefined
       );
@@ -145,9 +156,7 @@ describe('ParentService', () => {
   describe('getParentById', () => {
     it('returns ParentSummaryDto when parent exists', async () => {
       (prisma.parent.findUnique as Mock).mockResolvedValue(mkParent());
-
       const result = await service.getParentById(10);
-
       expect(result).toMatchObject({
         parentId:    10,
         fullName:    'Papa P',
@@ -159,7 +168,6 @@ describe('ParentService', () => {
 
     it('throws 404 NotFoundError when parent does not exist', async () => {
       (prisma.parent.findUnique as Mock).mockResolvedValue(null);
-
       await expect(service.getParentById(999)).rejects.toMatchObject({ statusCode: 404 });
     });
   });
@@ -169,15 +177,12 @@ describe('ParentService', () => {
   describe('getParentByUserId', () => {
     it('returns ParentSummaryDto when parent exists for the userId', async () => {
       (prisma.parent.findUnique as Mock).mockResolvedValue(mkParent());
-
       const result = await service.getParentByUserId(100);
-
       expect(result).toMatchObject({ parentId: 10, userId: 100 });
     });
 
     it('throws 404 NotFoundError when no parent record exists for the userId', async () => {
       (prisma.parent.findUnique as Mock).mockResolvedValue(null);
-
       await expect(service.getParentByUserId(999)).rejects.toMatchObject({ statusCode: 404 });
     });
   });
@@ -189,9 +194,7 @@ describe('ParentService', () => {
       const parents = [mkParent({}), mkParent({ parentId: 11, userId: 101 })];
       (prisma.parent.findMany as Mock).mockResolvedValue(parents);
       (prisma.parent.count   as Mock).mockResolvedValue(2);
-
       const result = await service.listParents({ page: 1, limit: 20 });
-
       expect(result.items).toHaveLength(2);
       expect(result.meta.totalItems).toBe(2);
     });
@@ -199,23 +202,16 @@ describe('ParentService', () => {
     it('passes search filter as OR clause when search is provided', async () => {
       (prisma.parent.findMany as Mock).mockResolvedValue([mkParent()]);
       (prisma.parent.count   as Mock).mockResolvedValue(1);
-
       await service.listParents({ page: 1, limit: 20, search: 'papa' });
-
       const findManyCall = (prisma.parent.findMany as Mock).mock.calls[0][0];
       expect(findManyCall.where).toHaveProperty('OR');
-      expect(findManyCall.where.OR).toHaveLength(3); // fullName, phoneNumber, user.email
-
-      const countCall = (prisma.parent.count as Mock).mock.calls[0][0];
-      expect(countCall.where).toHaveProperty('OR');
+      expect(findManyCall.where.OR).toHaveLength(3);
     });
 
     it('passes empty where clause when no search is provided', async () => {
       (prisma.parent.findMany as Mock).mockResolvedValue([]);
       (prisma.parent.count   as Mock).mockResolvedValue(0);
-
       await service.listParents({ page: 1, limit: 20 });
-
       const findManyCall = (prisma.parent.findMany as Mock).mock.calls[0][0];
       expect(findManyCall.where).not.toHaveProperty('OR');
     });
@@ -223,11 +219,119 @@ describe('ParentService', () => {
     it('returns empty items and correct meta when no parents exist', async () => {
       (prisma.parent.findMany as Mock).mockResolvedValue([]);
       (prisma.parent.count   as Mock).mockResolvedValue(0);
-
       const result = await service.listParents({ page: 1, limit: 20 });
-
       expect(result.items).toHaveLength(0);
       expect(result.meta.totalPages).toBe(1);
+    });
+  });
+
+  // ── resetParentPassword ───────────────────────────────────────────────────
+
+  describe('resetParentPassword', () => {
+    const ACTOR_USER_ID = 1;
+    const ACTOR_IP      = '127.0.0.1';
+
+    it('generates a temporary password and returns username + temporaryPassword', async () => {
+      (prisma.parent.findUnique as Mock).mockResolvedValue(mkParentWithRole());
+      (prisma.user.update as Mock).mockResolvedValue({});
+      (prisma.refreshToken.updateMany as Mock).mockResolvedValue({ count: 1 });
+      (prisma.auditLog.create as Mock).mockResolvedValue({});
+
+      const result = await service.resetParentPassword(10, ACTOR_USER_ID, ACTOR_IP);
+
+      expect(result.username).toBe('papap');
+      expect(result.temporaryPassword).toBe('TempPass1!');
+    });
+
+    it('hashes the temporary password before storing — never stores plaintext', async () => {
+      (prisma.parent.findUnique as Mock).mockResolvedValue(mkParentWithRole());
+      (prisma.user.update as Mock).mockResolvedValue({});
+      (prisma.refreshToken.updateMany as Mock).mockResolvedValue({});
+      (prisma.auditLog.create as Mock).mockResolvedValue({});
+
+      await service.resetParentPassword(10, ACTOR_USER_ID, ACTOR_IP);
+
+      expect(hashPassword).toHaveBeenCalledWith('TempPass1!');
+      const updateCall = (prisma.user.update as Mock).mock.calls[0][0];
+      expect(updateCall.data.passwordHash).toBe('hashed');
+      expect(JSON.stringify(updateCall.data)).not.toContain('TempPass1!');
+    });
+
+    it('sets isTemporaryPassword=true so first-login change is enforced', async () => {
+      (prisma.parent.findUnique as Mock).mockResolvedValue(mkParentWithRole());
+      (prisma.user.update as Mock).mockResolvedValue({});
+      (prisma.refreshToken.updateMany as Mock).mockResolvedValue({});
+      (prisma.auditLog.create as Mock).mockResolvedValue({});
+
+      await service.resetParentPassword(10, ACTOR_USER_ID, ACTOR_IP);
+
+      const updateCall = (prisma.user.update as Mock).mock.calls[0][0];
+      expect(updateCall.data.isTemporaryPassword).toBe(true);
+      expect(updateCall.data.failedLoginAttempts).toBe(0);
+      expect(updateCall.data.status).toBe('ACTIVE');
+    });
+
+    it('revokes all active refresh tokens to invalidate existing sessions', async () => {
+      (prisma.parent.findUnique as Mock).mockResolvedValue(mkParentWithRole());
+      (prisma.user.update as Mock).mockResolvedValue({});
+      (prisma.refreshToken.updateMany as Mock).mockResolvedValue({ count: 2 });
+      (prisma.auditLog.create as Mock).mockResolvedValue({});
+
+      await service.resetParentPassword(10, ACTOR_USER_ID, ACTOR_IP);
+
+      const revokeCall = (prisma.refreshToken.updateMany as Mock).mock.calls[0][0];
+      expect(revokeCall.where.userId).toBe(100);
+      expect(revokeCall.where.revokedAt).toBe(null);
+      expect(revokeCall.data.revokedAt).toBeInstanceOf(Date);
+    });
+
+    it('writes a PARENT_PASSWORD_RESET audit log entry', async () => {
+      (prisma.parent.findUnique as Mock).mockResolvedValue(mkParentWithRole());
+      (prisma.user.update as Mock).mockResolvedValue({});
+      (prisma.refreshToken.updateMany as Mock).mockResolvedValue({});
+      (prisma.auditLog.create as Mock).mockResolvedValue({});
+
+      await service.resetParentPassword(10, ACTOR_USER_ID, ACTOR_IP);
+
+      const auditCall = (prisma.auditLog.create as Mock).mock.calls[0][0];
+      expect(auditCall.data.action).toBe('PARENT_PASSWORD_RESET');
+      expect(auditCall.data.userId).toBe(ACTOR_USER_ID);
+      expect(auditCall.data.ipAddress).toBe(ACTOR_IP);
+      expect(auditCall.data.metadata.parentId).toBe(10);
+      expect(auditCall.data.metadata.username).toBe('papap');
+    });
+
+    it('preserves parent-child links — does not modify the links table', async () => {
+      (prisma.parent.findUnique as Mock).mockResolvedValue(mkParentWithRole());
+      (prisma.user.update as Mock).mockResolvedValue({});
+      (prisma.refreshToken.updateMany as Mock).mockResolvedValue({});
+      (prisma.auditLog.create as Mock).mockResolvedValue({});
+
+      await service.resetParentPassword(10, ACTOR_USER_ID, ACTOR_IP);
+
+      expect(prisma.parent.findUnique).toHaveBeenCalledTimes(1);
+    });
+
+    it('throws NotFoundError when parent does not exist', async () => {
+      const { NotFoundError } = await import('../../../core/errors/app-error');
+      (prisma.parent.findUnique as Mock).mockResolvedValue(null);
+
+      await expect(service.resetParentPassword(999, ACTOR_USER_ID)).rejects.toBeInstanceOf(NotFoundError);
+    });
+
+    it('throws ForbiddenError when target account is not PARENT role', async () => {
+      const { ForbiddenError } = await import('../../../core/errors/app-error');
+      (prisma.parent.findUnique as Mock).mockResolvedValue(mkParentWithRole({ roleName: 'TEACHER' }));
+
+      await expect(service.resetParentPassword(10, ACTOR_USER_ID)).rejects.toBeInstanceOf(ForbiddenError);
+    });
+
+    it('does not update user or revoke tokens when role check fails', async () => {
+      (prisma.parent.findUnique as Mock).mockResolvedValue(mkParentWithRole({ roleName: 'STUDENT' }));
+
+      await expect(service.resetParentPassword(10, ACTOR_USER_ID)).rejects.toThrow();
+      expect(prisma.user.update).not.toHaveBeenCalled();
+      expect(prisma.refreshToken.updateMany).not.toHaveBeenCalled();
     });
   });
 });

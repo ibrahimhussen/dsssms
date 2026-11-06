@@ -34,6 +34,17 @@ export class ParentController {
     const parent = await parentService.getParentByUserId(req.user.userId);
     ApiResponse.success(res, { message: 'Your profile', data: parent });
   });
+
+  /** Admin-only: reset a parent account password. */
+  resetPassword = asyncHandler(async (req: Request, res: Response) => {
+    if (!req.user) throw new UnauthorizedError();
+    const { id } = req.params as unknown as ParentIdParam;
+    const result = await parentService.resetParentPassword(id, req.user.userId, req.ip);
+    ApiResponse.success(res, {
+      message: 'Parent password reset. Share the temporary credentials securely — they will not be shown again.',
+      data: result,
+    });
+  });
 }
 
 export const parentController = new ParentController();

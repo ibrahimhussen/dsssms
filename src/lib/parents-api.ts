@@ -15,4 +15,10 @@ export const parentsApi = {
   getMyProfile() {
     return unwrap(apiClient.get<ApiResponse<ParentSummary>>('/parents/me'));
   },
+
+  resetPassword(parentId: number) {
+    return unwrap(
+      apiClient.post<ApiResponse<{ username: string; temporaryPassword: string }>>(`/parents/${parentId}/reset-password`)
+    );
+  },
 };

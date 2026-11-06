@@ -1,6 +1,6 @@
 import { Prisma, RoleName } from '@prisma/client';
 import { prisma } from '../../database/prisma-client';
-import { ConflictError, NotFoundError, ValidationError } from '../../core/errors/app-error';
+import { ConflictError, ForbiddenError, NotFoundError, ValidationError } from '../../core/errors/app-error';
 import { hashPassword } from '../../core/utils/password.util';
 import { buildBaseUsername, ensureUniqueUsername, generateTemporaryPassword } from '../../core/utils/code-generator.util';
 import { getPaginationParams, buildPaginationMeta, PaginationQuery } from '../../core/http/pagination';
@@ -116,6 +116,66 @@ export class ParentService {
       items: items.map(toParentSummaryDto),
       meta: buildPaginationMeta({ page: query.page, limit: query.limit, totalItems }),
     };
+  }
+
+  /**
+   * Admin-only: generates a temporary password for a parent account,
+   * sets isTemporaryPassword=true (forcing a change on next login),
+   * revokes all active refresh tokens, and records the event in audit logs.
+   *
+   * The actor must be ADMIN. The target must be a PARENT account.
+   * The previous password is never retrieved or returned.
+   */
+  async resetParentPassword(
+    parentId: number,
+    actorUserId: number,
+    actorIpAddress?: string
+  ): Promise<{ username: string; temporaryPassword: string }> {
+    const parent = await prisma.parent.findUnique({
+      where: { parentId },
+      include: { user: { include: { role: true } } },
+    });
+    if (!parent) throw new NotFoundError('Parent');
+    if (parent.user.role.roleName !== RoleName.PARENT) {
+      throw new ForbiddenError('This account is not a parent account');
+    }
+
+    const temporaryPassword = generateTemporaryPassword();
+    const passwordHash = await hashPassword(temporaryPassword);
+
+    await prisma.user.update({
+      where: { userId: parent.userId },
+      data: {
+        passwordHash,
+        isTemporaryPassword: true,
+        failedLoginAttempts: 0,
+        lockedUntil: null,
+        status: 'ACTIVE',
+      },
+    });
+
+    // Revoke all active sessions so the parent must log in fresh
+    await prisma.refreshToken.updateMany({
+      where: { userId: parent.userId, revokedAt: null },
+      data: { revokedAt: new Date() },
+    });
+
+    await prisma.auditLog.create({
+      data: {
+        userId:    actorUserId,
+        action:    'PARENT_PASSWORD_RESET',
+        entity:    'Parent',
+        entityId:  String(parentId),
+        ipAddress: actorIpAddress,
+        metadata: {
+          parentId,
+          username: parent.user.username,
+          fullName: parent.fullName,
+        },
+      },
+    });
+
+    return { username: parent.user.username, temporaryPassword };
   }
 }
 

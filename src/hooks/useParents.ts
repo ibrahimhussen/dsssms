@@ -20,6 +20,12 @@ export function useCreateParent() {
   });
 }
 
+export function useResetParentPassword() {
+  return useMutation({
+    mutationFn: (parentId: number) => parentsApi.resetPassword(parentId),
+  });
+}
+
 export function useMyParentProfile() {
   return useQuery({
     queryKey: ['parents', 'me'],
