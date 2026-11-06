@@ -31,6 +31,7 @@ router.get('/me/enrollments', authorize(RoleName.STUDENT), studentController.get
 
 router.post('/', authorizeWithPermissions(MANAGE_ROLES, ['students:create']), validate(createStudentSchema), studentController.create);
 router.post('/bulk', authorizeWithPermissions(MANAGE_ROLES, ['students:bulk_import']), validate(bulkImportSchema), studentController.bulkImport);
+router.get('/bulk/template', authorizeWithPermissions(MANAGE_ROLES, ['students:bulk_import']), studentController.bulkImportTemplate);
 router.post('/:id/transfer-out', authorizeWithPermissions(MANAGE_ROLES, ['students:transfer']), validate(studentIdParamSchema, 'params'), validate(transferOutSchema), studentController.transferOut);
 
 router.get('/', authorizeWithPermissions(READ_ROLES, ['students:view']), validate(listStudentsQuerySchema, 'query'), studentController.list);

@@ -2,6 +2,7 @@ import { Request, Response } from 'express';
 import { asyncHandler } from '../../core/http/async-handler';
 import { ApiResponse } from '../../core/http/api-response';
 import { buildExcelWorkbook } from '../../core/export/excel-export.util';
+import { buildBulkImportTemplate } from './bulk-import-template';
 import { studentService } from './student.service';
 import { UnauthorizedError } from '../../core/errors/app-error';
 import { assertCanAccessStudentRecords } from '../../core/authorization/student-access';
@@ -37,6 +38,13 @@ export class StudentController {
       message: `Bulk import completed. Successfully imported ${result.successCount} students.`,
       data: result,
     });
+  });
+
+  bulkImportTemplate = asyncHandler(async (_req: Request, res: Response) => {
+    const buffer = await buildBulkImportTemplate();
+    res.setHeader('Content-Type', 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet');
+    res.setHeader('Content-Disposition', 'attachment; filename="students_bulk_import_template.xlsx"');
+    res.send(buffer);
   });
 
   transferOut = asyncHandler(async (req: Request, res: Response) => {

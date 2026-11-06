@@ -72,6 +72,11 @@ export const studentsApi = {
     );
   },
 
+  async downloadBulkImportTemplate(): Promise<void> {
+    const response = await apiClient.get<Blob>('/students/bulk/template', { responseType: 'blob' });
+    triggerBlobDownload(response.data, 'students_bulk_import_template.xlsx');
+  },
+
   transferOut(studentId: number, input: TransferOutInput) {
     return unwrap(
       apiClient.post<ApiResponse<StudentSummary>>(`/students/${studentId}/transfer-out`, input)
