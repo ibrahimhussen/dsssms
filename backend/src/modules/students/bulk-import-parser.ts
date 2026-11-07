@@ -68,16 +68,16 @@ export async function parseBulkImportWorkbook(buffer: Buffer): Promise<ParseBulk
   const guardianRaws    = guardiansWs    ? sheetToRecords(guardiansWs)    : [];
   const prevAcademicRaws= prevAcademicWs ? sheetToRecords(prevAcademicWs) : [];
 
-  // Normalize column names (template headers contain asterisks and extra text)
+  // Normalize column names — template headers are already camelCase but contain
+  // decoration (asterisks, parenthetical hints). Strip the decoration and lowercase
+  // the first character to match the keys the parser expects.
   function normalize(rows: Record<string, unknown>[]): Record<string, string>[] {
     return rows.map((r) => {
       const out: Record<string, string> = {};
       for (const [k, v] of Object.entries(r)) {
-        // Strip everything after the first space-asterisk or asterisk-space
-        const clean = k.replace(/\s*\*.*$/, '').replace(/\(.*\)/, '').trim()
-          .toLowerCase()
-          .replace(/\s+([a-z])/g, (_, c: string) => c.toUpperCase()); // camelCase
-        out[clean] = str(v);
+        const clean = k.replace(/\s*\*.*$/, '').replace(/\(.*\)/, '').trim();
+        const key = clean.charAt(0).toLowerCase() + clean.slice(1);
+        if (key) out[key] = str(v);
       }
       return out;
     });
