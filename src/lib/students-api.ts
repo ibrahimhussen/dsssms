@@ -78,13 +78,15 @@ export const studentsApi = {
   },
 
   async parseBulkImportWorkbook(file: File): Promise<{ valid: CreateStudentInput[]; errors: string[] }> {
+    // Let axios/browser auto-set Content-Type with the multipart boundary —
+    // manually setting 'multipart/form-data' omits the boundary that multer
+    // needs to parse the body.
     const form = new FormData();
     form.append('file', file);
     return unwrap(
       apiClient.post<ApiResponse<{ valid: CreateStudentInput[]; errors: string[] }>>(
         '/students/bulk/parse',
         form,
-        { headers: { 'Content-Type': 'multipart/form-data' } },
       ),
     );
   },
