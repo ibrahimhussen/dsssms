@@ -86,8 +86,8 @@ const CHILD = {
 };
 
 // profile shape returned by useMyParentProfile
-const PROFILE = { parentId: 10, userId: 5, fullName: 'Papa P', phoneNumber: null, children: [CHILD] };
-const EMPTY_PROFILE = { parentId: 10, userId: 5, fullName: 'Papa P', phoneNumber: null, children: [] };
+const PROFILE = { parentId: 10, userId: 5, fullName: 'Papa P', phoneNumber: null, status: 'ACTIVE', children: [CHILD] };
+const EMPTY_PROFILE = { parentId: 10, userId: 5, fullName: 'Papa P', phoneNumber: null, status: 'ACTIVE', children: [] };
 
 // ── A. ParentChildrenPage ─────────────────────────────────────────────────────
 

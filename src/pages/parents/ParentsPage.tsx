@@ -69,6 +69,15 @@ export function ParentsPage() {
     { header: 'Username', className: 'font-mono text-[0.8125rem]', render: (p) => p.username },
     { header: 'Phone', render: (p) => p.phoneNumber ?? '—' },
     {
+      header: 'Status',
+      render: (p) =>
+        p.status === 'ACTIVE' ? (
+          <span className="inline-flex items-center rounded-full bg-pine-50 px-2 py-0.5 text-xs font-medium text-pine-700">Active</span>
+        ) : (
+          <span className="inline-flex items-center rounded-full bg-slate-100 px-2 py-0.5 text-xs font-medium text-slate-600">Inactive</span>
+        ),
+    },
+    {
       header: 'Linked children',
       render: (p) =>
         p.children.length > 0
@@ -136,6 +145,11 @@ export function ParentsPage() {
           <>
             <p className="text-[0.9375rem] text-ink-700">
               Reset the password for <strong>{resetTarget.fullName}</strong> ({resetTarget.username})?
+              <br />
+              Account status: <span className={resetTarget.status === 'ACTIVE' ? 'font-medium text-pine-700' : 'font-medium text-slate-600'}>
+                {resetTarget.status === 'ACTIVE' ? 'Active' : 'Inactive'}
+              </span>
+              <br />
               A temporary password will be generated. The parent must change it on their next login.
               All active sessions will be invalidated.
             </p>

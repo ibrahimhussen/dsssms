@@ -15,6 +15,7 @@ export interface ParentSummaryDto {
   fullName: string;
   phoneNumber: string | null;
   email: string | null;
+  status: string;
   children: LinkedStudentDto[];
 }
 

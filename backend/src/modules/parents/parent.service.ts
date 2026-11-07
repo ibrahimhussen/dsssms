@@ -24,6 +24,7 @@ function toParentSummaryDto(parent: ParentWithLinks): ParentSummaryDto {
     fullName: parent.fullName,
     phoneNumber: parent.phoneNumber,
     email: parent.user.email,
+    status: parent.user.status,
     children: parent.links.map((link) => ({
       studentId: link.student.studentId,
       admissionNumber: link.student.admissionNumber,

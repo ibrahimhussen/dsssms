@@ -59,6 +59,7 @@ const PARENT_ROW: ParentSummary = {
   fullName: 'Papa Parent',
   phoneNumber: '+251911000000',
   email: null,
+  status: 'ACTIVE',
   children: [
     { studentId: 101, admissionNumber: 'DSH-001', firstName: 'Alice', lastName: 'A', relationship: 'FATHER' },
   ],

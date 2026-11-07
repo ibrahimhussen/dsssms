@@ -18,6 +18,7 @@ export interface ParentSummary {
   fullName: string;
   phoneNumber: string | null;
   email: string | null;
+  status: string;
   children: LinkedStudent[];
 }
 

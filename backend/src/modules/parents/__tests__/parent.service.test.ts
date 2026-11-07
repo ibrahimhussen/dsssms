@@ -46,7 +46,7 @@ function mkParent(overrides: Partial<{ parentId: number; userId: number }> = {})
     userId,
     fullName:    'Papa P',
     phoneNumber: '+251911',
-    user:        { userId, username: 'papap', email: null },
+    user:        { userId, username: 'papap', email: null, status: 'ACTIVE' },
     links:       [],
   };
 }
@@ -59,7 +59,7 @@ function mkCreatedUserWithParent() {
     email:    null,
     parent: {
       ...parent,
-      user:  { userId: 100, username: 'papap', email: null },
+      user:  { userId: 100, username: 'papap', email: null, status: 'ACTIVE' },
       links: [],
     },
   };
@@ -75,6 +75,7 @@ function mkParentWithRole(overrides: { roleName?: string; parentId?: number } = 
       userId: 100,
       username: 'papap',
       email: null,
+      status: 'ACTIVE',
       role: { roleName: overrides.roleName ?? 'PARENT' },
     },
   };
