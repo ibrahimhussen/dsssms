@@ -4,7 +4,7 @@ import { parentController } from './parent.controller';
 import { authenticate } from '../../middlewares/authenticate.middleware';
 import { authorize } from '../../middlewares/authorize.middleware';
 import { validate } from '../../middlewares/validate.middleware';
-import { createParentSchema, listParentsQuerySchema, parentIdParamSchema } from './validation/parent.validation';
+import { createParentSchema, listParentsQuerySchema, parentIdParamSchema, resetParentPasswordSchema } from './validation/parent.validation';
 
 const router = Router();
 
@@ -24,6 +24,7 @@ router.post(
   '/:id/reset-password',
   authorize(...ADMIN_ONLY),
   validate(parentIdParamSchema, 'params'),
+  validate(resetParentPasswordSchema),
   parentController.resetPassword
 );
 

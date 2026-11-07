@@ -25,7 +25,12 @@ export const parentIdParamSchema = z.object({
   id: z.coerce.number().int().positive(),
 });
 
+export const resetParentPasswordSchema = z.object({
+  reason: z.string().trim().min(1, 'A reason is required').max(500, 'Reason must not exceed 500 characters'),
+});
+
 export type CreateParentInput = z.infer<typeof createParentSchema>;
 export type LinkParentToStudentInput = z.infer<typeof linkParentToStudentSchema>;
 export type ListParentsQuery = z.infer<typeof listParentsQuerySchema>;
 export type ParentIdParam = z.infer<typeof parentIdParamSchema>;
+export type ResetParentPasswordInput = z.infer<typeof resetParentPasswordSchema>;

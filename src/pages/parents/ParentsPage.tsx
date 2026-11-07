@@ -8,7 +8,7 @@ import { TextField } from '../../components/ui/TextField';
 import { LedgerRule } from '../../components/ui/LedgerRule';
 import { CredentialsDialog } from '../../components/ui/CredentialsDialog';
 import type { CredentialsItem } from '../../components/ui/CredentialsDialog';
-import { ConfirmDialog } from '../../components/ui/ConfirmDialog';
+import { Modal } from '../../components/ui/Modal';
 import { CreateParentModal } from './CreateParentModal';
 import type { ParentSummary, CreateParentResult, ListParentsParams } from '../../types/parent';
 import { useAuth } from '../../context/AuthContext';
@@ -19,6 +19,7 @@ export function ParentsPage() {
   const [isCreateOpen, setCreateOpen] = useState(false);
   const [issuedCredentials, setIssuedCredentials] = useState<CredentialsItem[]>([]);
   const [resetTarget, setResetTarget] = useState<ParentSummary | null>(null);
+  const [resetReason, setResetReason] = useState('');
   const [resetError, setResetError] = useState<string | null>(null);
 
   const { data, isLoading, error, refetch } = useParents(filters);
@@ -42,14 +43,16 @@ export function ParentsPage() {
   }
 
   async function handleConfirmReset() {
-    if (!resetTarget) return;
+    if (!resetTarget || !resetReason.trim()) return;
     setResetError(null);
     try {
-      const result = await resetPassword.mutateAsync(resetTarget.parentId);
+      const result = await resetPassword.mutateAsync({ parentId: resetTarget.parentId, reason: resetReason.trim() });
+      const targetName = resetTarget.fullName;
       setResetTarget(null);
+      setResetReason('');
       setIssuedCredentials([
         {
-          label: `Parent — ${resetTarget.fullName}`,
+          label: `Parent — ${targetName}`,
           username: result.username,
           temporaryPassword: result.temporaryPassword,
         },
@@ -57,6 +60,7 @@ export function ParentsPage() {
     } catch (err) {
       setResetError(err instanceof Error ? err.message : 'Password reset failed.');
       setResetTarget(null);
+      setResetReason('');
     }
   }
 
@@ -76,7 +80,7 @@ export function ParentsPage() {
           {
             header: 'Actions',
             render: (p: ParentSummary) => (
-              <Button variant="ghost" onClick={() => setResetTarget(p)}>
+              <Button variant="ghost" onClick={() => { setResetTarget(p); setResetReason(''); }}>
                 Reset password
               </Button>
             ),
@@ -122,21 +126,64 @@ export function ParentsPage() {
 
       <CreateParentModal isOpen={isCreateOpen} onClose={() => setCreateOpen(false)} onCreated={handleCreated} />
 
-      {/* Reset password confirmation */}
-      <ConfirmDialog
-        isOpen={Boolean(resetTarget)}
+      {/* Reset password confirmation with required reason */}
+      <Modal
         title="Reset parent password"
-        message={
-          resetTarget
-            ? `Reset the password for ${resetTarget.fullName} (${resetTarget.username})?\n\nA temporary password will be generated. The parent must change it on their next login. All active sessions will be invalidated.`
-            : ''
-        }
-        confirmLabel="Reset password"
-        isDangerous
-        isLoading={resetPassword.isPending}
-        onConfirm={() => void handleConfirmReset()}
-        onCancel={() => setResetTarget(null)}
-      />
+        isOpen={Boolean(resetTarget)}
+        onClose={() => { setResetTarget(null); setResetReason(''); }}
+      >
+        {resetTarget && (
+          <>
+            <p className="text-[0.9375rem] text-ink-700">
+              Reset the password for <strong>{resetTarget.fullName}</strong> ({resetTarget.username})?
+              A temporary password will be generated. The parent must change it on their next login.
+              All active sessions will be invalidated.
+            </p>
+
+            <div className="mt-4">
+              <label className="mb-1 block text-sm font-medium text-ink-700">
+                Reason for reset <span className="text-danger-600">*</span>
+              </label>
+              <textarea
+                className="block w-full rounded-lg border border-slate-300 px-3 py-2 text-sm focus:border-pine-500 focus:outline-none focus:ring-1 focus:ring-pine-500"
+                rows={3}
+                maxLength={500}
+                placeholder="e.g. Parent forgot password — requested via phone call"
+                value={resetReason}
+                onChange={(e) => setResetReason(e.target.value)}
+                autoFocus
+              />
+              <p className="mt-1 text-xs text-slate-400">
+                This reason is recorded in the audit log. {resetReason.length}/500 characters.
+              </p>
+            </div>
+
+            {resetError && (
+              <p className="mt-3 rounded-lg bg-danger-100 px-3 py-2 text-sm text-danger-600" role="alert">
+                {resetError}
+              </p>
+            )}
+
+            <div className="mt-6 flex justify-end gap-3">
+              <Button
+                variant="ghost"
+                onClick={() => { setResetTarget(null); setResetReason(''); }}
+                disabled={resetPassword.isPending}
+              >
+                Cancel
+              </Button>
+              <Button
+                variant="danger"
+                onClick={() => void handleConfirmReset()}
+                isLoading={resetPassword.isPending}
+                disabled={!resetReason.trim()}
+              >
+                Reset password
+              </Button>
+            </div>
+          </>
+        )}
+      </Modal>
 
       <CredentialsDialog
         isOpen={issuedCredentials.length > 0}

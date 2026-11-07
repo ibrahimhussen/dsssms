@@ -22,7 +22,7 @@ export function useCreateParent() {
 
 export function useResetParentPassword() {
   return useMutation({
-    mutationFn: (parentId: number) => parentsApi.resetPassword(parentId),
+    mutationFn: ({ parentId, reason }: { parentId: number; reason: string }) => parentsApi.resetPassword(parentId, reason),
   });
 }
 

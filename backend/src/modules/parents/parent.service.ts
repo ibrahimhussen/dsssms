@@ -129,6 +129,7 @@ export class ParentService {
   async resetParentPassword(
     parentId: number,
     actorUserId: number,
+    reason: string,
     actorIpAddress?: string
   ): Promise<{ username: string; temporaryPassword: string }> {
     const parent = await prisma.parent.findUnique({
@@ -171,6 +172,7 @@ export class ParentService {
           parentId,
           username: parent.user.username,
           fullName: parent.fullName,
+          reason,
         },
       },
     });

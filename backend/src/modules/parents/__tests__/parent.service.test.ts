@@ -230,26 +230,29 @@ describe('ParentService', () => {
   describe('resetParentPassword', () => {
     const ACTOR_USER_ID = 1;
     const ACTOR_IP      = '127.0.0.1';
+    const RESET_REASON  = 'Parent forgot password — requested via phone call';
 
-    it('generates a temporary password and returns username + temporaryPassword', async () => {
+    // Helper to set up the standard mocks for a successful reset
+    function mockSuccessfulReset() {
       (prisma.parent.findUnique as Mock).mockResolvedValue(mkParentWithRole());
       (prisma.user.update as Mock).mockResolvedValue({});
       (prisma.refreshToken.updateMany as Mock).mockResolvedValue({ count: 1 });
       (prisma.auditLog.create as Mock).mockResolvedValue({});
+    }
 
-      const result = await service.resetParentPassword(10, ACTOR_USER_ID, ACTOR_IP);
+    it('generates a temporary password and returns username + temporaryPassword', async () => {
+      mockSuccessfulReset();
+
+      const result = await service.resetParentPassword(10, ACTOR_USER_ID, RESET_REASON, ACTOR_IP);
 
       expect(result.username).toBe('papap');
       expect(result.temporaryPassword).toBe('TempPass1!');
     });
 
     it('hashes the temporary password before storing — never stores plaintext', async () => {
-      (prisma.parent.findUnique as Mock).mockResolvedValue(mkParentWithRole());
-      (prisma.user.update as Mock).mockResolvedValue({});
-      (prisma.refreshToken.updateMany as Mock).mockResolvedValue({});
-      (prisma.auditLog.create as Mock).mockResolvedValue({});
+      mockSuccessfulReset();
 
-      await service.resetParentPassword(10, ACTOR_USER_ID, ACTOR_IP);
+      await service.resetParentPassword(10, ACTOR_USER_ID, RESET_REASON, ACTOR_IP);
 
       expect(hashPassword).toHaveBeenCalledWith('TempPass1!');
       const updateCall = (prisma.user.update as Mock).mock.calls[0][0];
@@ -258,12 +261,9 @@ describe('ParentService', () => {
     });
 
     it('sets isTemporaryPassword=true so first-login change is enforced', async () => {
-      (prisma.parent.findUnique as Mock).mockResolvedValue(mkParentWithRole());
-      (prisma.user.update as Mock).mockResolvedValue({});
-      (prisma.refreshToken.updateMany as Mock).mockResolvedValue({});
-      (prisma.auditLog.create as Mock).mockResolvedValue({});
+      mockSuccessfulReset();
 
-      await service.resetParentPassword(10, ACTOR_USER_ID, ACTOR_IP);
+      await service.resetParentPassword(10, ACTOR_USER_ID, RESET_REASON, ACTOR_IP);
 
       const updateCall = (prisma.user.update as Mock).mock.calls[0][0];
       expect(updateCall.data.isTemporaryPassword).toBe(true);
@@ -272,12 +272,9 @@ describe('ParentService', () => {
     });
 
     it('revokes all active refresh tokens to invalidate existing sessions', async () => {
-      (prisma.parent.findUnique as Mock).mockResolvedValue(mkParentWithRole());
-      (prisma.user.update as Mock).mockResolvedValue({});
-      (prisma.refreshToken.updateMany as Mock).mockResolvedValue({ count: 2 });
-      (prisma.auditLog.create as Mock).mockResolvedValue({});
+      mockSuccessfulReset();
 
-      await service.resetParentPassword(10, ACTOR_USER_ID, ACTOR_IP);
+      await service.resetParentPassword(10, ACTOR_USER_ID, RESET_REASON, ACTOR_IP);
 
       const revokeCall = (prisma.refreshToken.updateMany as Mock).mock.calls[0][0];
       expect(revokeCall.where.userId).toBe(100);
@@ -285,13 +282,10 @@ describe('ParentService', () => {
       expect(revokeCall.data.revokedAt).toBeInstanceOf(Date);
     });
 
-    it('writes a PARENT_PASSWORD_RESET audit log entry', async () => {
-      (prisma.parent.findUnique as Mock).mockResolvedValue(mkParentWithRole());
-      (prisma.user.update as Mock).mockResolvedValue({});
-      (prisma.refreshToken.updateMany as Mock).mockResolvedValue({});
-      (prisma.auditLog.create as Mock).mockResolvedValue({});
+    it('writes a PARENT_PASSWORD_RESET audit log entry with the reset reason', async () => {
+      mockSuccessfulReset();
 
-      await service.resetParentPassword(10, ACTOR_USER_ID, ACTOR_IP);
+      await service.resetParentPassword(10, ACTOR_USER_ID, RESET_REASON, ACTOR_IP);
 
       const auditCall = (prisma.auditLog.create as Mock).mock.calls[0][0];
       expect(auditCall.data.action).toBe('PARENT_PASSWORD_RESET');
@@ -299,15 +293,13 @@ describe('ParentService', () => {
       expect(auditCall.data.ipAddress).toBe(ACTOR_IP);
       expect(auditCall.data.metadata.parentId).toBe(10);
       expect(auditCall.data.metadata.username).toBe('papap');
+      expect(auditCall.data.metadata.reason).toBe(RESET_REASON);
     });
 
     it('preserves parent-child links — does not modify the links table', async () => {
-      (prisma.parent.findUnique as Mock).mockResolvedValue(mkParentWithRole());
-      (prisma.user.update as Mock).mockResolvedValue({});
-      (prisma.refreshToken.updateMany as Mock).mockResolvedValue({});
-      (prisma.auditLog.create as Mock).mockResolvedValue({});
+      mockSuccessfulReset();
 
-      await service.resetParentPassword(10, ACTOR_USER_ID, ACTOR_IP);
+      await service.resetParentPassword(10, ACTOR_USER_ID, RESET_REASON, ACTOR_IP);
 
       expect(prisma.parent.findUnique).toHaveBeenCalledTimes(1);
     });
@@ -316,22 +308,42 @@ describe('ParentService', () => {
       const { NotFoundError } = await import('../../../core/errors/app-error');
       (prisma.parent.findUnique as Mock).mockResolvedValue(null);
 
-      await expect(service.resetParentPassword(999, ACTOR_USER_ID)).rejects.toBeInstanceOf(NotFoundError);
+      await expect(service.resetParentPassword(999, ACTOR_USER_ID, RESET_REASON)).rejects.toBeInstanceOf(NotFoundError);
     });
 
     it('throws ForbiddenError when target account is not PARENT role', async () => {
       const { ForbiddenError } = await import('../../../core/errors/app-error');
       (prisma.parent.findUnique as Mock).mockResolvedValue(mkParentWithRole({ roleName: 'TEACHER' }));
 
-      await expect(service.resetParentPassword(10, ACTOR_USER_ID)).rejects.toBeInstanceOf(ForbiddenError);
+      await expect(service.resetParentPassword(10, ACTOR_USER_ID, RESET_REASON)).rejects.toBeInstanceOf(ForbiddenError);
     });
 
     it('does not update user or revoke tokens when role check fails', async () => {
       (prisma.parent.findUnique as Mock).mockResolvedValue(mkParentWithRole({ roleName: 'STUDENT' }));
 
-      await expect(service.resetParentPassword(10, ACTOR_USER_ID)).rejects.toThrow();
+      await expect(service.resetParentPassword(10, ACTOR_USER_ID, RESET_REASON)).rejects.toThrow();
       expect(prisma.user.update).not.toHaveBeenCalled();
       expect(prisma.refreshToken.updateMany).not.toHaveBeenCalled();
+    });
+
+    it('records the admin actor ID in the audit log, not the parent user ID', async () => {
+      mockSuccessfulReset();
+
+      await service.resetParentPassword(10, ACTOR_USER_ID, RESET_REASON, ACTOR_IP);
+
+      const auditCall = (prisma.auditLog.create as Mock).mock.calls[0][0];
+      expect(auditCall.data.userId).toBe(ACTOR_USER_ID);
+      expect(auditCall.data.userId).not.toBe(100); // 100 is the parent's userId
+    });
+
+    it('clears lockedUntil and failedLoginAttempts to unblock a locked account', async () => {
+      mockSuccessfulReset();
+
+      await service.resetParentPassword(10, ACTOR_USER_ID, RESET_REASON, ACTOR_IP);
+
+      const updateCall = (prisma.user.update as Mock).mock.calls[0][0];
+      expect(updateCall.data.lockedUntil).toBe(null);
+      expect(updateCall.data.failedLoginAttempts).toBe(0);
     });
   });
 });

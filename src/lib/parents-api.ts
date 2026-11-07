@@ -16,9 +16,9 @@ export const parentsApi = {
     return unwrap(apiClient.get<ApiResponse<ParentSummary>>('/parents/me'));
   },
 
-  resetPassword(parentId: number) {
+  resetPassword(parentId: number, reason: string) {
     return unwrap(
-      apiClient.post<ApiResponse<{ username: string; temporaryPassword: string }>>(`/parents/${parentId}/reset-password`)
+      apiClient.post<ApiResponse<{ username: string; temporaryPassword: string }>>(`/parents/${parentId}/reset-password`, { reason })
     );
   },
 };

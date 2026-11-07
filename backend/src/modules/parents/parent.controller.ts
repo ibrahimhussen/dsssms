@@ -2,7 +2,7 @@ import { Request, Response } from 'express';
 import { asyncHandler } from '../../core/http/async-handler';
 import { ApiResponse } from '../../core/http/api-response';
 import { parentService } from './parent.service';
-import { CreateParentInput, ListParentsQuery, ParentIdParam } from './validation/parent.validation';
+import { CreateParentInput, ListParentsQuery, ParentIdParam, ResetParentPasswordInput } from './validation/parent.validation';
 import { UnauthorizedError } from '../../core/errors/app-error';
 
 export class ParentController {
@@ -39,7 +39,8 @@ export class ParentController {
   resetPassword = asyncHandler(async (req: Request, res: Response) => {
     if (!req.user) throw new UnauthorizedError();
     const { id } = req.params as unknown as ParentIdParam;
-    const result = await parentService.resetParentPassword(id, req.user.userId, req.ip);
+    const { reason } = req.body as ResetParentPasswordInput;
+    const result = await parentService.resetParentPassword(id, req.user.userId, reason, req.ip);
     ApiResponse.success(res, {
       message: 'Parent password reset. Share the temporary credentials securely — they will not be shown again.',
       data: result,
