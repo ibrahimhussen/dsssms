@@ -71,7 +71,7 @@ export const router = createBrowserRouter([
 
           { path: '/teachers', element: <ProtectedRoute allowedRoles={['DIRECTOR', 'VICE_DIRECTOR']}><TeachersPage /></ProtectedRoute> },
           { path: '/students', element: <ProtectedRoute allowedRoles={['ADMIN', 'DIRECTOR', 'VICE_DIRECTOR']}><StudentsPage /></ProtectedRoute> },
-          { path: '/parents', element: <ProtectedRoute allowedRoles={['DIRECTOR']}><ParentsPage /></ProtectedRoute> },
+          { path: '/parents', element: <ProtectedRoute allowedRoles={['ADMIN', 'DIRECTOR', 'VICE_DIRECTOR']}><ParentsPage /></ProtectedRoute> },
           { path: '/classrooms', element: <ProtectedRoute allowedRoles={['DIRECTOR', 'VICE_DIRECTOR']}><ClassroomsPage /></ProtectedRoute> },
           { path: '/subjects', element: <ProtectedRoute allowedRoles={['DIRECTOR', 'VICE_DIRECTOR']}><SubjectsPage /></ProtectedRoute> },
           { path: '/teaching-assignments', element: <ProtectedRoute allowedRoles={['DIRECTOR', 'VICE_DIRECTOR']}><TeacherAssignmentsPage /></ProtectedRoute> },

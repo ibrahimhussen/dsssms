@@ -67,7 +67,8 @@ export const NAV_ENTRIES: NavEntry[] = [
   ]),
 
   group('School Management', MdGroups, ['ADMIN'], [
-    item('Students', '/students', FaUserGraduate),
+    item('Students',        '/students', FaUserGraduate),
+    item('Parent Accounts', '/parents',  FaUsers),
   ]),
 
   group('Academic Management', MdSchool, ['ADMIN'], [
@@ -133,6 +134,7 @@ export const NAV_ENTRIES: NavEntry[] = [
 
   group('Academic Management', MdSchool, ['VICE_DIRECTOR'], [
     item('Students',               '/students',             FaUserGraduate),
+    item('Parents',                '/parents',              FaUsers),
     item('Classrooms',             '/classrooms',           MdMeetingRoom),
     item('Subjects',               '/subjects',             MdMenuBook),
     item('Teaching Assignments',   '/teaching-assignments', MdAssignment),

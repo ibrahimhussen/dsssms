@@ -10,7 +10,9 @@ const router = Router();
 
 router.use(authenticate);
 
-const STAFF_ROLES = [RoleName.DIRECTOR];
+// Management roles that can view and manage parent accounts.
+// Password reset is separately restricted to ADMIN_ONLY below.
+const STAFF_ROLES = [RoleName.ADMIN, RoleName.DIRECTOR, RoleName.VICE_DIRECTOR];
 const ADMIN_ONLY  = [RoleName.ADMIN];
 
 router.get('/me', authorize(RoleName.PARENT), parentController.getMyProfile);
