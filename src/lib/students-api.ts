@@ -78,15 +78,18 @@ export const studentsApi = {
   },
 
   async parseBulkImportWorkbook(file: File): Promise<{ valid: CreateStudentInput[]; errors: string[] }> {
-    // Let axios/browser auto-set Content-Type with the multipart boundary —
-    // manually setting 'multipart/form-data' omits the boundary that multer
-    // needs to parse the body.
+    // The axios instance defaults to Content-Type: application/json.
+    // When FormData is passed with that header present, axios serialises it
+    // to JSON (formDataToJSON) instead of sending a multipart body — so multer
+    // never sees the file.  Setting the header to undefined removes the default
+    // and lets the XHR layer set multipart/form-data; boundary=… automatically.
     const form = new FormData();
     form.append('file', file);
     return unwrap(
       apiClient.post<ApiResponse<{ valid: CreateStudentInput[]; errors: string[] }>>(
         '/students/bulk/parse',
         form,
+        { headers: { 'Content-Type': undefined } },
       ),
     );
   },
